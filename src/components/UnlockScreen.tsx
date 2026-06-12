@@ -13,17 +13,12 @@ export function UnlockScreen() {
     cloudSyncStatus,
     cloudError,
     cloudVaultExists,
-    loginCloud,
-    registerCloud,
     loginWithGoogleCloud,
     logoutCloud,
     initializeNewVault,
     unlockOrRestoreVault,
   } = useVault()
 
-  const [authMode, setAuthMode] = useState<'login' | 'register'>('login')
-  const [email, setEmail] = useState('')
-  const [password, setPassword] = useState('')
   const [masterPassword, setMasterPassword] = useState('')
   const [confirmMasterPassword, setConfirmMasterPassword] = useState('')
 
@@ -40,35 +35,10 @@ export function UnlockScreen() {
   // Scrubbing: Limpieza de contraseñas de memoria al desmontar
   useEffect(() => {
     return () => {
-      setEmail('')
-      setPassword('')
       setMasterPassword('')
       setConfirmMasterPassword('')
     }
   }, [])
-
-  const handleCloudAuth = async (e: FormEvent) => {
-    e.preventDefault()
-    setError(null)
-    setLoading(true)
-
-    try {
-      if (authMode === 'login') {
-        await loginCloud(email.trim(), password)
-      } else {
-        if (password.length < 6) {
-          setError('La contraseña de la cuenta debe tener al menos 6 caracteres.')
-          setLoading(false)
-          return
-        }
-        await registerCloud(email.trim(), password)
-      }
-    } catch (err: any) {
-      setError(err.message || 'Error de autenticación.')
-    } finally {
-      setLoading(false)
-    }
-  }
 
   const handleGoogleAuth = async () => {
     setError(null)
@@ -146,88 +116,30 @@ export function UnlockScreen() {
 
         {/* Paso 1: Autenticación en la Nube */}
         {cloudUserEmail === null ? (
-          <div className="w-full space-y-5">
-            <div className="space-y-1">
+          <div className="w-full space-y-6">
+            <div className="space-y-2">
               <h2 className="text-sm font-semibold text-text-primary">
-                {authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta en la Nube'}
+                Identifícate en la Nube
               </h2>
               <p className="text-xs text-text-secondary">
-                {authMode === 'login'
-                  ? 'Accede a la nube para descargar tu base de datos cifrada.'
-                  : 'Sincroniza tus contraseñas cifradas automáticamente entre tus dispositivos.'}
+                Sincroniza tus contraseñas cifradas automáticamente entre tus dispositivos con tu cuenta de Google.
               </p>
             </div>
 
-            <form onSubmit={handleCloudAuth} className="w-full space-y-4">
-              <div className="text-left space-y-3.5">
-                <div>
-                  <label className="block text-[10px] font-bold text-text-secondary mb-1 uppercase tracking-wider">
-                    Correo Electrónico
-                  </label>
-                  <input
-                    type="email"
-                    placeholder="correo@ejemplo.com"
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    className="w-full rounded-xl border border-black/5 bg-surface-elevated hover:bg-surface-hover focus:bg-surface-elevated px-3.5 py-3 text-xs text-text-primary outline-none focus:border-border transition-all font-medium shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-                    required
-                  />
-                </div>
-
-                <div>
-                  <label className="block text-[10px] font-bold text-text-secondary mb-1 uppercase tracking-wider">
-                    Contraseña de la Cuenta
-                  </label>
-                  <input
-                    type="password"
-                    placeholder="Mínimo 6 caracteres"
-                    value={password}
-                    onChange={(e) => setPassword(e.target.value)}
-                    className="w-full rounded-xl border border-black/5 bg-surface-elevated hover:bg-surface-hover focus:bg-surface-elevated px-3.5 py-3 text-xs text-text-primary outline-none focus:border-border transition-all font-medium shadow-[inset_0_1px_2px_rgba(0,0,0,0.02)]"
-                    required
-                  />
-                </div>
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-start gap-2 text-left font-medium leading-normal animate-shake">
+                <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{error}</span>
               </div>
-
-              {error && (
-                <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-start gap-2 text-left font-medium leading-normal animate-shake">
-                  <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>{error}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loading || isCloudLoading || !email.trim() || !password}
-                className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98] duration-100 flex items-center justify-center gap-2"
-              >
-                {loading || isCloudLoading ? (
-                  <>
-                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Conectando con la nube...
-                  </>
-                ) : (
-                  authMode === 'login' ? 'Iniciar Sesión' : 'Crear Cuenta y Continuar'
-                )}
-              </button>
-            </form>
-
-            <div className="relative flex py-1 items-center">
-              <div className="flex-grow border-t border-black/[0.06]"></div>
-              <span className="flex-shrink mx-3 text-[9px] text-text-tertiary font-bold uppercase tracking-wider">O también</span>
-              <div className="flex-grow border-t border-black/[0.06]"></div>
-            </div>
+            )}
 
             <button
               type="button"
               disabled={loading || isCloudLoading}
               onClick={handleGoogleAuth}
-              className="w-full rounded-xl border border-black/10 bg-white hover:bg-surface-hover py-3 text-xs font-semibold text-text-primary transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              className="w-full rounded-xl border border-black/10 bg-white hover:bg-surface-hover py-3.5 text-xs font-semibold text-text-primary transition-all active:scale-[0.98] flex items-center justify-center gap-2 shadow-sm"
             >
               {loading || isCloudLoading ? (
                 <>
@@ -249,19 +161,6 @@ export function UnlockScreen() {
                 </>
               )}
             </button>
-
-            <div className="pt-2">
-              <button
-                type="button"
-                onClick={() => {
-                  setError(null)
-                  setAuthMode((prev) => (prev === 'login' ? 'register' : 'login'))
-                }}
-                className="text-xs font-semibold text-text-secondary hover:text-text-primary transition-colors active:scale-95 duration-100"
-              >
-                {authMode === 'login' ? '¿No tienes cuenta? Regístrate' : '¿Ya tienes cuenta? Inicia sesión'}
-              </button>
-            </div>
           </div>
         ) : (
           /* Paso 2: Autenticación de Bóveda Local */
