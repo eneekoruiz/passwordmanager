@@ -8,11 +8,19 @@ import {
   useState,
   type ReactNode,
 } from 'react'
+import {
+  signInWithEmailAndPassword,
+  createUserWithEmailAndPassword,
+  signOut,
+  onAuthStateChanged,
+  type User,
+} from 'firebase/auth'
+import { doc, setDoc, getDoc } from 'firebase/firestore'
+import { auth, db } from '../services/firebase'
 import { CryptoVault } from '../crypto/CryptoVault'
 import { VaultStore } from '../storage/VaultStore'
 import type { Account, Platform } from '../types'
 import { generateId } from '../utils/id'
-import { supabase } from '../services/supabase'
 
 /**
  * @interface VaultContextValue
@@ -54,7 +62,7 @@ interface VaultContextValue {
   importMassiveAccounts: (
     parsedAccounts: Array<{ platformName: string; account: Account }>,
   ) => Promise<void>
-  // Estados y métodos de Sincronización en la Nube E2EE (BaaS)
+  // Estados y métodos de Sincronización en la Nube E2EE (Firebase)
   cloudUserEmail: string | null
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
   cloudError: string | null
@@ -75,7 +83,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [platforms, setPlatforms] = useState<Platform[]>([])
-  
+
   // Estados para la gestión de perfiles múltiples
   const [profiles, setProfiles] = useState<{ id: string; name: string; createdAt: string }[]>([])
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
@@ -87,78 +95,72 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setIsInitialized(list.length > 0)
   }, [])
 
-  // Estados de Sincronización en la Nube (BaaS)
+  // Estados de Sincronización en la Nube (Firebase)
   const [cloudUserEmail, setCloudUserEmail] = useState<string | null>(null)
+  /** Ref interno para el usuario de Firebase Auth, evitando re-renders en callbacks de sync */
+  const firebaseUserRef = useRef<User | null>(null)
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
   const [cloudError, setCloudError] = useState<string | null>(null)
 
-  // Escuchar estado de autenticación en Supabase
+  /**
+   * Escucha los cambios en el estado de autenticación de Firebase Auth.
+   * Mantiene cloudUserEmail y firebaseUserRef sincronizados sin causar
+   * re-renderizaciones innecesarias en los callbacks de sincronización.
+   */
   useEffect(() => {
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      if (session?.user) {
-        setCloudUserEmail(session.user.email || 'Usuario Nube')
-      }
+    const unsubscribe = onAuthStateChanged(auth, (user) => {
+      firebaseUserRef.current = user
+      setCloudUserEmail(user?.email ?? null)
     })
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
-      if (session?.user) {
-        setCloudUserEmail(session.user.email || 'Usuario Nube')
-      } else {
-        setCloudUserEmail(null)
-      }
-    })
-
-    return () => {
-      subscription.unsubscribe()
-    }
+    return () => unsubscribe()
   }, [])
 
   const loginCloud = useCallback(async (email: string, password: string) => {
     setCloudError(null)
     setCloudSyncStatus('syncing')
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password })
-    if (error) {
-      setCloudSyncStatus('error')
-      setCloudError(error.message)
-      throw error
-    }
-    if (data.user) {
-      setCloudUserEmail(data.user.email || 'Usuario Nube')
+    try {
+      const credential = await signInWithEmailAndPassword(auth, email, password)
+      setCloudUserEmail(credential.user.email ?? 'Usuario Nube')
       setCloudSyncStatus('idle')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al iniciar sesión en la nube.'
+      setCloudSyncStatus('error')
+      setCloudError(message)
+      throw err
     }
   }, [])
 
   const registerCloud = useCallback(async (email: string, password: string) => {
     setCloudError(null)
     setCloudSyncStatus('syncing')
-    const { data, error } = await supabase.auth.signUp({ email, password })
-    if (error) {
-      setCloudSyncStatus('error')
-      setCloudError(error.message)
-      throw error
-    }
-    if (data.user) {
-      setCloudUserEmail(data.user.email || 'Usuario Nube')
+    try {
+      const credential = await createUserWithEmailAndPassword(auth, email, password)
+      setCloudUserEmail(credential.user.email ?? 'Usuario Nube')
       setCloudSyncStatus('idle')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al registrar la cuenta en la nube.'
+      setCloudSyncStatus('error')
+      setCloudError(message)
+      throw err
     }
   }, [])
 
   const logoutCloud = useCallback(async () => {
     setCloudError(null)
-    const { error } = await supabase.auth.signOut()
-    if (error) {
-      setCloudError(error.message)
-      throw error
+    try {
+      await signOut(auth)
+      setCloudUserEmail(null)
+      setCloudSyncStatus('idle')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al cerrar sesión en la nube.'
+      setCloudError(message)
+      throw err
     }
-    setCloudUserEmail(null)
-    setCloudSyncStatus('idle')
   }, [])
 
   const syncActiveProfileToCloud = useCallback(async () => {
-    if (!currentProfileId) return
-    const sessionRes = await supabase.auth.getSession()
-    const session = sessionRes.data.session
-    if (!session?.user) {
+    const user = firebaseUserRef.current
+    if (!currentProfileId || !user) {
       setCloudSyncStatus('idle')
       return
     }
@@ -167,90 +169,89 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setCloudError(null)
     try {
       const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
-      const { error } = await supabase
-        .from('vaults')
-        .upsert({
-          user_id: session.user.id,
-          encrypted_vault_blob: encryptedBlob,
-          updated_at: new Date().toISOString()
-        })
-      if (error) throw error
+      // Usamos el UID del usuario autenticado como ID del documento en Firestore.
+      // Las Reglas de Seguridad de Firestore garantizan que solo el propietario
+      // puede leer/escribir su propio documento.
+      await setDoc(doc(db, 'vaults', user.uid), {
+        encrypted_vault_blob: encryptedBlob,
+        updated_at: new Date().toISOString(),
+      })
       setCloudSyncStatus('synced')
-    } catch (err: any) {
-      console.error('Error al sincronizar con la nube:', err)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al conectar con la nube.'
+      console.error('Error al sincronizar con Firebase:', err)
       setCloudSyncStatus('error')
-      setCloudError(err.message || 'Error al conectar con la nube.')
+      setCloudError(message)
     }
   }, [currentProfileId])
 
+  /**
+   * Dispara la sincronización en segundo plano de forma silenciosa.
+   * Los errores se registran en consola pero no interrumpen al usuario.
+   */
   const triggerCloudSync = useCallback(() => {
-    syncActiveProfileToCloud().catch(err => {
+    syncActiveProfileToCloud().catch((err) => {
       console.warn('Fallo silencioso en background sync:', err)
     })
   }, [syncActiveProfileToCloud])
 
-  const restoreProfileFromCloud = useCallback(async (email: string, password: string, masterPassword: string) => {
-    setCloudError(null)
-    setCloudSyncStatus('syncing')
-    
-    const { data, error: authError } = await supabase.auth.signInWithPassword({ email, password })
-    if (authError) {
-      setCloudSyncStatus('error')
-      setCloudError(authError.message)
-      throw authError
-    }
+  const restoreProfileFromCloud = useCallback(
+    async (email: string, password: string, masterPassword: string) => {
+      setCloudError(null)
+      setCloudSyncStatus('syncing')
 
-    if (!data.user) {
-      setCloudSyncStatus('error')
-      throw new Error('No se pudo autenticar en la nube.')
-    }
+      let user: User
+      try {
+        const credential = await signInWithEmailAndPassword(auth, email, password)
+        user = credential.user
+        setCloudUserEmail(user.email ?? 'Usuario Nube')
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error de autenticación en la nube.'
+        setCloudSyncStatus('error')
+        setCloudError(message)
+        throw err
+      }
 
-    setCloudUserEmail(data.user.email || 'Usuario Nube')
+      try {
+        const vaultDocRef = doc(db, 'vaults', user.uid)
+        const vaultSnap = await getDoc(vaultDocRef)
 
-    try {
-      const { data: dbData, error: dbError } = await supabase
-        .from('vaults')
-        .select('encrypted_vault_blob')
-        .eq('user_id', data.user.id)
-        .single()
-
-      if (dbError) {
-        if (dbError.code === 'PGRST116') {
+        if (!vaultSnap.exists()) {
           throw new Error('No se encontraron datos de la bóveda en esta cuenta de la nube.')
         }
-        throw dbError
-      }
 
-      const blob = dbData?.encrypted_vault_blob
-      if (!blob) {
-        throw new Error('El archivo de la bóveda en la nube está vacío.')
-      }
+        const blob = vaultSnap.data()?.encrypted_vault_blob as string | undefined
+        if (!blob) {
+          throw new Error('El archivo de la bóveda en la nube está vacío.')
+        }
 
-      const targetProfileId = 'default'
-      await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
-      const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
-      
-      if (success) {
-        setCurrentProfileId(targetProfileId)
-        setCurrentProfileName('Bóveda Restaurada')
-        setIsUnlocked(true)
-        
-        const loaded = await storeRef.current.loadAllPlatforms(targetProfileId)
-        setPlatforms(loaded)
-        setCloudSyncStatus('synced')
-        await listProfiles()
-      } else {
-        throw new Error('Error al desbloquear el perfil restaurado.')
-      }
-    } catch (err: any) {
-      console.error('Error al restaurar desde la nube:', err)
-      setCloudSyncStatus('error')
-      setCloudError(err.message || 'Error en la restauración.')
-      throw err
-    }
-  }, [listProfiles])
+        const targetProfileId = 'default'
+        await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
+        const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
 
-  // Obtener y listar perfiles iniciales. Soporta migración automática si proviene de v0.1.
+        if (success) {
+          setCurrentProfileId(targetProfileId)
+          setCurrentProfileName('Bóveda Restaurada')
+          setIsUnlocked(true)
+          const loaded = await storeRef.current.loadAllPlatforms(targetProfileId)
+          setPlatforms(loaded)
+          setCloudSyncStatus('synced')
+          await listProfiles()
+        } else {
+          throw new Error('Error al desbloquear el perfil restaurado. Contraseña maestra incorrecta.')
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error en la restauración.'
+        console.error('Error al restaurar desde Firebase:', err)
+        setCloudSyncStatus('error')
+        setCloudError(message)
+        throw err
+      }
+    },
+    [listProfiles],
+  )
+
+  // Obtener y listar perfiles iniciales.
   useEffect(() => {
     storeRef.current.isInitialized().then(async (initialized) => {
       setIsInitialized(initialized)
@@ -265,19 +266,20 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     })
   }, [])
 
-
-
   const refreshPlatforms = useCallback(async () => {
     if (!currentProfileId) return
     const loaded = await storeRef.current.loadAllPlatforms(currentProfileId)
     setPlatforms(loaded)
   }, [currentProfileId])
 
-  const createProfile = useCallback(async (name: string, password: string) => {
-    const id = await storeRef.current.createProfile(name, password)
-    await listProfiles()
-    return id
-  }, [listProfiles])
+  const createProfile = useCallback(
+    async (name: string, password: string) => {
+      const id = await storeRef.current.createProfile(name, password)
+      await listProfiles()
+      return id
+    },
+    [listProfiles],
+  )
 
   const selectProfile = useCallback(async (id: string, password: string) => {
     const success = await storeRef.current.unlockProfile(id, password)
@@ -287,7 +289,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCurrentProfileId(id)
       setCurrentProfileName(prof ? prof.name : 'Usuario')
       setIsUnlocked(true)
-      
       const loaded = await storeRef.current.loadAllPlatforms(id)
       setPlatforms(loaded)
     }
@@ -310,48 +311,55 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await listProfiles()
   }, [currentProfileId, logoutProfile, listProfiles])
 
-  const savePlatform = useCallback(async (platform: Platform) => {
-    if (!currentProfileId) return
-    const updated: Platform = {
-      ...platform,
-      updatedAt: new Date().toISOString(),
-    }
-    await storeRef.current.savePlatform(currentProfileId, updated)
-    await refreshPlatforms()
-    triggerCloudSync()
-  }, [currentProfileId, refreshPlatforms, triggerCloudSync])
+  const savePlatform = useCallback(
+    async (platform: Platform) => {
+      if (!currentProfileId) return
+      const updated: Platform = {
+        ...platform,
+        updatedAt: new Date().toISOString(),
+      }
+      await storeRef.current.savePlatform(currentProfileId, updated)
+      await refreshPlatforms()
+      triggerCloudSync()
+    },
+    [currentProfileId, refreshPlatforms, triggerCloudSync],
+  )
 
-  const addPlatform = useCallback(async (name: string) => {
-    if (!currentProfileId) throw new Error('Ningún perfil activo.')
-    const now = new Date().toISOString()
-    const platform: Platform = {
-      id: generateId(),
-      name: name.trim(),
-      accounts: [],
-      createdAt: now,
-      updatedAt: now,
-    }
-    await storeRef.current.savePlatform(currentProfileId, platform)
-    await refreshPlatforms()
-    triggerCloudSync()
-    return platform
-  }, [currentProfileId, refreshPlatforms, triggerCloudSync])
+  const addPlatform = useCallback(
+    async (name: string) => {
+      if (!currentProfileId) throw new Error('Ningún perfil activo.')
+      const now = new Date().toISOString()
+      const platform: Platform = {
+        id: generateId(),
+        name: name.trim(),
+        accounts: [],
+        createdAt: now,
+        updatedAt: now,
+      }
+      await storeRef.current.savePlatform(currentProfileId, platform)
+      await refreshPlatforms()
+      triggerCloudSync()
+      return platform
+    },
+    [currentProfileId, refreshPlatforms, triggerCloudSync],
+  )
 
-  const deletePlatform = useCallback(async (platformId: string) => {
-    if (!currentProfileId) return
-    await storeRef.current.deletePlatform(currentProfileId, platformId)
-    await refreshPlatforms()
-    triggerCloudSync()
-  }, [currentProfileId, refreshPlatforms, triggerCloudSync])
+  const deletePlatform = useCallback(
+    async (platformId: string) => {
+      if (!currentProfileId) return
+      await storeRef.current.deletePlatform(currentProfileId, platformId)
+      await refreshPlatforms()
+      triggerCloudSync()
+    },
+    [currentProfileId, refreshPlatforms, triggerCloudSync],
+  )
 
   const addAccount = useCallback(
     async (platformId: string, account: Account) => {
       const platform = platforms.find((p) => p.id === platformId)
       if (!platform) throw new Error('Plataforma no encontrada.')
-
       const now = new Date().toISOString()
       const newAccount: Account = { ...account, updatedAt: now }
-
       await savePlatform({
         ...platform,
         accounts: [...platform.accounts, newAccount],
@@ -364,13 +372,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     async (platformId: string, accountId: string, account: Account) => {
       const platform = platforms.find((p) => p.id === platformId)
       if (!platform) throw new Error('Plataforma no encontrada.')
-
       await savePlatform({
         ...platform,
         accounts: platform.accounts.map((a) =>
-          a.id === accountId
-            ? { ...account, updatedAt: new Date().toISOString() }
-            : a,
+          a.id === accountId ? { ...account, updatedAt: new Date().toISOString() } : a,
         ),
       })
     },
@@ -381,7 +386,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     async (platformId: string, accountId: string) => {
       const platform = platforms.find((p) => p.id === platformId)
       if (!platform) throw new Error('Plataforma no encontrada.')
-
       await savePlatform({
         ...platform,
         accounts: platform.accounts.filter((a) => a.id !== accountId),
@@ -390,10 +394,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [platforms, savePlatform],
   )
 
-  const exportBackup = useCallback(async (masterPassword: string) => {
-    if (!currentProfileId) throw new Error('Ningún perfil activo.')
-    return await storeRef.current.exportBackup(currentProfileId, masterPassword)
-  }, [currentProfileId])
+  const exportBackup = useCallback(
+    async (masterPassword: string) => {
+      if (!currentProfileId) throw new Error('Ningún perfil activo.')
+      return await storeRef.current.exportBackup(currentProfileId, masterPassword)
+    },
+    [currentProfileId],
+  )
 
   const importBackup = useCallback(
     async (backupJsonString: string, masterPassword: string) => {
@@ -409,7 +416,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const importMassiveAccounts = useCallback(
     async (parsedAccounts: Array<{ platformName: string; account: Account }>) => {
       if (!currentProfileId) return
-      let currentPlatforms = [...platforms]
+      const currentPlatformsSnapshot = [...platforms]
       const platformsToSaveMap = new Map<string, Platform>()
 
       for (const item of parsedAccounts) {
@@ -420,8 +427,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const platform =
           Array.from(platformsToSaveMap.values()).find(
             (p) => p.name.toLowerCase() === searchNameLower,
-          ) ||
-          currentPlatforms.find((p) => p.name.toLowerCase() === searchNameLower)
+          ) || currentPlatformsSnapshot.find((p) => p.name.toLowerCase() === searchNameLower)
 
         const now = new Date().toISOString()
         const newAccount = { ...item.account, createdAt: now, updatedAt: now }
