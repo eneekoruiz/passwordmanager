@@ -36,6 +36,7 @@ export function UnlockScreen() {
     createProfile,
     selectProfile,
     restoreProfileFromCloud,
+    restoreProfileFromGoogleCloud,
   } = useVault()
 
   // Pantalla de inicio por defecto
@@ -474,7 +475,7 @@ export function UnlockScreen() {
               </div>
             )}
 
-            <div className="flex flex-col gap-2 mt-4">
+            <div className="flex flex-col gap-2.5 mt-4">
               <button
                 type="submit"
                 disabled={loading || !cloudEmail.trim() || !cloudPassword || !masterPassword}
@@ -492,6 +493,53 @@ export function UnlockScreen() {
                   'Descargar y Restaurar'
                 )}
               </button>
+
+              <div className="relative flex py-1.5 items-center">
+                <div className="flex-grow border-t border-black/[0.06]"></div>
+                <span className="flex-shrink mx-3 text-[9px] text-text-tertiary font-bold uppercase tracking-wider">O también</span>
+                <div className="flex-grow border-t border-black/[0.06]"></div>
+              </div>
+
+              <button
+                type="button"
+                disabled={loading || !masterPassword}
+                onClick={async () => {
+                  setError(null)
+                  if (!masterPassword) {
+                    setError('Por favor, indica tu Contraseña Maestra antes de conectar con Google.')
+                    return
+                  }
+                  setLoading(true)
+                  try {
+                    await restoreProfileFromGoogleCloud(masterPassword)
+                  } catch (err: any) {
+                    setError(err.message || 'Error al restaurar con Google.')
+                  } finally {
+                    setLoading(false)
+                  }
+                }}
+                className="w-full rounded-xl border border-black/10 bg-white hover:bg-surface-hover py-3 text-xs font-semibold text-text-primary transition-all active:scale-[0.98] flex items-center justify-center gap-2"
+              >
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Conectando con Google...
+                  </>
+                ) : (
+                  <>
+                    <svg className="h-4 w-4 shrink-0" viewBox="0 0 24 24" width="24" height="24" xmlns="http://www.w3.org/2000/svg">
+                      <path d="M21.35,11.1H12v2.7h5.38c-0.24,1.28 -0.96,2.37 -2.04,3.1v2.57h3.29c1.92,-1.77 3.02,-4.38 3.02,-7.42C21.65,11.83 21.54,11.41 21.35,11.1z" fill="#4285F4" />
+                      <path d="M12,20.62c2.6,0 4.78,-0.86 6.37,-2.33l-3.29,-2.57c-0.91,0.61 -2.08,0.97 -3.08,0.97 -2.37,0 -4.38,-1.6 -5.1,-3.75H3.5v2.66C5.09,18.88 8.35,20.62 12,20.62z" fill="#34A853" />
+                      <path d="M6.9,12.94a5.07,5.07 0 0 1 0,-1.88V8.4H3.5a8.77,8.77 0 0 0 0,7.2v-2.66z" fill="#FBBC05" />
+                      <path d="M12,6.38c1.41,0 2.68,0.49 3.68,1.44L17.72,5.8C16.13,4.32 13.95,3.38 12,3.38 8.35,3.38 5.09,5.12 3.5,8.4L6.9,11.06C7.62,8.91 9.63,6.38 12,6.38z" fill="#EA4335" />
+                    </svg>
+                    Restaurar con Google
+                  </>
+                )}
+              </button>
               
               <button
                 type="button"
@@ -499,7 +547,7 @@ export function UnlockScreen() {
                   setError(null)
                   setScreen(profiles.length === 0 ? 'profile-create' : 'profile-select')
                 }}
-                className="text-[10px] font-semibold text-text-secondary hover:text-text-primary py-1"
+                className="text-[10px] font-semibold text-text-secondary hover:text-text-primary py-1 mt-1"
               >
                 {profiles.length === 0 ? 'O crea un perfil local nuevo' : 'Volver a Selección'}
               </button>

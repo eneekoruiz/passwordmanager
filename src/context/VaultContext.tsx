@@ -13,6 +13,8 @@ import {
   createUserWithEmailAndPassword,
   signOut,
   onAuthStateChanged,
+  GoogleAuthProvider,
+  signInWithPopup,
   type User,
 } from 'firebase/auth'
 import { doc, setDoc, getDoc } from 'firebase/firestore'
@@ -68,9 +70,11 @@ interface VaultContextValue {
   cloudError: string | null
   loginCloud: (email: string, password: string) => Promise<void>
   registerCloud: (email: string, password: string) => Promise<void>
+  loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: () => Promise<void>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
+  restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -139,6 +143,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCloudSyncStatus('idle')
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al registrar la cuenta en la nube.'
+      setCloudSyncStatus('error')
+      setCloudError(message)
+      throw err
+    }
+  }, [])
+
+  const loginWithGoogleCloud = useCallback(async () => {
+    setCloudError(null)
+    setCloudSyncStatus('syncing')
+    try {
+      const provider = new GoogleAuthProvider()
+      const credential = await signInWithPopup(auth, provider)
+      setCloudUserEmail(credential.user.email ?? 'Usuario Google')
+      setCloudSyncStatus('idle')
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al iniciar sesión con Google.'
       setCloudSyncStatus('error')
       setCloudError(message)
       throw err
@@ -218,6 +238,63 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         if (!vaultSnap.exists()) {
           throw new Error('No se encontraron datos de la bóveda en esta cuenta de la nube.')
+        }
+
+        const blob = vaultSnap.data()?.encrypted_vault_blob as string | undefined
+        if (!blob) {
+          throw new Error('El archivo de la bóveda en la nube está vacío.')
+        }
+
+        const targetProfileId = 'default'
+        await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
+        const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
+
+        if (success) {
+          setCurrentProfileId(targetProfileId)
+          setCurrentProfileName('Bóveda Restaurada')
+          setIsUnlocked(true)
+          const loaded = await storeRef.current.loadAllPlatforms(targetProfileId)
+          setPlatforms(loaded)
+          setCloudSyncStatus('synced')
+          await listProfiles()
+        } else {
+          throw new Error('Error al desbloquear el perfil restaurado. Contraseña maestra incorrecta.')
+        }
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error en la restauración.'
+        console.error('Error al restaurar desde Firebase:', err)
+        setCloudSyncStatus('error')
+        setCloudError(message)
+        throw err
+      }
+    },
+    [listProfiles],
+  )
+
+  const restoreProfileFromGoogleCloud = useCallback(
+    async (masterPassword: string) => {
+      setCloudError(null)
+      setCloudSyncStatus('syncing')
+
+      let user: User
+      try {
+        const provider = new GoogleAuthProvider()
+        const credential = await signInWithPopup(auth, provider)
+        user = credential.user
+        setCloudUserEmail(credential.user.email ?? 'Usuario Google')
+      } catch (err: unknown) {
+        const message = err instanceof Error ? err.message : 'Error de autenticación con Google.'
+        setCloudSyncStatus('error')
+        setCloudError(message)
+        throw err
+      }
+
+      try {
+        const vaultDocRef = doc(db, 'vaults', user.uid)
+        const vaultSnap = await getDoc(vaultDocRef)
+
+        if (!vaultSnap.exists()) {
+          throw new Error('No se encontraron datos de la bóveda en esta cuenta de Google.')
         }
 
         const blob = vaultSnap.data()?.encrypted_vault_blob as string | undefined
@@ -490,9 +567,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudError,
       loginCloud,
       registerCloud,
+      loginWithGoogleCloud,
       logoutCloud,
       syncActiveProfileToCloud,
       restoreProfileFromCloud,
+      restoreProfileFromGoogleCloud,
     }),
     [
       isReady,
@@ -521,9 +600,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudError,
       loginCloud,
       registerCloud,
+      loginWithGoogleCloud,
       logoutCloud,
       syncActiveProfileToCloud,
       restoreProfileFromCloud,
+      restoreProfileFromGoogleCloud,
     ],
   )
 

@@ -83,6 +83,8 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
           password: password,
           phone: phone || undefined,
           notes: notes,
+          recoveryCodes: twoFactor || undefined,
+          apiKeys: [],
           createdAt: now,
           updatedAt: now,
         }
