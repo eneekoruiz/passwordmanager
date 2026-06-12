@@ -33,6 +33,20 @@ export default {
       boxShadow: {
         subtle: '0 1px 2px rgba(0, 0, 0, 0.04)',
       },
+      keyframes: {
+        'fade-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
+        'pulse-subtle': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.75' },
+        },
+      },
+      animation: {
+        'fade-in': 'fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',
+        'pulse-subtle': 'pulse-subtle 2.5s ease-in-out infinite',
+      },
     },
   },
   plugins: [],

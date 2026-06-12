@@ -5,6 +5,7 @@ import { MainArea } from './components/MainArea'
 import { UnlockScreen } from './components/UnlockScreen'
 import { SettingsModal } from './components/SettingsModal'
 import { ImportTextModal } from './components/ImportTextModal'
+import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 
 function VaultApp() {
   const {
@@ -28,6 +29,40 @@ function VaultApp() {
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
+
+  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+
+  useEffect(() => {
+    const handleBeforeInstallPrompt = (e: Event) => {
+      e.preventDefault()
+      setDeferredPrompt(e)
+    }
+
+    const handleAppInstalled = () => {
+      setDeferredPrompt(null)
+    }
+
+    window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+    window.addEventListener('appinstalled', handleAppInstalled)
+
+    return () => {
+      window.removeEventListener('beforeinstallprompt', handleBeforeInstallPrompt)
+      window.removeEventListener('appinstalled', handleAppInstalled)
+    }
+  }, [])
+
+  const handleInstallApp = async () => {
+    if (!deferredPrompt) return
+    deferredPrompt.prompt()
+    try {
+      const { outcome } = await deferredPrompt.userChoice
+      if (outcome === 'accepted') {
+        setDeferredPrompt(null)
+      }
+    } catch (err) {
+      console.error('Error al solicitar la instalación de la PWA:', err)
+    }
+  }
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
@@ -124,6 +159,8 @@ function VaultApp() {
               onOpenSettings={() => setSettingsOpen(true)}
               profileName={currentProfileName}
               isMobile={true}
+              installPromptAvailable={!!deferredPrompt}
+              onInstall={handleInstallApp}
             />
           ) : (
             <MainArea
@@ -188,6 +225,8 @@ function VaultApp() {
           onClose={() => setImportTextOpen(false)}
           onImport={importMassiveAccounts}
         />
+
+        <IOSInstallPrompt />
       </div>
     )
   }
@@ -212,6 +251,8 @@ function VaultApp() {
         onOpenSettings={() => setSettingsOpen(true)}
         profileName={currentProfileName}
         isMobile={false}
+        installPromptAvailable={!!deferredPrompt}
+        onInstall={handleInstallApp}
       />
 
       <main className="flex flex-1 flex-col min-w-0 bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
@@ -237,6 +278,8 @@ function VaultApp() {
         onClose={() => setImportTextOpen(false)}
         onImport={importMassiveAccounts}
       />
+
+      <IOSInstallPrompt />
     </div>
   )
 }
