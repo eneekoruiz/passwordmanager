@@ -1,7 +1,8 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Platform } from '../types'
 import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
+import { PlatformLogo } from './ui/PlatformLogo'
 
 interface SidebarProps {
   platforms: Platform[]
@@ -44,6 +45,31 @@ export function Sidebar({
   const [showAddForm, setShowAddForm] = useState(false)
   const [newPlatformName, setNewPlatformName] = useState('')
   const [adding, setAdding] = useState(false)
+
+  // Estados de conexión e indicador de sincronización iCloud
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [showCheck, setShowCheck] = useState(false)
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (cloudSyncStatus === 'synced') {
+      setShowCheck(true)
+      const timer = setTimeout(() => {
+        setShowCheck(false)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [cloudSyncStatus])
 
   // Estados para la edición de plataformas
   const [activeMenuPlatformId, setActiveMenuPlatformId] = useState<string | null>(null)
@@ -111,18 +137,31 @@ export function Sidebar({
                   {profileName}
                 </span>
                 {cloudUserEmail && (
-                  <span
-                    className={`h-1.5 w-1.5 rounded-full ${
-                      cloudSyncStatus === 'synced' ? 'bg-green-500 animate-pulse' :
-                      cloudSyncStatus === 'syncing' ? 'bg-blue-500 animate-pulse' :
-                      cloudSyncStatus === 'error' ? 'bg-red-500' : 'bg-green-500'
-                    }`}
-                    title={
-                      cloudSyncStatus === 'synced' ? 'Sincronizado con la nube' :
-                      cloudSyncStatus === 'syncing' ? 'Sincronizando...' :
-                      cloudSyncStatus === 'error' ? 'Error al sincronizar' : 'Sincronizado'
-                    }
-                  />
+                  <div className="flex items-center justify-center shrink-0">
+                    {!isOnline ? (
+                      <svg className="h-3 w-3 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <title>Modo sin conexión</title>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                      </svg>
+                    ) : cloudSyncStatus === 'syncing' ? (
+                      <svg className="animate-spin h-3 w-3 text-blue-500" fill="none" viewBox="0 0 24 24">
+                        <title>Sincronizando...</title>
+                        <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={3} />
+                        <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                      </svg>
+                    ) : showCheck ? (
+                      <svg className="h-3 w-3 text-green-500 animate-fade-in" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                        <title>Sincronizado</title>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                      </svg>
+                    ) : cloudSyncStatus === 'error' ? (
+                      <svg className="h-3 w-3 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <title>Error de sincronización</title>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    ) : null}
+                  </div>
                 )}
               </div>
             )}
@@ -252,9 +291,12 @@ export function Sidebar({
                           `}
                           aria-current={isSelected ? 'true' : undefined}
                         >
-                          <span className="text-sm font-medium text-text-primary/90 truncate mr-2">
-                            {platform.name}
-                          </span>
+                          <div className="flex items-center gap-2.5 min-w-0 mr-2">
+                            <PlatformLogo name={platform.name} className="h-4.5 w-4.5" />
+                            <span className="text-sm font-medium text-text-primary/90 truncate">
+                              {platform.name}
+                            </span>
+                          </div>
                           {isMobile ? (
                             <div className="flex items-center gap-1.5 shrink-0">
                               <span className="text-xs text-text-tertiary tabular-nums">

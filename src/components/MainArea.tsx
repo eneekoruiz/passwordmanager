@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import type { Account, Platform } from '../types'
 import { useVault } from '../context/VaultContext'
 import { AccountCard } from './AccountCard'
 import { AccountForm } from './AccountForm'
 import { EmptyState } from './EmptyState'
+import { PlatformLogo } from './ui/PlatformLogo'
 
 type ViewMode = 'list' | 'create' | 'edit'
 
@@ -22,10 +23,35 @@ export function MainArea({
   onOpenImportText,
   isMobile = false,
 }: MainAreaProps) {
-  const { platforms, addPlatform, addAccount, updateAccount, deleteAccount } = useVault()
+  const { platforms, addPlatform, addAccount, updateAccount, deleteAccount, cloudUserEmail, cloudSyncStatus } = useVault()
   const [view, setView] = useState<ViewMode>('list')
   const [editingAccount, setEditingAccount] = useState<Account | null>(null)
   
+  // Estados de conexión e indicador de sincronización iCloud
+  const [isOnline, setIsOnline] = useState(navigator.onLine)
+  const [showCheck, setShowCheck] = useState(false)
+
+  useEffect(() => {
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  useEffect(() => {
+    if (cloudSyncStatus === 'synced') {
+      setShowCheck(true)
+      const timer = setTimeout(() => {
+        setShowCheck(false)
+      }, 1500)
+      return () => clearTimeout(timer)
+    }
+  }, [cloudSyncStatus])
+
   // Estados para creación del primer perfil/plataforma
   const [showFirstPlatformInput, setShowFirstPlatformInput] = useState(false)
   const [firstPlatformName, setFirstPlatformName] = useState('')
@@ -178,34 +204,63 @@ export function MainArea({
           </button>
         )}
 
-        <div className="flex-1 min-w-0">
-          <h2 className="text-lg font-semibold tracking-tight text-text-primary truncate">
-            {isFormView
-              ? view === 'create'
-                ? 'Nueva cuenta'
-                : 'Editar cuenta'
-              : platform.name}
-          </h2>
-          {!isFormView && (
-            <p className="text-xs text-text-tertiary mt-0.5">
-              {platform.accounts.length} cuenta
-              {platform.accounts.length !== 1 ? 's' : ''}
-            </p>
+        <div className="flex-1 min-w-0 flex items-center gap-3">
+          {!isFormView && platform && (
+            <PlatformLogo name={platform.name} className="h-8 w-8" />
           )}
+          <div className="min-w-0 flex-1">
+            <h2 className="text-lg font-semibold tracking-tight text-text-primary truncate">
+              {isFormView
+                ? view === 'create'
+                  ? 'Nueva cuenta'
+                  : 'Editar cuenta'
+                : platform?.name}
+            </h2>
+            {!isFormView && platform && (
+              <p className="text-xs text-text-tertiary mt-0.5">
+                {platform.accounts.length} cuenta
+                {platform.accounts.length !== 1 ? 's' : ''}
+              </p>
+            )}
+          </div>
         </div>
 
         {!isFormView && (
-          <button
-            type="button"
-            onClick={() => setView('create')}
-            className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-medium text-text-primary shadow-subtle transition-colors hover:bg-surface-hover"
-            aria-label="Añadir cuenta"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-            <span className="hidden sm:inline">Añadir</span>
-          </button>
+          <div className="flex items-center gap-3">
+            {cloudUserEmail && (
+              <div className="flex items-center justify-center shrink-0">
+                {!isOnline ? (
+                  <svg className="h-3.5 w-3.5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <title>Modo sin conexión</title>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 3l18 18" />
+                  </svg>
+                ) : cloudSyncStatus === 'syncing' ? (
+                  <svg className="animate-spin h-3.5 w-3.5 text-blue-500" fill="none" viewBox="0 0 24 24">
+                    <title>Sincronizando...</title>
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth={3} />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                ) : showCheck ? (
+                  <svg className="h-3.5 w-3.5 text-green-500 animate-fade-in" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}>
+                    <title>Sincronizado</title>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                  </svg>
+                ) : null}
+              </div>
+            )}
+            <button
+              type="button"
+              onClick={() => setView('create')}
+              className="flex items-center gap-1.5 rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-medium text-text-primary shadow-subtle transition-colors hover:bg-surface-hover"
+              aria-label="Añadir cuenta"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+              </svg>
+              <span className="hidden sm:inline">Añadir</span>
+            </button>
+          </div>
         )}
 
         {isFormView && (
