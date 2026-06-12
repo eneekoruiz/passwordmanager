@@ -283,14 +283,31 @@ export function UnlockScreen() {
               />
             </div>
 
-            {error && <p className="text-xs text-red-600 font-semibold" role="alert">{error}</p>}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-start gap-2 text-left font-medium leading-normal animate-shake">
+                <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
 
             <button
               type="submit"
               disabled={loading || !password}
-              className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98] transition-transform duration-100"
+              className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98] transition-transform duration-100 flex items-center justify-center gap-2"
             >
-              {loading ? 'Desbloqueando...' : 'Desbloquear'}
+              {loading ? (
+                <>
+                  <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Desbloqueando...
+                </>
+              ) : (
+                'Desbloquear'
+              )}
             </button>
           </form>
         )}
@@ -337,15 +354,32 @@ export function UnlockScreen() {
               />
             </div>
 
-            {error && <p className="text-xs text-red-600 font-semibold" role="alert">{error}</p>}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-start gap-2 text-left font-medium leading-normal animate-shake">
+                <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2 mt-4">
               <button
                 type="submit"
                 disabled={loading || !profileName.trim() || password.length < 8}
-                className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98] transition-transform duration-100"
+                className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98] transition-transform duration-100 flex items-center justify-center gap-2"
               >
-                {loading ? 'Creando perfil...' : 'Crear perfil'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Creando perfil...
+                  </>
+                ) : (
+                  'Crear perfil'
+                )}
               </button>
               
               <button
@@ -373,7 +407,23 @@ export function UnlockScreen() {
                 Restaurar desde la Nube
               </h2>
               <p className="text-xs text-text-secondary">
-                Descarga y descifra tu bóveda sincronizada ingresando tus credenciales de la nube y Contraseña Maestra.
+                Descarga y descifra tu bóveda sincronizada ingresando tus credenciales de la nube y tu Contraseña Maestra.
+              </p>
+            </div>
+
+            {/* Tarjeta Informativa Zero-Knowledge */}
+            <div className="p-3.5 bg-surface border border-border-subtle rounded-xl text-left space-y-2 text-[10px] leading-relaxed text-text-secondary">
+              <div className="flex items-center gap-1.5 font-bold text-text-primary">
+                <svg className="h-4 w-4 text-blue-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.57-.598-3.75h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                </svg>
+                Seguridad Zero-Knowledge E2EE
+              </div>
+              <p>
+                🔑 <strong className="text-text-primary">Cuenta de la Nube (Firebase):</strong> Identifica tu archivo de copia cifrada en el servidor de la nube. Si olvidas esta contraseña, puedes restablecerla por email.
+              </p>
+              <p>
+                🔒 <strong className="text-text-primary">Contraseña Maestra (Local):</strong> Se usa en tu navegador para desencriptar localmente el archivo. <strong className="text-red-600">Nunca se envía al servidor, no existe en internet y NO se puede recuperar ni restablecer de ninguna manera.</strong>
               </p>
             </div>
 
@@ -398,7 +448,7 @@ export function UnlockScreen() {
                 </label>
                 <input
                   type="password"
-                  placeholder="Contraseña de la cuenta nube"
+                  placeholder="Contraseña de tu cuenta de la nube"
                   value={cloudPassword}
                   onChange={(e) => setCloudPassword(e.target.value)}
                   className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs text-text-primary outline-none focus:border-border transition-colors font-medium"
@@ -407,7 +457,7 @@ export function UnlockScreen() {
               </div>
 
               <PasswordField
-                label="Contraseña Maestra (para descifrar la bóveda)"
+                label="Contraseña Maestra (para descifrar localmente)"
                 value={masterPassword}
                 onChange={setMasterPassword}
                 required
@@ -415,15 +465,32 @@ export function UnlockScreen() {
               />
             </div>
 
-            {error && <p className="text-xs text-red-600 font-semibold" role="alert">{error}</p>}
+            {error && (
+              <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-start gap-2 text-left font-medium leading-normal animate-shake">
+                <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                </svg>
+                <span>{error}</span>
+              </div>
+            )}
 
             <div className="flex flex-col gap-2 mt-4">
               <button
                 type="submit"
                 disabled={loading || !cloudEmail.trim() || !cloudPassword || !masterPassword}
-                className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98] transition-transform duration-100"
+                className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98] transition-transform duration-100 flex items-center justify-center gap-2"
               >
-                {loading ? 'Restaurando y descifrando...' : 'Descargar y Restaurar'}
+                {loading ? (
+                  <>
+                    <svg className="animate-spin h-4 w-4 text-white" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    Descargando y descifrando...
+                  </>
+                ) : (
+                  'Descargar y Restaurar'
+                )}
               </button>
               
               <button
