@@ -1,8 +1,8 @@
-/** Entrada de API Key asociada a una cuenta (campos de desarrollador). */
 export interface ApiKeyEntry {
   id: string
-  name: string
-  value: string
+  nombre: string
+  descripcion: string
+  valor: string
 }
 
 /**

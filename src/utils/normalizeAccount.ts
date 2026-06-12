@@ -3,11 +3,12 @@ import type { Account, ApiKeyEntry } from '../types'
 export function normalizeAccount(account: Account): Account {
   const apiKeys =
     account.apiKeys
-      ?.filter((key) => key.name.trim() || key.value.trim())
+      ?.filter((key) => key.nombre.trim() || key.valor.trim() || key.descripcion.trim())
       .map((key) => ({
         ...key,
-        name: key.name.trim(),
-        value: key.value.trim(),
+        nombre: key.nombre.trim(),
+        descripcion: key.descripcion.trim(),
+        valor: key.valor.trim(),
       })) ?? []
 
   return {
@@ -24,7 +25,8 @@ export function normalizeAccount(account: Account): Account {
 export function createApiKeyEntry(): ApiKeyEntry {
   return {
     id: crypto.randomUUID(),
-    name: '',
-    value: '',
+    nombre: '',
+    descripcion: '',
+    valor: '',
   }
 }
