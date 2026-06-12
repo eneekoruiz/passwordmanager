@@ -21,6 +21,7 @@ import { doc, setDoc, getDoc } from 'firebase/firestore'
 import { auth, db } from '../services/firebase'
 import { CryptoVault } from '../crypto/CryptoVault'
 import { VaultStore } from '../storage/VaultStore'
+import { getVaultDb } from '../storage/vaultDb'
 import type { Account, Platform } from '../types'
 import { generateId } from '../utils/id'
 
@@ -68,6 +69,7 @@ interface VaultContextValue {
   cloudUserEmail: string | null
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
   cloudError: string | null
+  cloudVaultExists: boolean | null
   loginCloud: (email: string, password: string) => Promise<void>
   registerCloud: (email: string, password: string) => Promise<void>
   loginWithGoogleCloud: () => Promise<void>
@@ -75,6 +77,8 @@ interface VaultContextValue {
   syncActiveProfileToCloud: () => Promise<void>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
   restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
+  initializeNewVault: (masterPassword: string) => Promise<void>
+  unlockOrRestoreVault: (masterPassword: string) => Promise<void>
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -84,6 +88,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const storeRef = useRef(new VaultStore(vaultRef.current))
 
   const [isReady, setIsReady] = useState(false)
+  const [isAuthReady, setIsAuthReady] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [platforms, setPlatforms] = useState<Platform[]>([])
@@ -105,6 +110,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const firebaseUserRef = useRef<User | null>(null)
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
   const [cloudError, setCloudError] = useState<string | null>(null)
+  const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
 
   /**
    * Escucha los cambios en el estado de autenticación de Firebase Auth.
@@ -112,9 +118,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
    * re-renderizaciones innecesarias en los callbacks de sincronización.
    */
   useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (user) => {
+    const unsubscribe = onAuthStateChanged(auth, async (user) => {
       firebaseUserRef.current = user
       setCloudUserEmail(user?.email ?? null)
+      if (user) {
+        try {
+          const docRef = doc(db, 'vaults', user.uid)
+          const snap = await getDoc(docRef)
+          setCloudVaultExists(snap.exists() && !!snap.data()?.encrypted_vault_blob)
+        } catch (err) {
+          console.error('Error al comprobar existencia de la bóveda:', err)
+          setCloudVaultExists(false)
+        }
+      } else {
+        setCloudVaultExists(null)
+      }
+      setIsAuthReady(true)
     })
     return () => unsubscribe()
   }, [])
@@ -165,18 +184,27 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [])
 
+  const logoutProfile = useCallback(() => {
+    vaultRef.current.lock()
+    setIsUnlocked(false)
+    setCurrentProfileId(null)
+    setCurrentProfileName(null)
+    setPlatforms([])
+  }, [])
+
   const logoutCloud = useCallback(async () => {
     setCloudError(null)
     try {
       await signOut(auth)
       setCloudUserEmail(null)
       setCloudSyncStatus('idle')
+      logoutProfile()
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Error al cerrar sesión en la nube.'
       setCloudError(message)
       throw err
     }
-  }, [])
+  }, [logoutProfile])
 
   const syncActiveProfileToCloud = useCallback(async () => {
     const user = firebaseUserRef.current
@@ -328,6 +356,111 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [listProfiles],
   )
 
+  const initializeNewVault = useCallback(async (masterPassword: string) => {
+    setCloudError(null)
+    setCloudSyncStatus('syncing')
+    try {
+      const profileId = 'default'
+      const profileName = 'Bóveda Principal'
+      
+      const dbInstance = await getVaultDb()
+      await dbInstance.delete('meta', `profile_${profileId}`)
+      
+      const id = await storeRef.current.createProfile(profileName, masterPassword)
+      
+      const ok = await storeRef.current.unlockProfile(id, masterPassword)
+      if (!ok) {
+        throw new Error('No se pudo desbloquear la bóveda recién creada.')
+      }
+      
+      setCurrentProfileId(id)
+      setCurrentProfileName(profileName)
+      setIsUnlocked(true)
+      setPlatforms([])
+      
+      const encryptedBlob = await storeRef.current.exportCloudPayload(id)
+      const user = firebaseUserRef.current
+      if (user) {
+        await setDoc(doc(db, 'vaults', user.uid), {
+          encrypted_vault_blob: encryptedBlob,
+          updated_at: new Date().toISOString(),
+        })
+        setCloudSyncStatus('synced')
+        setCloudVaultExists(true)
+      } else {
+        throw new Error('Usuario no autenticado en la nube.')
+      }
+      
+      await listProfiles()
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al inicializar la bóveda.'
+      console.error('Error al inicializar la bóveda:', err)
+      setCloudSyncStatus('error')
+      setCloudError(message)
+      throw err
+    }
+  }, [listProfiles])
+
+  const unlockOrRestoreVault = useCallback(async (masterPassword: string) => {
+    setCloudError(null)
+    setCloudSyncStatus('syncing')
+    const profileId = 'default'
+    const user = firebaseUserRef.current
+    if (!user) {
+      throw new Error('Usuario no autenticado en la nube.')
+    }
+    
+    try {
+      const dbInstance = await getVaultDb()
+      const localProfile = await dbInstance.get('meta', `profile_${profileId}`)
+      
+      if (localProfile) {
+        const success = await storeRef.current.unlockProfile(profileId, masterPassword)
+        if (success) {
+          setCurrentProfileId(profileId)
+          setCurrentProfileName(localProfile.name || 'Bóveda Principal')
+          setIsUnlocked(true)
+          const loaded = await storeRef.current.loadAllPlatforms(profileId)
+          setPlatforms(loaded)
+          setCloudSyncStatus('synced')
+          return
+        }
+        throw new Error('Contraseña maestra incorrecta.')
+      }
+      
+      const docRef = doc(db, 'vaults', user.uid)
+      const snap = await getDoc(docRef)
+      if (!snap.exists()) {
+        throw new Error('No se encontraron datos de la bóveda en la nube.')
+      }
+      
+      const blob = snap.data()?.encrypted_vault_blob
+      if (!blob) {
+        throw new Error('El archivo de la bóveda en la nube está vacío.')
+      }
+      
+      await storeRef.current.restoreCloudPayload(profileId, blob, masterPassword)
+      const success = await storeRef.current.unlockProfile(profileId, masterPassword)
+      if (success) {
+        setCurrentProfileId(profileId)
+        setCurrentProfileName('Bóveda Principal')
+        setIsUnlocked(true)
+        const loaded = await storeRef.current.loadAllPlatforms(profileId)
+        setPlatforms(loaded)
+        setCloudSyncStatus('synced')
+        await listProfiles()
+      } else {
+        throw new Error('Contraseña maestra incorrecta para descifrar la bóveda descargada.')
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Error al desbloquear la bóveda.'
+      console.error('Error al desbloquear/restaurar:', err)
+      setCloudSyncStatus('error')
+      setCloudError(message)
+      throw err
+    }
+  }, [listProfiles])
+
   // Obtener y listar perfiles iniciales.
   useEffect(() => {
     storeRef.current.isInitialized().then(async (initialized) => {
@@ -370,14 +503,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setPlatforms(loaded)
     }
     return success
-  }, [])
-
-  const logoutProfile = useCallback(() => {
-    vaultRef.current.lock()
-    setIsUnlocked(false)
-    setCurrentProfileId(null)
-    setCurrentProfileName(null)
-    setPlatforms([])
   }, [])
 
   const deleteCurrentProfile = useCallback(async () => {
@@ -539,9 +664,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId, platforms, refreshPlatforms, triggerCloudSync],
   )
 
-  const value = useMemo(
-    (): VaultContextValue => ({
-      isReady,
+  const value = useMemo<VaultContextValue>(
+    () => ({
+      isReady: isReady && isAuthReady,
       isInitialized,
       isUnlocked,
       platforms,
@@ -565,6 +690,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudUserEmail,
       cloudSyncStatus,
       cloudError,
+      cloudVaultExists,
       loginCloud,
       registerCloud,
       loginWithGoogleCloud,
@@ -572,9 +698,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       syncActiveProfileToCloud,
       restoreProfileFromCloud,
       restoreProfileFromGoogleCloud,
+      initializeNewVault,
+      unlockOrRestoreVault,
     }),
     [
       isReady,
+      isAuthReady,
       isInitialized,
       isUnlocked,
       platforms,
@@ -598,6 +727,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudUserEmail,
       cloudSyncStatus,
       cloudError,
+      cloudVaultExists,
       loginCloud,
       registerCloud,
       loginWithGoogleCloud,
@@ -605,6 +735,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       syncActiveProfileToCloud,
       restoreProfileFromCloud,
       restoreProfileFromGoogleCloud,
+      initializeNewVault,
+      unlockOrRestoreVault,
     ],
   )
 
