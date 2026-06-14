@@ -8,7 +8,7 @@ const IMPORT_COLUMNS = 8
 interface ImportTextModalProps {
   isOpen: boolean
   onClose: () => void
-  onImport: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<void>
+  onImport: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<unknown>
 }
 
 interface ImportRow {
@@ -183,13 +183,20 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
 
         const platform = createPlatform(platformName, {
           username: username || email,
-          password,
           fullName: fullName || null,
           linkedPhone: phone || null,
           twoFactorAuth: twoFactor || null,
-          authMethod: hasGoogleSso ? 'SSO' : 'PASSWORD',
-          ssoProvider: hasGoogleSso ? 'Google' : null,
-          ssoEmail: hasGoogleSso && email ? email : null,
+          accessMethods: [
+            ...(password ? [{ id: crypto.randomUUID(), type: 'PASSWORD' as const, password }] : []),
+            ...(hasGoogleSso
+              ? [{
+                  id: crypto.randomUUID(),
+                  type: 'SSO' as const,
+                  provider: 'Google' as const,
+                  email: email || null,
+                }]
+              : []),
+          ],
           hardwareKey: /yubikey|hardware|llave/i.test(twoFactor),
           notes,
           apiKeys: [],

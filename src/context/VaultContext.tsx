@@ -51,7 +51,7 @@ interface VaultContextValue {
   deleteLocalItem: (itemId: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
-  importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<void>
+  importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<string | null>
   cloudUserEmail: string | null
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
   cloudError: string | null
@@ -320,10 +320,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const importMassiveAccounts = useCallback(
     async (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => {
-      if (!currentProfileId) return
+      if (!currentProfileId) return null
 
       try {
         const byEmail = new Map<string, Identity>()
+        let firstImportedIdentityId: string | null = null
         for (const identity of identities) {
           byEmail.set(identity.email.toLowerCase(), {
             ...identity,
@@ -335,6 +336,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           const email = row.identityEmail.trim() || LOCAL_IDENTITY_EMAIL
           const key = email.toLowerCase()
           const identity = byEmail.get(key) ?? createIdentity(email)
+          firstImportedIdentityId ??= identity.id
           identity.platforms.push(row.platform)
           identity.updatedAt = new Date().toISOString()
           byEmail.set(key, identity)
@@ -343,6 +345,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await storeRef.current.saveMultipleIdentities(currentProfileId, Array.from(byEmail.values()))
         await refreshVaultData()
         triggerCloudSync()
+        return firstImportedIdentityId
       } catch (error) {
         reportAppError(error, 'No se pudo completar la importacion masiva.')
         throw error

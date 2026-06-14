@@ -246,17 +246,19 @@ export function MainArea({
                         {platform.username || identity.email}
                       </span>
                       <span className="mt-3 flex flex-wrap gap-1.5">
-                        {platform.authMethod === 'SSO' && (
-                          <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                            {platform.ssoProvider ?? 'SSO'}
+                        {platform.accessMethods
+                          .filter((method) => method.type === 'SSO')
+                          .map((method) => (
+                          <span key={method.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                            {method.provider}
                           </span>
-                        )}
-                        {platform.authMethod === 'PASSKEY' && (
+                          ))}
+                        {platform.accessMethods.some((method) => method.type === 'PASSKEY') && (
                           <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                             Passkey
                           </span>
                         )}
-                        {platform.authMethod === 'MAGIC_LINK' && (
+                        {platform.accessMethods.some((method) => method.type === 'MAGIC_LINK') && (
                           <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                             Magic link
                           </span>

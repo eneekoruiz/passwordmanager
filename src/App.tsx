@@ -302,7 +302,13 @@ function VaultApp() {
         <ImportTextModal
           isOpen={importTextOpen}
           onClose={() => setImportTextOpen(false)}
-          onImport={importMassiveAccounts}
+          onImport={async (rows) => {
+            const identityId = await importMassiveAccounts(rows)
+            if (identityId) {
+              setSelectedId(identityId)
+              setSelectedLocalCategory(null)
+            }
+          }}
         />
 
         <IOSInstallPrompt />
@@ -372,7 +378,13 @@ function VaultApp() {
       <ImportTextModal
         isOpen={importTextOpen}
         onClose={() => setImportTextOpen(false)}
-        onImport={importMassiveAccounts}
+        onImport={async (rows) => {
+          const identityId = await importMassiveAccounts(rows)
+          if (identityId) {
+            setSelectedId(identityId)
+            setSelectedLocalCategory(null)
+          }
+        }}
       />
 
       <IOSInstallPrompt />

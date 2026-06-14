@@ -153,10 +153,7 @@ export function AccountForm({
         title: '',
         name: '',
         username: '',
-        password: '',
-        authMethod: 'PASSWORD',
-        ssoProvider: null,
-        ssoEmail: null,
+        accessMethods: [],
         hardwareKey: false,
         fullName: null,
         linkedPhone: null,
@@ -211,12 +208,8 @@ export function AccountForm({
       setError('Indica el nombre de la plataforma.')
       return
     }
-    if (normalized.authMethod === 'PASSWORD' && !normalized.password) {
-      setError('La contraseña es obligatoria.')
-      return
-    }
-    if (normalized.authMethod === 'SSO' && !normalized.ssoEmail) {
-      setError('Indica el correo vinculado al proveedor SSO.')
+    if (normalized.accessMethods.length === 0) {
+      setError('Activa al menos una vía de acceso para esta plataforma.')
       return
     }
 
@@ -231,6 +224,72 @@ export function AccountForm({
   }
 
   const apiKeys = account.apiKeys ?? []
+  const passwordMethod = account.accessMethods.find((method) => method.type === 'PASSWORD')
+  const passkeyEnabled = account.accessMethods.some((method) => method.type === 'PASSKEY')
+  const magicLinkMethod = account.accessMethods.find((method) => method.type === 'MAGIC_LINK')
+  const ssoMethods = account.accessMethods.filter((method) => method.type === 'SSO')
+
+  const setAccessMethods = (updater: (methods: Account['accessMethods']) => Account['accessMethods']) => {
+    setAccount((prev) => ({ ...prev, accessMethods: updater(prev.accessMethods) }))
+  }
+
+  const togglePassword = (enabled: boolean) => {
+    setAccessMethods((methods) =>
+      enabled
+        ? [...methods, { id: crypto.randomUUID(), type: 'PASSWORD', password: '' }]
+        : methods.filter((method) => method.type !== 'PASSWORD'),
+    )
+  }
+
+  const updatePasswordMethod = (password: string) => {
+    setAccessMethods((methods) =>
+      methods.map((method) =>
+        method.type === 'PASSWORD' ? { ...method, password } : method,
+      ),
+    )
+  }
+
+  const toggleSsoProvider = (provider: 'Google' | 'Apple', enabled: boolean) => {
+    setAccessMethods((methods) =>
+      enabled
+        ? [...methods, { id: crypto.randomUUID(), type: 'SSO', provider, email: identityEmail }]
+        : methods.filter((method) => method.type !== 'SSO' || method.provider !== provider),
+    )
+  }
+
+  const updateSsoEmail = (provider: 'Google' | 'Apple', email: string) => {
+    setAccessMethods((methods) =>
+      methods.map((method) =>
+        method.type === 'SSO' && method.provider === provider
+          ? { ...method, email: email.trim() || identityEmail }
+          : method,
+      ),
+    )
+  }
+
+  const togglePasskey = (enabled: boolean) => {
+    setAccessMethods((methods) =>
+      enabled
+        ? [...methods, { id: crypto.randomUUID(), type: 'PASSKEY' }]
+        : methods.filter((method) => method.type !== 'PASSKEY'),
+    )
+  }
+
+  const toggleMagicLink = (enabled: boolean) => {
+    setAccessMethods((methods) =>
+      enabled
+        ? [...methods, { id: crypto.randomUUID(), type: 'MAGIC_LINK', email: identityEmail }]
+        : methods.filter((method) => method.type !== 'MAGIC_LINK'),
+    )
+  }
+
+  const updateMagicLinkEmail = (email: string) => {
+    setAccessMethods((methods) =>
+      methods.map((method) =>
+        method.type === 'MAGIC_LINK' ? { ...method, email: email.trim() || identityEmail } : method,
+      ),
+    )
+  }
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-12 select-none animate-fade-in font-sans">
@@ -256,103 +315,123 @@ export function AccountForm({
             autoComplete="off"
           />
         </div>
-        <PasswordField
-          label={account.authMethod === 'PASSWORD' ? 'Contraseña' : 'Contraseña no usada por este método'}
-          value={account.password ?? ''}
-          onChange={(value) => updateField('password', value)}
-          placeholder="••••••••"
-          required={account.authMethod === 'PASSWORD'}
-          disabled={account.authMethod !== 'PASSWORD'}
-          showGenerator
-        />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-text-secondary">Método de acceso</span>
-            <select
-              value={account.authMethod}
-              onChange={(event) => {
-                const authMethod = event.target.value as Account['authMethod']
-                setAccount((prev) => ({
-                  ...prev,
-                  authMethod,
-                  password: authMethod === 'PASSWORD' ? prev.password ?? '' : null,
-                  ssoProvider: authMethod === 'SSO' ? prev.ssoProvider ?? 'Google' : null,
-                  ssoEmail: authMethod === 'SSO' ? prev.ssoEmail ?? identityEmail : null,
-                }))
-              }}
-              className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
-            >
-              <option value="PASSWORD">Contraseña</option>
-              <option value="SSO">SSO / Login social</option>
-              <option value="PASSKEY">Passkey / Biométrico</option>
-              <option value="MAGIC_LINK">Magic link por email</option>
-            </select>
-          </label>
-          <label className="flex h-[42px] items-center justify-between gap-3 self-end rounded-xl border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary">
-            <span>Llave física</span>
-            <input
-              type="checkbox"
-              checked={account.hardwareKey}
-              onChange={(event) => updateField('hardwareKey', event.target.checked)}
-              className="peer sr-only"
-            />
-            <span
-              className={`relative h-6 w-11 rounded-full transition-colors ${
-                account.hardwareKey ? 'bg-text-primary' : 'bg-text-tertiary/30'
-              }`}
-            >
-              <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                  account.hardwareKey ? 'translate-x-5' : ''
-                }`}
-              />
-            </span>
-          </label>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <FormField
+            label="Email asociado"
+            type="email"
+            value={identityEmail}
+            readOnly
+            className="text-text-secondary"
+          />
+          <FormField
+            label="Teléfono vinculado"
+            type="tel"
+            value={account.linkedPhone ?? ''}
+            onChange={(e) => updateField('linkedPhone', e.target.value.trim() || null)}
+            placeholder="+34 600 000 000"
+            autoComplete="off"
+          />
         </div>
 
-        {account.authMethod === 'SSO' && (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-fade-in">
-            <label className="block">
-              <span className="mb-1.5 block text-xs font-medium text-text-secondary">Proveedor SSO</span>
-              <select
-                value={account.ssoProvider ?? 'Google'}
-                onChange={(event) => updateField('ssoProvider', event.target.value as Account['ssoProvider'])}
-                className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
-              >
-                <option value="Google">Google</option>
-                <option value="Apple">Apple</option>
-                <option value="Facebook">Facebook</option>
-                <option value="GitHub">GitHub</option>
-                <option value="Microsoft">Microsoft</option>
-                <option value="Otro">Otro</option>
-              </select>
+        <div className="rounded-3xl border border-border-subtle bg-white p-4 shadow-subtle">
+          <div className="mb-4 flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-sm font-bold text-text-primary">Vías de Acceso</h4>
+              <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">
+                Puedes activar varias formas de entrar en la misma plataforma.
+              </p>
+            </div>
+            <label className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs font-semibold text-text-primary">
+              <input
+                type="checkbox"
+                checked={account.hardwareKey}
+                onChange={(event) => updateField('hardwareKey', event.target.checked)}
+              />
+              YubiKey
             </label>
-            <FormField
-              label="Correo vinculado"
-              type="email"
-              value={account.ssoEmail ?? ''}
-              onChange={(e) => updateField('ssoEmail', e.target.value.trim() || identityEmail)}
-              placeholder={identityEmail}
-              autoComplete="off"
-            />
           </div>
-        )}
 
-        {account.authMethod === 'PASSKEY' && (
-          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-xs font-medium text-blue-800 animate-fade-in">
-            Acceso registrado mediante passkey o biometría. No se almacena contraseña.
-          </div>
-        )}
+          <div className="space-y-3">
+            <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+              <input
+                type="checkbox"
+                checked={Boolean(passwordMethod)}
+                onChange={(event) => togglePassword(event.target.checked)}
+              />
+              Contraseña
+            </label>
+            {passwordMethod && (
+              <PasswordField
+                label="Contraseña"
+                value={passwordMethod.password}
+                onChange={updatePasswordMethod}
+                placeholder="••••••••"
+                required
+                showGenerator
+              />
+            )}
 
-        {account.authMethod === 'MAGIC_LINK' && (
-          <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3 text-xs font-medium text-amber-800 animate-fade-in">
-            Acceso por enlace temporal enviado al correo de esta identidad.
+            {(['Google', 'Apple'] as const).map((provider) => {
+              const method = ssoMethods.find((item) => item.provider === provider)
+              return (
+                <div key={provider} className="space-y-2">
+                  <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+                    <input
+                      type="checkbox"
+                      checked={Boolean(method)}
+                      onChange={(event) => toggleSsoProvider(provider, event.target.checked)}
+                    />
+                    Login con {provider}
+                  </label>
+                  {method && (
+                    <FormField
+                      label={`Correo usado en ${provider}`}
+                      type="email"
+                      value={method.email ?? ''}
+                      onChange={(event) => updateSsoEmail(provider, event.target.value)}
+                      placeholder={identityEmail}
+                      autoComplete="off"
+                    />
+                  )}
+                </div>
+              )
+            })}
+
+            <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+              <input
+                type="checkbox"
+                checked={passkeyEnabled}
+                onChange={(event) => togglePasskey(event.target.checked)}
+              />
+              Passkey / biometría
+            </label>
+
+            <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+              <input
+                type="checkbox"
+                checked={Boolean(magicLinkMethod)}
+                onChange={(event) => toggleMagicLink(event.target.checked)}
+              />
+              Magic link
+            </label>
+            {magicLinkMethod && (
+              <FormField
+                label="Correo para magic link"
+                type="email"
+                value={magicLinkMethod.email ?? ''}
+                onChange={(event) => updateMagicLinkEmail(event.target.value)}
+                placeholder={identityEmail}
+                autoComplete="off"
+              />
+            )}
           </div>
-        )}
+        </div>
       </section>
 
-      {/* 2. Sección Estrella (API Keys) */}
-      <section className="space-y-4">
+      {/* 2. Opciones avanzadas: menos ruido para el uso diario */}
+      <section className="pt-2">
+        <Accordion title="Opciones avanzadas / Seguridad extra">
+          <div className="space-y-6 pt-3 pb-1">
         <div className="flex items-center justify-between border-b border-border-subtle pb-2">
           <div className="flex flex-col">
             <h3 className="text-sm font-bold text-text-primary">API Keys</h3>
@@ -386,10 +465,8 @@ export function AccountForm({
             ))}
           </div>
         )}
-      </section>
 
-      {/* 3. Sección de Emergencia (Recovery Codes) */}
-      <section className="space-y-3">
+      <div className="space-y-3">
         <div className="flex flex-col border-b border-border-subtle pb-2">
           <h3 className="text-sm font-bold text-text-primary">Códigos de Recuperación</h3>
           <p className="text-[10px] text-text-tertiary font-medium">
@@ -454,26 +531,15 @@ export function AccountForm({
             }
           />
         </div>
-      </section>
+      </div>
 
-      {/* 4. Sección Secundaria (Acordeón final - Detalles de identidad) */}
-      <section className="pt-2">
-        <Accordion title="Detalles de identidad y más información">
-          <div className="space-y-4 pt-3 pb-1">
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+      <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-4">
               <FormField
                 label="Nombre completo"
                 value={account.fullName ?? ''}
                 onChange={(e) => updateField('fullName', e.target.value.trim() || null)}
                 placeholder="Nombre y apellidos usados"
-                autoComplete="off"
-              />
-              <FormField
-                label="Teléfono vinculado"
-                type="tel"
-                value={account.linkedPhone ?? ''}
-                onChange={(e) => updateField('linkedPhone', e.target.value.trim() || null)}
-                placeholder="+34 600 000 000"
                 autoComplete="off"
               />
             </div>
@@ -490,6 +556,7 @@ export function AccountForm({
               onChange={(e) => updateField('notes', e.target.value)}
               placeholder="Notas libres, Fecha de nacimiento, Respuestas de recuperación..."
             />
+          </div>
           </div>
         </Accordion>
       </section>

@@ -1,4 +1,24 @@
-import type { Account, ApiKeyEntry } from '../types'
+import type { Account, AccountAccessMethod, ApiKeyEntry } from '../types'
+
+function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountAccessMethod[] {
+  return methods
+    .map((method) => {
+      if (method.type === 'PASSWORD') {
+        return { ...method, password: method.password.trim() }
+      }
+      if (method.type === 'SSO') {
+        return { ...method, email: method.email?.trim() || null }
+      }
+      if (method.type === 'MAGIC_LINK') {
+        return { ...method, email: method.email?.trim() || null }
+      }
+      return method
+    })
+    .filter((method) => {
+      if (method.type === 'PASSWORD') return method.password.length > 0
+      return true
+    })
+}
 
 export function normalizeAccount(account: Account): Account {
   const apiKeys =
@@ -16,9 +36,7 @@ export function normalizeAccount(account: Account): Account {
     title: (account.title || account.name).trim(),
     name: account.name.trim(),
     username: account.username.trim(),
-    password: account.authMethod === 'PASSWORD' ? account.password?.trim() || '' : null,
-    ssoProvider: account.authMethod === 'SSO' ? account.ssoProvider ?? 'Google' : null,
-    ssoEmail: account.authMethod === 'SSO' ? account.ssoEmail?.trim() || null : null,
+    accessMethods: normalizeAccessMethods(account.accessMethods),
     hardwareKey: Boolean(account.hardwareKey),
     fullName: account.fullName?.trim() || null,
     linkedPhone: account.linkedPhone?.trim() || null,

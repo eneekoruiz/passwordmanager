@@ -12,7 +12,8 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopyPassword = async () => {
-    const ok = await copyToClipboard(account.password ?? '')
+    const password = account.accessMethods.find((method) => method.type === 'PASSWORD')?.password ?? ''
+    const ok = await copyToClipboard(password)
     if (ok) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
@@ -32,11 +33,13 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
           <p className="text-sm font-medium text-text-primary">
             {accountDisplayName(account)}
           </p>
-          {account.authMethod === 'SSO' && account.ssoEmail && (
-            <p className="mt-0.5 text-sm text-text-secondary truncate">
-              {account.ssoProvider ?? 'SSO'}: {account.ssoEmail}
+          {account.accessMethods
+            .filter((method) => method.type === 'SSO')
+            .map((method) => (
+            <p key={method.id} className="mt-0.5 text-sm text-text-secondary truncate">
+              {method.provider}: {method.email}
             </p>
-          )}
+            ))}
           {account.username && (
             <p className="mt-0.5 text-xs text-text-tertiary truncate">
               @{account.username}

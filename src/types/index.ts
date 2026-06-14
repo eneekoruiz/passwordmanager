@@ -11,6 +11,36 @@ export type AuthMethod = 'PASSWORD' | 'SSO' | 'PASSKEY' | 'MAGIC_LINK'
 export type SsoProvider = 'Google' | 'Apple' | 'Facebook' | 'GitHub' | 'Microsoft' | 'Otro'
 export type WifiSecurityType = 'WPA2' | 'WPA3' | 'WEP' | 'OPEN' | 'OTHER'
 
+export interface PasswordAccessMethod {
+  id: string
+  type: 'PASSWORD'
+  password: string
+}
+
+export interface SsoAccessMethod {
+  id: string
+  type: 'SSO'
+  provider: SsoProvider
+  email: string | null
+}
+
+export interface PasskeyAccessMethod {
+  id: string
+  type: 'PASSKEY'
+}
+
+export interface MagicLinkAccessMethod {
+  id: string
+  type: 'MAGIC_LINK'
+  email: string | null
+}
+
+export type AccountAccessMethod =
+  | PasswordAccessMethod
+  | SsoAccessMethod
+  | PasskeyAccessMethod
+  | MagicLinkAccessMethod
+
 export interface BaseVaultItem {
   id: string
   type: VaultItemType
@@ -24,10 +54,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   /** Nombre de plataforma: Amazon, GitHub, Stripe, etc. */
   name: string
   username: string
-  password: string | null
-  authMethod: AuthMethod
-  ssoProvider: SsoProvider | null
-  ssoEmail: string | null
+  accessMethods: AccountAccessMethod[]
   hardwareKey: boolean
   fullName: string | null
   linkedPhone: string | null
