@@ -160,6 +160,21 @@ export function MainArea({
                             Google
                           </span>
                         )}
+                        {platform.twoFactorAuth && (
+                          <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                            2FA
+                          </span>
+                        )}
+                        {platform.linkedPhone && (
+                          <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                            Teléfono
+                          </span>
+                        )}
+                        {platform.recoveryCodes && (
+                          <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                            Recovery
+                          </span>
+                        )}
                         {platform.apiKeys?.length ? (
                           <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                             {platform.apiKeys.length} API

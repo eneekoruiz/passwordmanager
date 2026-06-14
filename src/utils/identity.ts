@@ -25,7 +25,9 @@ export function createPlatform(name: string, defaults?: Partial<Platform>): Plat
     name: name.trim(),
     username: defaults?.username ?? '',
     password: defaults?.password ?? '',
+    fullName: defaults?.fullName ?? null,
     linkedPhone: defaults?.linkedPhone ?? null,
+    twoFactorAuth: defaults?.twoFactorAuth ?? null,
     linkedGoogleAccount: defaults?.linkedGoogleAccount ?? null,
     notes: defaults?.notes,
     apiKeys: defaults?.apiKeys ?? [],
@@ -70,7 +72,9 @@ export function normalizeIdentityRecord(record: unknown): Identity {
       platforms: identity.platforms.map((platform) =>
         createPlatform(platform.name, {
           ...platform,
+          fullName: platform.fullName ?? null,
           linkedPhone: platform.linkedPhone ?? null,
+          twoFactorAuth: platform.twoFactorAuth ?? null,
           linkedGoogleAccount: platform.linkedGoogleAccount ?? null,
         }),
       ),
@@ -85,7 +89,9 @@ export function normalizeIdentityRecord(record: unknown): Identity {
       createPlatform(record.name, {
         ...account,
         username: account.username ?? account.email ?? '',
+        fullName: account.fullName ?? null,
         linkedPhone: account.linkedPhone ?? account.phone ?? null,
+        twoFactorAuth: account.twoFactorAuth ?? null,
         linkedGoogleAccount: account.linkedGoogleAccount ?? null,
       }),
     )

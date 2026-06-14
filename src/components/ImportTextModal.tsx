@@ -3,10 +3,137 @@ import type { Platform } from '../types'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { createPlatform, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 
+const IMPORT_COLUMNS = 8
+
 interface ImportTextModalProps {
   isOpen: boolean
   onClose: () => void
   onImport: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<void>
+}
+
+interface ImportRow {
+  username: string
+  birthdate: string
+  fullName: string
+  email: string
+  phone: string
+  twoFactor: string
+  password: string
+  platformName: string
+}
+
+function parseDelimitedLine(line: string, delimiter: string): string[] {
+  const cells: string[] = []
+  let current = ''
+  let quoted = false
+
+  for (let i = 0; i < line.length; i++) {
+    const char = line[i]
+    const next = line[i + 1]
+
+    if (char === '"' && next === '"') {
+      current += '"'
+      i++
+      continue
+    }
+
+    if (char === '"') {
+      quoted = !quoted
+      continue
+    }
+
+    if (char === delimiter && !quoted) {
+      cells.push(current.trim())
+      current = ''
+      continue
+    }
+
+    current += char
+  }
+
+  cells.push(current.trim())
+  return cells
+}
+
+function detectDelimiter(lines: string[]): string | null {
+  const candidates = ['\t', ',', ';']
+  return (
+    candidates.find((delimiter) =>
+      lines.some((line) => parseDelimitedLine(line, delimiter).length > 1),
+    ) ?? null
+  )
+}
+
+function rowFromColumns(columns: string[], index: number): ImportRow {
+  const padded = [...columns]
+  while (padded.length < IMPORT_COLUMNS) padded.push('')
+
+  return {
+    username: padded[0]?.trim() ?? '',
+    birthdate: padded[1]?.trim() ?? '',
+    fullName: padded[2]?.trim() ?? '',
+    email: padded[3]?.trim() ?? '',
+    phone: padded[4]?.trim() ?? '',
+    twoFactor: padded[5]?.trim() ?? '',
+    password: padded[6]?.trim() ?? '',
+    platformName: padded[7]?.trim() || padded[0]?.trim() || padded[3]?.trim() || `Cuenta importada ${index + 1}`,
+  }
+}
+
+function normalizeLabel(label: string): string {
+  return label
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .toLowerCase()
+    .replace(/[^a-z0-9]/g, '')
+}
+
+function rowFromKeyValueBlock(block: string, index: number): ImportRow | null {
+  const values: Record<string, string> = {}
+
+  for (const rawLine of block.split(/\r?\n/)) {
+    const match = rawLine.match(/^\s*([^:=-]+)\s*[:=-]\s*(.+?)\s*$/)
+    if (!match) continue
+    values[normalizeLabel(match[1])] = match[2].trim()
+  }
+
+  if (Object.keys(values).length === 0) return null
+
+  return rowFromColumns(
+    [
+      values.usuario ?? values.username ?? '',
+      values.fechanacimiento ?? values.nacimiento ?? values.birthdate ?? '',
+      values.nombrecompleto ?? values.fullname ?? values.nombre ?? '',
+      values.email ?? values.correo ?? '',
+      values.telefono ?? values.phone ?? '',
+      values['2fa'] ?? values.twofactor ?? values.twofactorauth ?? '',
+      values.contrasena ?? values.password ?? '',
+      values.plataforma ?? values.platform ?? values.servicio ?? '',
+    ],
+    index,
+  )
+}
+
+function parseImportRows(text: string): ImportRow[] {
+  const rawLines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+  const delimiter = detectDelimiter(rawLines)
+
+  if (delimiter) {
+    return rawLines.map((line, index) => rowFromColumns(parseDelimitedLine(line, delimiter), index))
+  }
+
+  const keyValueRows = text
+    .split(/\r?\n\s*\r?\n/)
+    .map((block, index) => rowFromKeyValueBlock(block, index))
+    .filter((row): row is ImportRow => row !== null)
+
+  if (keyValueRows.length > 0) return keyValueRows
+
+  const rows: ImportRow[] = []
+  for (let i = 0; i < rawLines.length; i += IMPORT_COLUMNS) {
+    rows.push(rowFromColumns(rawLines.slice(i, i + IMPORT_COLUMNS), rows.length))
+  }
+  return rows
 }
 
 export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalProps) {
@@ -35,52 +162,33 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
 
     setLoading(true)
     try {
-      const lines = text.split(/\r?\n/)
+      const rows = parseImportRows(text)
       const parsedRows: Array<{ identityEmail: string; platform: Platform }> = []
 
-      for (let i = 0; i < lines.length; i++) {
-        const line = lines[i].trim()
-        if (!line) continue // Ignorar líneas vacías
-
-        const cols = line.split('\t')
-        // Si hay menos de 8 columnas por celdas vacías al final, rellenar
-        const paddedCols = [...cols]
-        while (paddedCols.length < 8) {
-          paddedCols.push('')
-        }
-
-        const username = paddedCols[0].trim()
-        const birthdate = paddedCols[1].trim()
-        const fullName = paddedCols[2].trim()
-        const email = paddedCols[3].trim()
-        const phone = paddedCols[4].trim()
-        const twoFactor = paddedCols[5].trim()
-        const password = paddedCols[6].trim()
-        const platformName = paddedCols[7].trim()
+      for (const row of rows) {
+        const username = row.username
+        const birthdate = row.birthdate
+        const fullName = row.fullName
+        const email = row.email
+        const phone = row.phone
+        const twoFactor = row.twoFactor
+        const password = row.password
+        const platformName = row.platformName
         const identityEmail = email || LOCAL_IDENTITY_EMAIL
         const hasGoogleSso = /google|sso/i.test(`${twoFactor} ${platformName}`)
 
-        // Validaciones requeridas
-        if (!platformName) {
-          throw new Error(`Fila ${i + 1}: El nombre de la plataforma (columna 8) es obligatorio.`)
-        }
-        if (!password) {
-          throw new Error(`Fila ${i + 1}: La contraseña (columna 7) es obligatoria.`)
-        }
-        // Concatenar notas
         const notesParts: string[] = []
         if (birthdate) notesParts.push(`Fecha de nacimiento: ${birthdate}`)
-        if (fullName) notesParts.push(`Nombre completo: ${fullName}`)
-        if (twoFactor && !hasGoogleSso) notesParts.push(`2FA: ${twoFactor}`)
         const notes = notesParts.length > 0 ? notesParts.join('\n') : undefined
 
         const platform = createPlatform(platformName, {
           username: username || email,
           password,
+          fullName: fullName || null,
           linkedPhone: phone || null,
+          twoFactorAuth: twoFactor || null,
           linkedGoogleAccount: hasGoogleSso && email ? email : null,
           notes,
-          recoveryCodes: twoFactor || undefined,
           apiKeys: [],
         })
 
@@ -120,7 +228,7 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
 
       <div className="relative z-10 w-full max-w-xl rounded-2xl border border-black/5 bg-white/80 backdrop-blur-xl p-6 shadow-[0_15px_50px_rgba(0,0,0,0.12)] space-y-4 flex flex-col text-left">
         <header className="flex items-center justify-between border-b border-border-subtle pb-3">
-          <h2 className="text-base font-semibold text-text-primary">Importar desde Texto (TSV / Google Docs)</h2>
+          <h2 className="text-base font-semibold text-text-primary">Importar desde texto inteligente</h2>
           <button
             type="button"
             onClick={onClose}
@@ -135,11 +243,11 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
 
         <div className="space-y-1">
           <p className="text-xs text-text-secondary leading-relaxed">
-            Copia una tabla de 8 columnas desde tu Google Docs y pégala a continuación. Las columnas se mapearán automáticamente de izquierda a derecha.
+            Pega una tabla TSV, CSV o texto copiado desde móvil. Si faltan columnas, se rellenarán como vacías sin detener la importación.
           </p>
           <div className="rounded-lg bg-surface p-3 border border-border-subtle">
             <span className="block text-[10px] font-semibold text-text-tertiary uppercase mb-1">
-              Orden esperado de columnas (8 columnas separadas por tabulación):
+              Orden recomendado de columnas:
             </span>
             <code className="text-[10px] text-text-secondary font-mono leading-relaxed block break-words">
               1. Usuario | 2. F. Nacimiento | 3. Nombre Completo | 4. Email | 5. Teléfono | 6. 2FA | 7. Contraseña | 8. Plataforma

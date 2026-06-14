@@ -42,6 +42,11 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
               @{account.username}
             </p>
           )}
+          {account.fullName && (
+            <p className="mt-0.5 text-xs text-text-tertiary truncate">
+              {account.fullName}
+            </p>
+          )}
         </button>
         <button
           type="button"

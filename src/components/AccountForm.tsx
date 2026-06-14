@@ -152,7 +152,9 @@ export function AccountForm({
         name: '',
         username: '',
         password: '',
+        fullName: null,
         linkedPhone: null,
+        twoFactorAuth: null,
         linkedGoogleAccount: null,
         notes: undefined,
         apiKeys: [],
@@ -254,54 +256,6 @@ export function AccountForm({
           required
           showGenerator
         />
-        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-          <FormField
-            label="Telefono vinculado"
-            type="tel"
-            value={account.linkedPhone ?? ''}
-            onChange={(e) => updateField('linkedPhone', e.target.value.trim() || null)}
-            placeholder="+34 600 000 000"
-            autoComplete="off"
-          />
-          <label className="flex h-[42px] items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary">
-            <span>Google SSO</span>
-            <input
-              type="checkbox"
-              checked={googleLinked}
-              onChange={(event) =>
-                updateField(
-                  'linkedGoogleAccount',
-                  event.target.checked ? identityEmail : null,
-                )
-              }
-              className="peer sr-only"
-            />
-            <span
-              className={`relative h-6 w-11 rounded-full transition-colors ${
-                googleLinked ? 'bg-text-primary' : 'bg-text-tertiary/30'
-              }`}
-            >
-              <span
-                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                  googleLinked ? 'translate-x-5' : ''
-                }`}
-              />
-            </span>
-          </label>
-        </div>
-
-        {account.linkedGoogleAccount !== null && (
-          <div className="animate-fade-in">
-            <FormField
-              label="Cuenta de Google vinculada"
-              type="email"
-              value={account.linkedGoogleAccount}
-              onChange={(e) => updateField('linkedGoogleAccount', e.target.value.trim() || identityEmail)}
-              placeholder={identityEmail}
-              autoComplete="off"
-            />
-          </div>
-        )}
       </section>
 
       {/* 2. Sección Estrella (API Keys) */}
@@ -409,10 +363,75 @@ export function AccountForm({
         </div>
       </section>
 
-      {/* 4. Sección Secundaria (Acordeón final - Más información) */}
+      {/* 4. Sección Secundaria (Acordeón final - Detalles de identidad) */}
       <section className="pt-2">
-        <Accordion title="Más información">
+        <Accordion title="Detalles de identidad y más información">
           <div className="space-y-4 pt-3 pb-1">
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <FormField
+                label="Nombre completo"
+                value={account.fullName ?? ''}
+                onChange={(e) => updateField('fullName', e.target.value.trim() || null)}
+                placeholder="Nombre y apellidos usados"
+                autoComplete="off"
+              />
+              <FormField
+                label="Teléfono vinculado"
+                type="tel"
+                value={account.linkedPhone ?? ''}
+                onChange={(e) => updateField('linkedPhone', e.target.value.trim() || null)}
+                placeholder="+34 600 000 000"
+                autoComplete="off"
+              />
+            </div>
+            <FormField
+              label="2FA / Segundo factor"
+              value={account.twoFactorAuth ?? ''}
+              onChange={(e) => updateField('twoFactorAuth', e.target.value.trim() || null)}
+              placeholder="Google Authenticator, SMS, Authy..."
+              autoComplete="off"
+            />
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+              {googleLinked ? (
+                <div className="animate-fade-in">
+                  <FormField
+                    label="Cuenta de Google vinculada"
+                    type="email"
+                    value={account.linkedGoogleAccount ?? ''}
+                    onChange={(e) => updateField('linkedGoogleAccount', e.target.value.trim() || identityEmail)}
+                    placeholder={identityEmail}
+                    autoComplete="off"
+                  />
+                </div>
+              ) : (
+                <div className="hidden sm:block" aria-hidden="true" />
+              )}
+              <label className="flex h-[42px] items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary">
+                <span>Google SSO</span>
+                <input
+                  type="checkbox"
+                  checked={googleLinked}
+                  onChange={(event) =>
+                    updateField(
+                      'linkedGoogleAccount',
+                      event.target.checked ? identityEmail : null,
+                    )
+                  }
+                  className="peer sr-only"
+                />
+                <span
+                  className={`relative h-6 w-11 rounded-full transition-colors ${
+                    googleLinked ? 'bg-text-primary' : 'bg-text-tertiary/30'
+                  }`}
+                >
+                  <span
+                    className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                      googleLinked ? 'translate-x-5' : ''
+                    }`}
+                  />
+                </span>
+              </label>
+            </div>
             <FormTextarea
               label="Notas e Información Adicional"
               value={account.notes ?? ''}

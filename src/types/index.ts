@@ -9,7 +9,9 @@ export interface CredentialFields {
   id: string
   username: string
   password: string
+  fullName: string | null
   linkedPhone: string | null
+  twoFactorAuth: string | null
   /**
    * Correo usado para SSO social. Es metadato sensible y permanece dentro del
    * JSON cifrado AES-256-GCM; Firebase solo recibe el blob opaco.
