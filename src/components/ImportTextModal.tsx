@@ -1,11 +1,12 @@
 import { useState, useEffect } from 'react'
-import type { Account } from '../types'
-import { generateId } from '../utils/id'
+import type { Platform } from '../types'
+import { getFriendlyErrorMessage } from '../utils/errors'
+import { createPlatform, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 
 interface ImportTextModalProps {
   isOpen: boolean
   onClose: () => void
-  onImport: (parsedRows: Array<{ platformName: string; account: Account }>) => Promise<void>
+  onImport: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<void>
 }
 
 export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalProps) {
@@ -35,7 +36,7 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
     setLoading(true)
     try {
       const lines = text.split(/\r?\n/)
-      const parsedRows: Array<{ platformName: string; account: Account }> = []
+      const parsedRows: Array<{ identityEmail: string; platform: Platform }> = []
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i].trim()
@@ -56,6 +57,8 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
         const twoFactor = paddedCols[5].trim()
         const password = paddedCols[6].trim()
         const platformName = paddedCols[7].trim()
+        const identityEmail = email || LOCAL_IDENTITY_EMAIL
+        const hasGoogleSso = /google|sso/i.test(`${twoFactor} ${platformName}`)
 
         // Validaciones requeridas
         if (!platformName) {
@@ -64,34 +67,26 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
         if (!password) {
           throw new Error(`Fila ${i + 1}: La contraseña (columna 7) es obligatoria.`)
         }
-        if (!username && !email) {
-          throw new Error(`Fila ${i + 1}: Debe indicarse el nombre de usuario (columna 1) o correo electrónico (columna 4).`)
-        }
-
         // Concatenar notas
         const notesParts: string[] = []
         if (birthdate) notesParts.push(`Fecha de nacimiento: ${birthdate}`)
         if (fullName) notesParts.push(`Nombre completo: ${fullName}`)
-        if (twoFactor) notesParts.push(`2FA: ${twoFactor}`)
+        if (twoFactor && !hasGoogleSso) notesParts.push(`2FA: ${twoFactor}`)
         const notes = notesParts.length > 0 ? notesParts.join('\n') : undefined
 
-        const now = new Date().toISOString()
-        const account: Account = {
-          id: generateId(),
-          username: username,
-          email: email,
-          password: password,
-          phone: phone || undefined,
-          notes: notes,
+        const platform = createPlatform(platformName, {
+          username: username || email,
+          password,
+          linkedPhone: phone || null,
+          linkedGoogleAccount: hasGoogleSso && email ? email : null,
+          notes,
           recoveryCodes: twoFactor || undefined,
           apiKeys: [],
-          createdAt: now,
-          updatedAt: now,
-        }
+        })
 
         parsedRows.push({
-          platformName,
-          account,
+          identityEmail,
+          platform,
         })
       }
 
@@ -106,8 +101,8 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
         onClose()
         setSuccess(null)
       }, 1500)
-    } catch (err: any) {
-      setError(err.message || 'Error al procesar el texto. Verifica el formato.')
+    } catch (error) {
+      setError(getFriendlyErrorMessage(error, 'Error al procesar el texto. Verifica el formato.'))
     } finally {
       setLoading(false)
     }

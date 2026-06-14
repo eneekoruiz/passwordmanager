@@ -6,9 +6,11 @@ import { Accordion } from './ui/Accordion'
 import { FormField, FormTextarea } from './ui/FormField'
 import { PasswordField } from './ui/PasswordField'
 import { copyToClipboard } from '../utils/clipboard'
+import { getFriendlyErrorMessage } from '../utils/errors'
 
 interface AccountFormProps {
   mode: 'create' | 'edit'
+  identityEmail: string
   initialAccount?: Account
   onSave: (account: Account) => Promise<void>
   onCancel: () => void
@@ -117,6 +119,7 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
 
 export function AccountForm({
   mode,
+  identityEmail,
   initialAccount,
   onSave,
   onCancel,
@@ -146,10 +149,11 @@ export function AccountForm({
     return () => {
       setAccount({
         id: '',
+        name: '',
         username: '',
-        email: '',
         password: '',
-        phone: undefined,
+        linkedPhone: null,
+        linkedGoogleAccount: null,
         notes: undefined,
         apiKeys: [],
         recoveryCodes: undefined,
@@ -196,8 +200,8 @@ export function AccountForm({
     setError(null)
 
     const normalized = normalizeAccount(account)
-    if (!normalized.username && !normalized.email) {
-      setError('Indica al menos un nombre de usuario o correo electrónico.')
+    if (!normalized.name) {
+      setError('Indica el nombre de la plataforma.')
       return
     }
     if (!normalized.password) {
@@ -208,14 +212,15 @@ export function AccountForm({
     setSaving(true)
     try {
       await onSave(normalized)
-    } catch {
-      setError('No se pudo guardar la cuenta.')
+    } catch (error) {
+      setError(getFriendlyErrorMessage(error, 'No se pudo guardar la cuenta.'))
     } finally {
       setSaving(false)
     }
   }
 
   const apiKeys = account.apiKeys ?? []
+  const googleLinked = account.linkedGoogleAccount !== null
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-12 select-none animate-fade-in font-sans">
@@ -227,18 +232,17 @@ export function AccountForm({
         </div>
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <FormField
-            label="Nombre de usuario"
-            value={account.username}
-            onChange={(e) => updateField('username', e.target.value)}
-            placeholder="usuario"
+            label="Plataforma"
+            value={account.name}
+            onChange={(e) => updateField('name', e.target.value)}
+            placeholder="Amazon, GitHub, Stripe..."
             autoComplete="off"
           />
           <FormField
-            label="Correo electrónico"
-            type="email"
-            value={account.email}
-            onChange={(e) => updateField('email', e.target.value)}
-            placeholder="correo@ejemplo.com"
+            label="Usuario"
+            value={account.username}
+            onChange={(e) => updateField('username', e.target.value)}
+            placeholder="usuario"
             autoComplete="off"
           />
         </div>
@@ -250,6 +254,54 @@ export function AccountForm({
           required
           showGenerator
         />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
+          <FormField
+            label="Telefono vinculado"
+            type="tel"
+            value={account.linkedPhone ?? ''}
+            onChange={(e) => updateField('linkedPhone', e.target.value.trim() || null)}
+            placeholder="+34 600 000 000"
+            autoComplete="off"
+          />
+          <label className="flex h-[42px] items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary">
+            <span>Google SSO</span>
+            <input
+              type="checkbox"
+              checked={googleLinked}
+              onChange={(event) =>
+                updateField(
+                  'linkedGoogleAccount',
+                  event.target.checked ? identityEmail : null,
+                )
+              }
+              className="peer sr-only"
+            />
+            <span
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                googleLinked ? 'bg-text-primary' : 'bg-text-tertiary/30'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                  googleLinked ? 'translate-x-5' : ''
+                }`}
+              />
+            </span>
+          </label>
+        </div>
+
+        {account.linkedGoogleAccount !== null && (
+          <div className="animate-fade-in">
+            <FormField
+              label="Cuenta de Google vinculada"
+              type="email"
+              value={account.linkedGoogleAccount}
+              onChange={(e) => updateField('linkedGoogleAccount', e.target.value.trim() || identityEmail)}
+              placeholder={identityEmail}
+              autoComplete="off"
+            />
+          </div>
+        )}
       </section>
 
       {/* 2. Sección Estrella (API Keys) */}
@@ -361,14 +413,6 @@ export function AccountForm({
       <section className="pt-2">
         <Accordion title="Más información">
           <div className="space-y-4 pt-3 pb-1">
-            <FormField
-              label="Número de teléfono"
-              type="tel"
-              value={account.phone ?? ''}
-              onChange={(e) => updateField('phone', e.target.value)}
-              placeholder="+34 600 000 000"
-              autoComplete="off"
-            />
             <FormTextarea
               label="Notas e Información Adicional"
               value={account.notes ?? ''}

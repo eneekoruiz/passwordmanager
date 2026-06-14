@@ -9,69 +9,49 @@ import {
   type ReactNode,
 } from 'react'
 import {
-  signInWithEmailAndPassword,
-  createUserWithEmailAndPassword,
-  signOut,
-  onAuthStateChanged,
   GoogleAuthProvider,
+  onAuthStateChanged,
   signInWithPopup,
+  signOut,
+  type Auth,
   type User,
 } from 'firebase/auth'
-import { doc, setDoc, getDoc } from 'firebase/firestore'
-import { auth, db } from '../services/firebase'
+import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { CryptoVault } from '../crypto/CryptoVault'
+import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
-import { getVaultDb } from '../storage/vaultDb'
-import type { Account, Platform } from '../types'
-import { generateId } from '../utils/id'
+import type { Identity, Platform } from '../types'
+import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
+import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 
-/**
- * @interface VaultContextValue
- * @description Estructura expuesta por el contexto global de la bóveda para la interfaz de usuario.
- */
 interface VaultContextValue {
   isReady: boolean
   isInitialized: boolean
   isUnlocked: boolean
-  platforms: Platform[]
-  /** Listado de perfiles locales disponibles en el dispositivo */
+  identities: Identity[]
   profiles: { id: string; name: string; createdAt: string }[]
-  /** ID del perfil activo de la sesión actual */
   currentProfileId: string | null
-  /** Nombre visible del perfil activo */
   currentProfileName: string | null
-  /** Carga y refresca los perfiles del almacén meta de IndexedDB */
+  appError: string | null
+  clearAppError: () => void
   listProfiles: () => Promise<void>
-  /** Crea un perfil local con contraseña maestra independiente */
   createProfile: (name: string, password: string) => Promise<string>
-  /** Desbloquea la clave criptográfica de sesión del perfil seleccionado */
   selectProfile: (id: string, password: string) => Promise<boolean>
-  /** Elimina el perfil activo y todos sus registros asociados de IndexedDB */
   deleteCurrentProfile: () => Promise<void>
-  /** Cierra la sesión activa regresando al selector de perfiles */
   logoutProfile: () => void
-  addPlatform: (name: string) => Promise<Platform>
-  savePlatform: (platform: Platform) => Promise<void>
-  deletePlatform: (platformId: string) => Promise<void>
-  addAccount: (platformId: string, account: Account) => Promise<void>
-  updateAccount: (
-    platformId: string,
-    accountId: string,
-    account: Account,
-  ) => Promise<void>
-  deleteAccount: (platformId: string, accountId: string) => Promise<void>
+  addIdentity: (email: string) => Promise<Identity>
+  saveIdentity: (identity: Identity) => Promise<void>
+  deleteIdentity: (identityId: string) => Promise<void>
+  addPlatform: (identityId: string, platform: Platform) => Promise<void>
+  updatePlatform: (identityId: string, platformId: string, platform: Platform) => Promise<void>
+  deletePlatform: (identityId: string, platformId: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
-  importMassiveAccounts: (
-    parsedAccounts: Array<{ platformName: string; account: Account }>,
-  ) => Promise<void>
-  // Estados y métodos de Sincronización en la Nube E2EE (Firebase)
+  importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<void>
   cloudUserEmail: string | null
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
   cloudError: string | null
   cloudVaultExists: boolean | null
-  loginCloud: (email: string, password: string) => Promise<void>
-  registerCloud: (email: string, password: string) => Promise<void>
   loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: () => Promise<void>
@@ -83,128 +63,128 @@ interface VaultContextValue {
 
 const VaultContext = createContext<VaultContextValue | null>(null)
 
+function getFirebaseClients(): { authClient: Auth; dbClient: Firestore } {
+  if (!auth || !db) {
+    throw new Error(
+      firebaseConfigError ??
+        'Firebase no esta configurado correctamente. Revisa las variables de entorno del proyecto.',
+    )
+  }
+
+  return { authClient: auth, dbClient: db }
+}
+
 export function VaultProvider({ children }: { children: ReactNode }) {
   const vaultRef = useRef(new CryptoVault())
   const storeRef = useRef(new VaultStore(vaultRef.current))
+  const firebaseUserRef = useRef<User | null>(null)
 
   const [isReady, setIsReady] = useState(false)
   const [isAuthReady, setIsAuthReady] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
-  const [platforms, setPlatforms] = useState<Platform[]>([])
-
-  // Estados para la gestión de perfiles múltiples
+  const [identities, setIdentities] = useState<Identity[]>([])
   const [profiles, setProfiles] = useState<{ id: string; name: string; createdAt: string }[]>([])
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
-
-  const listProfiles = useCallback(async () => {
-    const list = await storeRef.current.listProfiles()
-    setProfiles(list)
-    setIsInitialized(list.length > 0)
-  }, [])
-
-  // Estados de Sincronización en la Nube (Firebase)
+  const [appError, setAppError] = useState<string | null>(firebaseConfigError)
   const [cloudUserEmail, setCloudUserEmail] = useState<string | null>(null)
-  /** Ref interno para el usuario de Firebase Auth, evitando re-renders en callbacks de sync */
-  const firebaseUserRef = useRef<User | null>(null)
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
-  const [cloudError, setCloudError] = useState<string | null>(null)
+  const [cloudError, setCloudError] = useState<string | null>(firebaseConfigError)
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
 
-  /**
-   * Escucha los cambios en el estado de autenticación de Firebase Auth.
-   * Mantiene cloudUserEmail y firebaseUserRef sincronizados sin causar
-   * re-renderizaciones innecesarias en los callbacks de sincronización.
-   */
+  const clearAppError = useCallback(() => setAppError(null), [])
+
+  const reportAppError = useCallback((error: unknown, fallback: string) => {
+    const message = getFriendlyErrorMessage(error, fallback)
+    setAppError(message)
+    return message
+  }, [])
+
+  const reportCloudError = useCallback((error: unknown, fallback: string) => {
+    const message = getFriendlyErrorMessage(error, fallback)
+    setCloudError(message)
+    return message
+  }, [])
+
+  const listProfiles = useCallback(async () => {
+    try {
+      const list = await storeRef.current.listProfiles()
+      setProfiles(list)
+      setIsInitialized(list.length > 0)
+      setAppError(null)
+    } catch (error) {
+      reportAppError(error, 'No se pudo leer la base de datos local.')
+      setProfiles([])
+      setIsInitialized(false)
+    }
+  }, [reportAppError])
+
+  const refreshIdentities = useCallback(async () => {
+    if (!currentProfileId) return
+
+    try {
+      const loaded = await storeRef.current.loadAllIdentities(currentProfileId)
+      setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+      setAppError(null)
+    } catch (error) {
+      setIdentities([])
+      reportAppError(error, 'No se pudieron cargar las identidades guardadas.')
+      throw error
+    }
+  }, [currentProfileId, reportAppError])
+
   useEffect(() => {
+    let mounted = true
+    void listProfiles().finally(() => {
+      if (mounted) setIsReady(true)
+    })
+    return () => {
+      mounted = false
+    }
+  }, [listProfiles])
+
+  useEffect(() => {
+    if (!auth || !db) {
+      setIsAuthReady(true)
+      setCloudVaultExists(null)
+      return
+    }
+
+    const dbClient = db
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       firebaseUserRef.current = user
       setCloudUserEmail(user?.email ?? null)
-      if (user) {
-        try {
-          const docRef = doc(db, 'vaults', user.uid)
-          const snap = await getDoc(docRef)
-          setCloudVaultExists(snap.exists() && !!snap.data()?.encrypted_vault_blob)
-        } catch (err) {
-          console.error('Error al comprobar existencia de la bóveda:', err)
-          setCloudVaultExists(false)
-        }
-      } else {
+
+      if (!user) {
         setCloudVaultExists(null)
+        setIsAuthReady(true)
+        return
       }
-      setIsAuthReady(true)
+
+      try {
+        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+        setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
+      } catch (error) {
+        logUnexpectedError('Error al comprobar existencia de la boveda', error)
+        setCloudVaultExists(false)
+        reportCloudError(error, 'No se pudo comprobar el estado de la boveda en la nube.')
+      } finally {
+        setIsAuthReady(true)
+      }
     })
+
     return () => unsubscribe()
-  }, [])
-
-  const loginCloud = useCallback(async (email: string, password: string) => {
-    setCloudError(null)
-    setCloudSyncStatus('syncing')
-    try {
-      const credential = await signInWithEmailAndPassword(auth, email, password)
-      setCloudUserEmail(credential.user.email ?? 'Usuario Nube')
-      setCloudSyncStatus('idle')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al iniciar sesión en la nube.'
-      setCloudSyncStatus('error')
-      setCloudError(message)
-      throw err
-    }
-  }, [])
-
-  const registerCloud = useCallback(async (email: string, password: string) => {
-    setCloudError(null)
-    setCloudSyncStatus('syncing')
-    try {
-      const credential = await createUserWithEmailAndPassword(auth, email, password)
-      setCloudUserEmail(credential.user.email ?? 'Usuario Nube')
-      setCloudSyncStatus('idle')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al registrar la cuenta en la nube.'
-      setCloudSyncStatus('error')
-      setCloudError(message)
-      throw err
-    }
-  }, [])
-
-  const loginWithGoogleCloud = useCallback(async () => {
-    setCloudError(null)
-    setCloudSyncStatus('syncing')
-    try {
-      const provider = new GoogleAuthProvider()
-      const credential = await signInWithPopup(auth, provider)
-      setCloudUserEmail(credential.user.email ?? 'Usuario Google')
-      setCloudSyncStatus('idle')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al iniciar sesión con Google.'
-      setCloudSyncStatus('error')
-      setCloudError(message)
-      throw err
-    }
-  }, [])
+  }, [reportCloudError])
 
   const logoutProfile = useCallback(() => {
     vaultRef.current.lock()
     setIsUnlocked(false)
     setCurrentProfileId(null)
     setCurrentProfileName(null)
-    setPlatforms([])
+    setIdentities([])
+    setAppError(null)
   }, [])
-
-  const logoutCloud = useCallback(async () => {
-    setCloudError(null)
-    try {
-      await signOut(auth)
-      setCloudUserEmail(null)
-      setCloudSyncStatus('idle')
-      logoutProfile()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al cerrar sesión en la nube.'
-      setCloudError(message)
-      throw err
-    }
-  }, [logoutProfile])
 
   const syncActiveProfileToCloud = useCallback(async () => {
     const user = firebaseUserRef.current
@@ -215,272 +195,290 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     setCloudSyncStatus('syncing')
     setCloudError(null)
+
     try {
+      const { dbClient } = getFirebaseClients()
       const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
-      // Usamos el UID del usuario autenticado como ID del documento en Firestore.
-      // Las Reglas de Seguridad de Firestore garantizan que solo el propietario
-      // puede leer/escribir su propio documento.
-      await setDoc(doc(db, 'vaults', user.uid), {
+      await setDoc(doc(dbClient, 'vaults', user.uid), {
         encrypted_vault_blob: encryptedBlob,
         updated_at: new Date().toISOString(),
       })
       setCloudSyncStatus('synced')
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al conectar con la nube.'
-      console.error('Error al sincronizar con Firebase:', err)
+    } catch (error) {
+      logUnexpectedError('Error al sincronizar con Firebase', error)
       setCloudSyncStatus('error')
-      setCloudError(message)
+      reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
+      throw error
     }
-  }, [currentProfileId])
+  }, [currentProfileId, reportCloudError])
 
-  /**
-   * Dispara la sincronización en segundo plano de forma silenciosa.
-   * Los errores se registran en consola pero no interrumpen al usuario.
-   */
   const triggerCloudSync = useCallback(() => {
-    syncActiveProfileToCloud().catch((err) => {
-      console.warn('Fallo silencioso en background sync:', err)
+    void syncActiveProfileToCloud().catch((error) => {
+      logUnexpectedError('Fallo silencioso en background sync', error)
     })
   }, [syncActiveProfileToCloud])
 
-  const restoreProfileFromCloud = useCallback(
-    async (email: string, password: string, masterPassword: string) => {
-      setCloudError(null)
-      setCloudSyncStatus('syncing')
-
-      let user: User
-      try {
-        const credential = await signInWithEmailAndPassword(auth, email, password)
-        user = credential.user
-        setCloudUserEmail(user.email ?? 'Usuario Nube')
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error de autenticación en la nube.'
-        setCloudSyncStatus('error')
-        setCloudError(message)
-        throw err
-      }
+  const saveIdentity = useCallback(
+    async (identity: Identity) => {
+      if (!currentProfileId) return
 
       try {
-        const vaultDocRef = doc(db, 'vaults', user.uid)
-        const vaultSnap = await getDoc(vaultDocRef)
-
-        if (!vaultSnap.exists()) {
-          throw new Error('No se encontraron datos de la bóveda en esta cuenta de la nube.')
-        }
-
-        const blob = vaultSnap.data()?.encrypted_vault_blob as string | undefined
-        if (!blob) {
-          throw new Error('El archivo de la bóveda en la nube está vacío.')
-        }
-
-        const targetProfileId = 'default'
-        await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
-        const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
-
-        if (success) {
-          setCurrentProfileId(targetProfileId)
-          setCurrentProfileName('Bóveda Restaurada')
-          setIsUnlocked(true)
-          const loaded = await storeRef.current.loadAllPlatforms(targetProfileId)
-          setPlatforms(loaded)
-          setCloudSyncStatus('synced')
-          await listProfiles()
-        } else {
-          throw new Error('Error al desbloquear el perfil restaurado. Contraseña maestra incorrecta.')
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error en la restauración.'
-        console.error('Error al restaurar desde Firebase:', err)
-        setCloudSyncStatus('error')
-        setCloudError(message)
-        throw err
+        const updated = { ...identity, updatedAt: new Date().toISOString() }
+        await storeRef.current.saveIdentity(currentProfileId, updated)
+        await refreshIdentities()
+        triggerCloudSync()
+      } catch (error) {
+        reportAppError(error, 'No se pudo guardar la identidad.')
+        throw error
       }
+    },
+    [currentProfileId, refreshIdentities, reportAppError, triggerCloudSync],
+  )
+
+  const addIdentity = useCallback(
+    async (email: string) => {
+      if (!currentProfileId) throw new Error('No hay un perfil activo.')
+      const existing = identities.find((identity) => identityMatchesEmail(identity, email))
+      if (existing) return existing
+
+      const identity = createIdentity(email)
+      await storeRef.current.saveIdentity(currentProfileId, identity)
+      await refreshIdentities()
+      triggerCloudSync()
+      return identity
+    },
+    [currentProfileId, identities, refreshIdentities, triggerCloudSync],
+  )
+
+  const deleteIdentity = useCallback(
+    async (identityId: string) => {
+      if (!currentProfileId) return
+      await storeRef.current.deleteIdentity(currentProfileId, identityId)
+      await refreshIdentities()
+      triggerCloudSync()
+    },
+    [currentProfileId, refreshIdentities, triggerCloudSync],
+  )
+
+  const addPlatform = useCallback(
+    async (identityId: string, platform: Platform) => {
+      const identity = identities.find((item) => item.id === identityId)
+      if (!identity) throw new Error('La identidad seleccionada ya no existe.')
+      await saveIdentity({
+        ...identity,
+        platforms: [...identity.platforms, { ...platform, updatedAt: new Date().toISOString() }],
+      })
+    },
+    [identities, saveIdentity],
+  )
+
+  const updatePlatform = useCallback(
+    async (identityId: string, platformId: string, platform: Platform) => {
+      const identity = identities.find((item) => item.id === identityId)
+      if (!identity) throw new Error('La identidad seleccionada ya no existe.')
+      await saveIdentity({
+        ...identity,
+        platforms: identity.platforms.map((item) =>
+          item.id === platformId ? { ...platform, updatedAt: new Date().toISOString() } : item,
+        ),
+      })
+    },
+    [identities, saveIdentity],
+  )
+
+  const deletePlatform = useCallback(
+    async (identityId: string, platformId: string) => {
+      const identity = identities.find((item) => item.id === identityId)
+      if (!identity) throw new Error('La identidad seleccionada ya no existe.')
+      await saveIdentity({
+        ...identity,
+        platforms: identity.platforms.filter((item) => item.id !== platformId),
+      })
+    },
+    [identities, saveIdentity],
+  )
+
+  const importMassiveAccounts = useCallback(
+    async (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => {
+      if (!currentProfileId) return
+
+      try {
+        const byEmail = new Map<string, Identity>()
+        for (const identity of identities) {
+          byEmail.set(identity.email.toLowerCase(), {
+            ...identity,
+            platforms: [...identity.platforms],
+          })
+        }
+
+        for (const row of parsedRows) {
+          const email = row.identityEmail.trim() || LOCAL_IDENTITY_EMAIL
+          const key = email.toLowerCase()
+          const identity = byEmail.get(key) ?? createIdentity(email)
+          identity.platforms.push(row.platform)
+          identity.updatedAt = new Date().toISOString()
+          byEmail.set(key, identity)
+        }
+
+        await storeRef.current.saveMultipleIdentities(currentProfileId, Array.from(byEmail.values()))
+        await refreshIdentities()
+        triggerCloudSync()
+      } catch (error) {
+        reportAppError(error, 'No se pudo completar la importacion masiva.')
+        throw error
+      }
+    },
+    [currentProfileId, identities, refreshIdentities, reportAppError, triggerCloudSync],
+  )
+
+  const loginWithGoogleCloud = useCallback(async () => {
+    setCloudError(null)
+    setCloudSyncStatus('syncing')
+    try {
+      const { authClient } = getFirebaseClients()
+      const provider = new GoogleAuthProvider()
+      const credential = await signInWithPopup(authClient, provider)
+      setCloudUserEmail(credential.user.email ?? 'Usuario Google')
+      setCloudSyncStatus('idle')
+    } catch (error) {
+      setCloudSyncStatus('error')
+      reportCloudError(error, 'No se pudo iniciar sesion con Google.')
+      throw error
+    }
+  }, [reportCloudError])
+
+  const logoutCloud = useCallback(async () => {
+    setCloudError(null)
+    try {
+      const { authClient } = getFirebaseClients()
+      await signOut(authClient)
+      setCloudUserEmail(null)
+      setCloudSyncStatus('idle')
+      logoutProfile()
+    } catch (error) {
+      reportCloudError(error, 'No se pudo cerrar la sesion en la nube.')
+      throw error
+    }
+  }, [logoutProfile, reportCloudError])
+
+  const restoreIntoDefaultProfile = useCallback(
+    async (blob: string, masterPassword: string, fallbackName: string) => {
+      const targetProfileId = 'default'
+      await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
+      const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
+      if (!success) throw new Error('La contraseña maestra no coincide con la boveda cifrada.')
+
+      setCurrentProfileId(targetProfileId)
+      setCurrentProfileName(fallbackName)
+      setIsUnlocked(true)
+      const loaded = await storeRef.current.loadAllIdentities(targetProfileId)
+      setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+      setCloudSyncStatus('synced')
+      await listProfiles()
     },
     [listProfiles],
   )
+
+  const restoreProfileFromCloud = useCallback(async () => {
+    throw new Error('El acceso por email y contraseña ya no esta soportado. Usa Google.')
+  }, [])
 
   const restoreProfileFromGoogleCloud = useCallback(
     async (masterPassword: string) => {
       setCloudError(null)
       setCloudSyncStatus('syncing')
-
-      let user: User
       try {
+        const { authClient, dbClient } = getFirebaseClients()
         const provider = new GoogleAuthProvider()
-        const credential = await signInWithPopup(auth, provider)
-        user = credential.user
-        setCloudUserEmail(credential.user.email ?? 'Usuario Google')
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error de autenticación con Google.'
+        const credential = await signInWithPopup(authClient, provider)
+        const snapshot = await getDoc(doc(dbClient, 'vaults', credential.user.uid))
+        const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
+        if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda valida en Google.')
+        await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Restaurada')
+      } catch (error) {
         setCloudSyncStatus('error')
-        setCloudError(message)
-        throw err
-      }
-
-      try {
-        const vaultDocRef = doc(db, 'vaults', user.uid)
-        const vaultSnap = await getDoc(vaultDocRef)
-
-        if (!vaultSnap.exists()) {
-          throw new Error('No se encontraron datos de la bóveda en esta cuenta de Google.')
-        }
-
-        const blob = vaultSnap.data()?.encrypted_vault_blob as string | undefined
-        if (!blob) {
-          throw new Error('El archivo de la bóveda en la nube está vacío.')
-        }
-
-        const targetProfileId = 'default'
-        await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
-        const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
-
-        if (success) {
-          setCurrentProfileId(targetProfileId)
-          setCurrentProfileName('Bóveda Restaurada')
-          setIsUnlocked(true)
-          const loaded = await storeRef.current.loadAllPlatforms(targetProfileId)
-          setPlatforms(loaded)
-          setCloudSyncStatus('synced')
-          await listProfiles()
-        } else {
-          throw new Error('Error al desbloquear el perfil restaurado. Contraseña maestra incorrecta.')
-        }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : 'Error en la restauración.'
-        console.error('Error al restaurar desde Firebase:', err)
-        setCloudSyncStatus('error')
-        setCloudError(message)
-        throw err
+        reportCloudError(error, 'No se pudo restaurar la boveda desde Google.')
+        throw error
       }
     },
-    [listProfiles],
+    [reportCloudError, restoreIntoDefaultProfile],
   )
 
-  const initializeNewVault = useCallback(async (masterPassword: string) => {
-    setCloudError(null)
-    setCloudSyncStatus('syncing')
-    try {
-      const profileId = 'default'
-      const profileName = 'Bóveda Principal'
-      
-      const dbInstance = await getVaultDb()
-      await dbInstance.delete('meta', `profile_${profileId}`)
-      
-      const id = await storeRef.current.createProfile(profileName, masterPassword)
-      
-      const ok = await storeRef.current.unlockProfile(id, masterPassword)
-      if (!ok) {
-        throw new Error('No se pudo desbloquear la bóveda recién creada.')
-      }
-      
-      setCurrentProfileId(id)
-      setCurrentProfileName(profileName)
-      setIsUnlocked(true)
-      setPlatforms([])
-      
-      const encryptedBlob = await storeRef.current.exportCloudPayload(id)
-      const user = firebaseUserRef.current
-      if (user) {
-        await setDoc(doc(db, 'vaults', user.uid), {
+  const initializeNewVault = useCallback(
+    async (masterPassword: string) => {
+      setCloudError(null)
+      setCloudSyncStatus('syncing')
+      try {
+        const { dbClient } = getFirebaseClients()
+        const user = firebaseUserRef.current
+        if (!user) throw new Error('No hay una sesion valida en Firebase.')
+
+        const profileName = 'Boveda Principal'
+        const profileId = await storeRef.current.createProfile(profileName, masterPassword)
+        const unlocked = await storeRef.current.unlockProfile(profileId, masterPassword)
+        if (!unlocked) throw new Error('La boveda nueva no pudo desbloquearse.')
+
+        const localIdentity = createIdentity()
+        await storeRef.current.saveIdentity(profileId, localIdentity)
+        setCurrentProfileId(profileId)
+        setCurrentProfileName(profileName)
+        setIsUnlocked(true)
+        setIdentities([localIdentity])
+
+        const encryptedBlob = await storeRef.current.exportCloudPayload(profileId)
+        await setDoc(doc(dbClient, 'vaults', user.uid), {
           encrypted_vault_blob: encryptedBlob,
           updated_at: new Date().toISOString(),
         })
         setCloudSyncStatus('synced')
         setCloudVaultExists(true)
-      } else {
-        throw new Error('Usuario no autenticado en la nube.')
+        await listProfiles()
+      } catch (error) {
+        setCloudSyncStatus('error')
+        reportCloudError(error, 'No se pudo crear la boveda inicial.')
+        throw error
       }
-      
-      await listProfiles()
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al inicializar la bóveda.'
-      console.error('Error al inicializar la bóveda:', err)
-      setCloudSyncStatus('error')
-      setCloudError(message)
-      throw err
-    }
-  }, [listProfiles])
+    },
+    [listProfiles, reportCloudError],
+  )
 
-  const unlockOrRestoreVault = useCallback(async (masterPassword: string) => {
-    setCloudError(null)
-    setCloudSyncStatus('syncing')
-    const profileId = 'default'
-    const user = firebaseUserRef.current
-    if (!user) {
-      throw new Error('Usuario no autenticado en la nube.')
-    }
-    
-    try {
-      const dbInstance = await getVaultDb()
-      const localProfile = await dbInstance.get('meta', `profile_${profileId}`)
-      
-      if (localProfile) {
-        const success = await storeRef.current.unlockProfile(profileId, masterPassword)
-        if (success) {
+  const unlockOrRestoreVault = useCallback(
+    async (masterPassword: string) => {
+      setCloudError(null)
+      setCloudSyncStatus('syncing')
+      try {
+        const { dbClient } = getFirebaseClients()
+        const user = firebaseUserRef.current
+        if (!user) throw new Error('No hay una sesion valida en Firebase.')
+
+        const profileId = 'default'
+        const knownProfiles = await storeRef.current.listProfiles()
+        const localDefaultProfile = knownProfiles.find((profile) => profile.id === profileId)
+
+        if (localDefaultProfile) {
+          const unlocked = await storeRef.current.unlockProfile(profileId, masterPassword)
+          if (!unlocked) throw new Error('Contraseña maestra incorrecta.')
           setCurrentProfileId(profileId)
-          setCurrentProfileName(localProfile.name || 'Bóveda Principal')
+          setCurrentProfileName(localDefaultProfile.name || 'Boveda Principal')
           setIsUnlocked(true)
-          const loaded = await storeRef.current.loadAllPlatforms(profileId)
-          setPlatforms(loaded)
+          const loaded = await storeRef.current.loadAllIdentities(profileId)
+          setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
           setCloudSyncStatus('synced')
           return
         }
-        throw new Error('Contraseña maestra incorrecta.')
-      }
-      
-      const docRef = doc(db, 'vaults', user.uid)
-      const snap = await getDoc(docRef)
-      if (!snap.exists()) {
-        throw new Error('No se encontraron datos de la bóveda en la nube.')
-      }
-      
-      const blob = snap.data()?.encrypted_vault_blob
-      if (!blob) {
-        throw new Error('El archivo de la bóveda en la nube está vacío.')
-      }
-      
-      await storeRef.current.restoreCloudPayload(profileId, blob, masterPassword)
-      const success = await storeRef.current.unlockProfile(profileId, masterPassword)
-      if (success) {
-        setCurrentProfileId(profileId)
-        setCurrentProfileName('Bóveda Principal')
-        setIsUnlocked(true)
-        const loaded = await storeRef.current.loadAllPlatforms(profileId)
-        setPlatforms(loaded)
-        setCloudSyncStatus('synced')
-        await listProfiles()
-      } else {
-        throw new Error('Contraseña maestra incorrecta para descifrar la bóveda descargada.')
-      }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Error al desbloquear la bóveda.'
-      console.error('Error al desbloquear/restaurar:', err)
-      setCloudSyncStatus('error')
-      setCloudError(message)
-      throw err
-    }
-  }, [listProfiles])
 
-  // Obtener y listar perfiles iniciales.
-  useEffect(() => {
-    storeRef.current.isInitialized().then(async (initialized) => {
-      setIsInitialized(initialized)
-      if (initialized) {
-        const loaded = await storeRef.current.listProfiles()
-        setProfiles(loaded)
-        if (loaded.length === 0) {
-          setIsInitialized(false)
-        }
+        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+        const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
+        if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda en la nube.')
+        await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Principal')
+      } catch (error) {
+        setCloudSyncStatus('error')
+        reportCloudError(error, 'No se pudo desbloquear ni restaurar la boveda.')
+        throw error
       }
-      setIsReady(true)
-    })
-  }, [])
-
-  const refreshPlatforms = useCallback(async () => {
-    if (!currentProfileId) return
-    const loaded = await storeRef.current.loadAllPlatforms(currentProfileId)
-    setPlatforms(loaded)
-  }, [currentProfileId])
+    },
+    [reportCloudError, restoreIntoDefaultProfile],
+  )
 
   const createProfile = useCallback(
     async (name: string, password: string) => {
@@ -491,114 +489,34 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [listProfiles],
   )
 
-  const selectProfile = useCallback(async (id: string, password: string) => {
-    const success = await storeRef.current.unlockProfile(id, password)
-    if (success) {
+  const selectProfile = useCallback(
+    async (id: string, password: string) => {
+      const success = await storeRef.current.unlockProfile(id, password)
+      if (!success) return false
       const list = await storeRef.current.listProfiles()
-      const prof = list.find((p) => p.id === id)
+      const profile = list.find((item) => item.id === id)
       setCurrentProfileId(id)
-      setCurrentProfileName(prof ? prof.name : 'Usuario')
+      setCurrentProfileName(profile?.name ?? 'Usuario')
       setIsUnlocked(true)
-      const loaded = await storeRef.current.loadAllPlatforms(id)
-      setPlatforms(loaded)
-    }
-    return success
-  }, [])
+      const loaded = await storeRef.current.loadAllIdentities(id)
+      setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+      setAppError(null)
+      return true
+    },
+    [],
+  )
 
   const deleteCurrentProfile = useCallback(async () => {
     if (!currentProfileId) return
-    const idToDelete = currentProfileId
+    const profileIdToDelete = currentProfileId
     logoutProfile()
-    await storeRef.current.deleteProfile(idToDelete)
+    await storeRef.current.deleteProfile(profileIdToDelete)
     await listProfiles()
-  }, [currentProfileId, logoutProfile, listProfiles])
-
-  const savePlatform = useCallback(
-    async (platform: Platform) => {
-      if (!currentProfileId) return
-      const updated: Platform = {
-        ...platform,
-        updatedAt: new Date().toISOString(),
-      }
-      await storeRef.current.savePlatform(currentProfileId, updated)
-      await refreshPlatforms()
-      triggerCloudSync()
-    },
-    [currentProfileId, refreshPlatforms, triggerCloudSync],
-  )
-
-  const addPlatform = useCallback(
-    async (name: string) => {
-      if (!currentProfileId) throw new Error('Ningún perfil activo.')
-      const now = new Date().toISOString()
-      const platform: Platform = {
-        id: generateId(),
-        name: name.trim(),
-        accounts: [],
-        createdAt: now,
-        updatedAt: now,
-      }
-      await storeRef.current.savePlatform(currentProfileId, platform)
-      await refreshPlatforms()
-      triggerCloudSync()
-      return platform
-    },
-    [currentProfileId, refreshPlatforms, triggerCloudSync],
-  )
-
-  const deletePlatform = useCallback(
-    async (platformId: string) => {
-      if (!currentProfileId) return
-      await storeRef.current.deletePlatform(currentProfileId, platformId)
-      await refreshPlatforms()
-      triggerCloudSync()
-    },
-    [currentProfileId, refreshPlatforms, triggerCloudSync],
-  )
-
-  const addAccount = useCallback(
-    async (platformId: string, account: Account) => {
-      const platform = platforms.find((p) => p.id === platformId)
-      if (!platform) throw new Error('Plataforma no encontrada.')
-      const now = new Date().toISOString()
-      const newAccount: Account = { ...account, updatedAt: now }
-      await savePlatform({
-        ...platform,
-        accounts: [...platform.accounts, newAccount],
-      })
-    },
-    [platforms, savePlatform],
-  )
-
-  const updateAccount = useCallback(
-    async (platformId: string, accountId: string, account: Account) => {
-      const platform = platforms.find((p) => p.id === platformId)
-      if (!platform) throw new Error('Plataforma no encontrada.')
-      await savePlatform({
-        ...platform,
-        accounts: platform.accounts.map((a) =>
-          a.id === accountId ? { ...account, updatedAt: new Date().toISOString() } : a,
-        ),
-      })
-    },
-    [platforms, savePlatform],
-  )
-
-  const deleteAccount = useCallback(
-    async (platformId: string, accountId: string) => {
-      const platform = platforms.find((p) => p.id === platformId)
-      if (!platform) throw new Error('Plataforma no encontrada.')
-      await savePlatform({
-        ...platform,
-        accounts: platform.accounts.filter((a) => a.id !== accountId),
-      })
-    },
-    [platforms, savePlatform],
-  )
+  }, [currentProfileId, listProfiles, logoutProfile])
 
   const exportBackup = useCallback(
     async (masterPassword: string) => {
-      if (!currentProfileId) throw new Error('Ningún perfil activo.')
+      if (!currentProfileId) throw new Error('No hay un perfil activo para exportar.')
       return await storeRef.current.exportBackup(currentProfileId, masterPassword)
     },
     [currentProfileId],
@@ -606,62 +524,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const importBackup = useCallback(
     async (backupJsonString: string, masterPassword: string) => {
-      if (!currentProfileId) throw new Error('Ningún perfil activo.')
+      if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
       await storeRef.current.importBackup(currentProfileId, backupJsonString, masterPassword)
       await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-      await refreshPlatforms()
+      await refreshIdentities()
       triggerCloudSync()
     },
-    [currentProfileId, refreshPlatforms, triggerCloudSync],
-  )
-
-  const importMassiveAccounts = useCallback(
-    async (parsedAccounts: Array<{ platformName: string; account: Account }>) => {
-      if (!currentProfileId) return
-      const currentPlatformsSnapshot = [...platforms]
-      const platformsToSaveMap = new Map<string, Platform>()
-
-      for (const item of parsedAccounts) {
-        const platformNameTrimmed = item.platformName.trim()
-        if (!platformNameTrimmed) continue
-
-        const searchNameLower = platformNameTrimmed.toLowerCase()
-        const platform =
-          Array.from(platformsToSaveMap.values()).find(
-            (p) => p.name.toLowerCase() === searchNameLower,
-          ) || currentPlatformsSnapshot.find((p) => p.name.toLowerCase() === searchNameLower)
-
-        const now = new Date().toISOString()
-        const newAccount = { ...item.account, createdAt: now, updatedAt: now }
-
-        if (!platform) {
-          const newPlatform: Platform = {
-            id: generateId(),
-            name: platformNameTrimmed,
-            accounts: [newAccount],
-            createdAt: now,
-            updatedAt: now,
-          }
-          platformsToSaveMap.set(newPlatform.id, newPlatform)
-        } else {
-          const updatedPlatform: Platform = {
-            ...platform,
-            accounts: [...platform.accounts, newAccount],
-            updatedAt: now,
-          }
-          platformsToSaveMap.set(platform.id, updatedPlatform)
-        }
-      }
-
-      if (platformsToSaveMap.size > 0) {
-        const listToSave = Array.from(platformsToSaveMap.values())
-        await storeRef.current.saveMultiplePlatforms(currentProfileId, listToSave)
-      }
-
-      await refreshPlatforms()
-      triggerCloudSync()
-    },
-    [currentProfileId, platforms, refreshPlatforms, triggerCloudSync],
+    [currentProfileId, refreshIdentities, triggerCloudSync],
   )
 
   const value = useMemo<VaultContextValue>(
@@ -669,21 +538,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isReady: isReady && isAuthReady,
       isInitialized,
       isUnlocked,
-      platforms,
+      identities,
       profiles,
       currentProfileId,
       currentProfileName,
+      appError,
+      clearAppError,
       listProfiles,
       createProfile,
       selectProfile,
       deleteCurrentProfile,
       logoutProfile,
+      addIdentity,
+      saveIdentity,
+      deleteIdentity,
       addPlatform,
-      savePlatform,
+      updatePlatform,
       deletePlatform,
-      addAccount,
-      updateAccount,
-      deleteAccount,
       exportBackup,
       importBackup,
       importMassiveAccounts,
@@ -691,8 +562,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudSyncStatus,
       cloudError,
       cloudVaultExists,
-      loginCloud,
-      registerCloud,
       loginWithGoogleCloud,
       logoutCloud,
       syncActiveProfileToCloud,
@@ -702,51 +571,49 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       unlockOrRestoreVault,
     }),
     [
-      isReady,
-      isAuthReady,
-      isInitialized,
-      isUnlocked,
-      platforms,
-      profiles,
+      addIdentity,
+      addPlatform,
+      appError,
+      clearAppError,
+      cloudError,
+      cloudSyncStatus,
+      cloudUserEmail,
+      cloudVaultExists,
+      createProfile,
       currentProfileId,
       currentProfileName,
-      listProfiles,
-      createProfile,
-      selectProfile,
       deleteCurrentProfile,
-      logoutProfile,
-      addPlatform,
-      savePlatform,
+      deleteIdentity,
       deletePlatform,
-      addAccount,
-      updateAccount,
-      deleteAccount,
       exportBackup,
+      identities,
       importBackup,
       importMassiveAccounts,
-      cloudUserEmail,
-      cloudSyncStatus,
-      cloudError,
-      cloudVaultExists,
-      loginCloud,
-      registerCloud,
+      initializeNewVault,
+      isAuthReady,
+      isInitialized,
+      isReady,
+      isUnlocked,
+      listProfiles,
       loginWithGoogleCloud,
       logoutCloud,
-      syncActiveProfileToCloud,
+      logoutProfile,
+      profiles,
       restoreProfileFromCloud,
       restoreProfileFromGoogleCloud,
-      initializeNewVault,
+      saveIdentity,
+      selectProfile,
+      syncActiveProfileToCloud,
       unlockOrRestoreVault,
+      updatePlatform,
     ],
   )
 
-  return (
-    <VaultContext.Provider value={value}>{children}</VaultContext.Provider>
-  )
+  return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>
 }
 
 export function useVault(): VaultContextValue {
-  const ctx = useContext(VaultContext)
-  if (!ctx) throw new Error('useVault debe usarse dentro de VaultProvider')
-  return ctx
+  const context = useContext(VaultContext)
+  if (!context) throw new Error('useVault debe usarse dentro de VaultProvider')
+  return context
 }

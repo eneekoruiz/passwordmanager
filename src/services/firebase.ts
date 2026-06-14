@@ -20,27 +20,40 @@ import { initializeApp, type FirebaseApp } from 'firebase/app'
 import { getAuth, type Auth } from 'firebase/auth'
 import { getFirestore, type Firestore } from 'firebase/firestore'
 
-/** Configuración de Firebase leída de variables de entorno de Vite. */
-const firebaseConfig = {
-  apiKey: import.meta.env.VITE_FIREBASE_API_KEY || 'placeholder-api-key',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN || 'placeholder.firebaseapp.com',
-  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID || 'placeholder-project',
-  appId: import.meta.env.VITE_FIREBASE_APP_ID || '1:000000000000:web:placeholder',
+const firebaseEnv = {
+  apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim() ?? '',
+  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() ?? '',
+  projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID?.trim() ?? '',
+  appId: import.meta.env.VITE_FIREBASE_APP_ID?.trim() ?? '',
 }
 
+const missingEnvKeys = Object.entries({
+  VITE_FIREBASE_API_KEY: firebaseEnv.apiKey,
+  VITE_FIREBASE_AUTH_DOMAIN: firebaseEnv.authDomain,
+  VITE_FIREBASE_PROJECT_ID: firebaseEnv.projectId,
+  VITE_FIREBASE_APP_ID: firebaseEnv.appId,
+})
+  .filter(([, value]) => !value)
+  .map(([key]) => key)
+
+export const firebaseConfigError =
+  missingEnvKeys.length > 0
+    ? `Faltan variables de entorno de Firebase: ${missingEnvKeys.join(', ')}. Configuralas en Vercel antes de desplegar.`
+    : null
+
 /** Instancia principal de la aplicación Firebase. */
-const app: FirebaseApp = initializeApp(firebaseConfig)
+const app: FirebaseApp | null = firebaseConfigError ? null : initializeApp(firebaseEnv)
 
 /**
  * Instancia de Firebase Authentication.
  * Usada para registrar usuarios, iniciar y cerrar sesión,
  * y escuchar cambios en el estado de autenticación.
  */
-export const auth: Auth = getAuth(app)
+export const auth: Auth | null = app ? getAuth(app) : null
 
 /**
  * Instancia de Cloud Firestore.
  * Usada exclusivamente para leer y escribir el blob de la bóveda
  * cifrada del usuario autenticado en la colección `vaults`.
  */
-export const db: Firestore = getFirestore(app)
+export const db: Firestore | null = app ? getFirestore(app) : null

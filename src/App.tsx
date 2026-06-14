@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { VaultProvider, useVault } from './context/VaultContext'
 import { Sidebar } from './components/Sidebar'
 import { MainArea } from './components/MainArea'
@@ -6,36 +6,54 @@ import { UnlockScreen } from './components/UnlockScreen'
 import { SettingsModal } from './components/SettingsModal'
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
+import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
+
+interface BeforeInstallPromptEvent extends Event {
+  prompt: () => Promise<void>
+  userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
 
 function VaultApp() {
   const {
     isReady,
     isUnlocked,
-    platforms,
+    identities,
+    addIdentity,
+    deleteIdentity,
     addPlatform,
-    savePlatform,
+    updatePlatform,
     deletePlatform,
     exportBackup,
     importBackup,
     importMassiveAccounts,
     currentProfileName,
     logoutProfile,
+    appError,
+    clearAppError,
   } = useVault()
 
   const [isMobile, setIsMobile] = useState(false)
+
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
     const checkMobile = () => setIsMobile(window.innerWidth < 1024)
     checkMobile()
     window.addEventListener('resize', checkMobile)
     return () => window.removeEventListener('resize', checkMobile)
   }, [])
 
-  const [deferredPrompt, setDeferredPrompt] = useState<any>(null)
+  const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
 
   useEffect(() => {
-    const handleBeforeInstallPrompt = (e: Event) => {
-      e.preventDefault()
-      setDeferredPrompt(e)
+    if (typeof window === 'undefined') return
+
+    const handleBeforeInstallPrompt = (event: Event) => {
+      const promptEvent = event as BeforeInstallPromptEvent
+      if (typeof promptEvent.prompt !== 'function') return
+
+      promptEvent.preventDefault()
+      setDeferredPrompt(promptEvent)
     }
 
     const handleAppInstalled = () => {
@@ -53,14 +71,15 @@ function VaultApp() {
 
   const handleInstallApp = async () => {
     if (!deferredPrompt) return
-    deferredPrompt.prompt()
+
     try {
+      await deferredPrompt.prompt()
       const { outcome } = await deferredPrompt.userChoice
       if (outcome === 'accepted') {
         setDeferredPrompt(null)
       }
-    } catch (err) {
-      console.error('Error al solicitar la instalación de la PWA:', err)
+    } catch (error) {
+      logUnexpectedError('Error al solicitar la instalacion de la PWA', error)
     }
   }
 
@@ -70,16 +89,22 @@ function VaultApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
 
-  const filteredPlatforms = useMemo(() => {
+  const filteredIdentities = useMemo(() => {
     const query = searchQuery.trim().toLowerCase()
-    if (!query) return platforms
-    return platforms.filter((p) => p.name.toLowerCase().includes(query))
-  }, [platforms, searchQuery])
+    if (!query) return identities
+    return identities.filter((identity) => identity.email.toLowerCase().includes(query))
+  }, [identities, searchQuery])
 
-  const selectedPlatform = useMemo(
-    () => platforms.find((p) => p.id === selectedId) ?? null,
-    [platforms, selectedId],
+  const selectedIdentity = useMemo(
+    () => identities.find((identity) => identity.id === selectedId) ?? null,
+    [identities, selectedId],
   )
+
+  const [pageMessage, setPageMessage] = useState<string | null>(null)
+
+  useEffect(() => {
+    setPageMessage(appError)
+  }, [appError])
 
   if (!isReady) {
     return (
@@ -93,6 +118,16 @@ function VaultApp() {
     return <UnlockScreen />
   }
 
+  const dismissMessage = () => {
+    setPageMessage(null)
+    clearAppError()
+  }
+
+  const reportUiError = (error: unknown, fallback: string) => {
+    const message = getFriendlyErrorMessage(error, fallback)
+    setPageMessage(message)
+  }
+
   const handleSelect = (id: string) => {
     setSelectedId(id)
     setSidebarOpen(false)
@@ -102,19 +137,18 @@ function VaultApp() {
     logoutProfile()
     setSelectedId(null)
     setSearchQuery('')
+    setPageMessage(null)
   }
 
-  const handleRenamePlatform = async (id: string, name: string) => {
-    const platform = platforms.find((p) => p.id === id)
-    if (platform) {
-      await savePlatform({ ...platform, name })
-    }
-  }
-
-  const handleDeletePlatform = async (id: string) => {
-    await deletePlatform(id)
-    if (selectedId === id) {
-      setSelectedId(null)
+  const handleDeleteIdentity = async (id: string) => {
+    try {
+      await deleteIdentity(id)
+      if (selectedId === id) {
+        setSelectedId(null)
+      }
+      dismissMessage()
+    } catch (error) {
+      reportUiError(error, 'No se pudo eliminar la identidad.')
     }
   }
 
@@ -122,12 +156,12 @@ function VaultApp() {
     const backupJsonString = await exportBackup(password)
     const blob = new Blob([backupJsonString], { type: 'application/json' })
     const url = URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `contras_backup_${new Date().toISOString().split('T')[0]}.json`
-    document.body.appendChild(a)
-    a.click()
-    document.body.removeChild(a)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `contras_backup_${new Date().toISOString().split('T')[0]}.json`
+    document.body.appendChild(link)
+    link.click()
+    document.body.removeChild(link)
     URL.revokeObjectURL(url)
   }
 
@@ -136,49 +170,66 @@ function VaultApp() {
     setSelectedId(null)
   }
 
+  const pageBanner = pageMessage ? (
+    <div className="border-b border-red-100 bg-red-50/85 px-4 py-3 text-xs text-red-700 backdrop-blur">
+      <div className="mx-auto flex max-w-5xl items-start justify-between gap-3">
+        <span className="leading-relaxed">{pageMessage}</span>
+        <button
+          type="button"
+          onClick={dismissMessage}
+          className="shrink-0 rounded-md px-2 py-1 font-semibold text-red-700 transition-colors hover:bg-red-100"
+        >
+          Cerrar
+        </button>
+      </div>
+    </div>
+  ) : null
+
   if (isMobile) {
     return (
-      <div className="flex h-dvh flex-col bg-surface overflow-hidden pb-16">
+      <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16">
+        {pageBanner}
         <div className="flex-1 overflow-y-auto">
           {selectedId === null ? (
             <Sidebar
-              platforms={filteredPlatforms}
+              identities={filteredIdentities}
               selectedId={selectedId}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelect={handleSelect}
-              onAddPlatform={async (name) => {
-                const platform = await addPlatform(name)
-                setSelectedId(platform.id)
+              onAddIdentity={async (email) => {
+                const identity = await addIdentity(email)
+                setSelectedId(identity.id)
               }}
-              onRenamePlatform={handleRenamePlatform}
-              onDeletePlatform={handleDeletePlatform}
+              onDeleteIdentity={handleDeleteIdentity}
               onLock={handleLock}
               isOpen={false}
               onClose={() => {}}
               onOpenSettings={() => setSettingsOpen(true)}
               profileName={currentProfileName}
               isMobile={true}
-              installPromptAvailable={!!deferredPrompt}
+              installPromptAvailable={Boolean(deferredPrompt)}
               onInstall={handleInstallApp}
             />
           ) : (
             <MainArea
-              platform={selectedPlatform}
+              identity={selectedIdentity}
               onOpenSidebar={() => {}}
-              onSelectPlatform={setSelectedId}
+              onSelectIdentity={setSelectedId}
               onOpenImportText={() => setImportTextOpen(true)}
+              onAddPlatform={addPlatform}
+              onUpdatePlatform={updatePlatform}
+              onDeletePlatform={deletePlatform}
               isMobile={true}
             />
           )}
         </div>
 
-        {/* Bottom Navigation Bar translúcida estilo iOS */}
-        <div className="fixed bottom-0 left-0 right-0 z-40 h-16 border-t border-black/5 bg-white/70 backdrop-blur-lg flex items-center justify-around px-6 pb-safe shadow-[0_-1px_10px_rgba(0,0,0,0.02)]">
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-black/5 bg-white/70 px-6 pb-safe shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-lg">
           <button
             type="button"
             onClick={() => setSelectedId(null)}
-            className={`flex flex-col items-center justify-center gap-0.5 w-16 text-center transition-colors ${
+            className={`flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
               selectedId === null ? 'text-text-primary' : 'text-text-tertiary'
             }`}
           >
@@ -187,11 +238,11 @@ function VaultApp() {
             </svg>
             <span className="text-[10px] font-semibold">Plataformas</span>
           </button>
-          
+
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="flex flex-col items-center justify-center gap-0.5 w-16 text-center text-text-tertiary hover:text-text-primary transition-colors"
+            className="flex w-16 flex-col items-center justify-center gap-0.5 text-center text-text-tertiary transition-colors hover:text-text-primary"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -203,7 +254,7 @@ function VaultApp() {
           <button
             type="button"
             onClick={handleLock}
-            className="flex flex-col items-center justify-center gap-0.5 w-16 text-center text-text-tertiary hover:text-text-primary transition-colors"
+            className="flex w-16 flex-col items-center justify-center gap-0.5 text-center text-text-tertiary transition-colors hover:text-text-primary"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
@@ -234,36 +285,41 @@ function VaultApp() {
   return (
     <div className="flex h-dvh overflow-hidden bg-surface">
       <Sidebar
-        platforms={filteredPlatforms}
+        identities={filteredIdentities}
         selectedId={selectedId}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSelect={handleSelect}
-        onAddPlatform={async (name) => {
-          const platform = await addPlatform(name)
-          setSelectedId(platform.id)
+        onAddIdentity={async (email) => {
+          const identity = await addIdentity(email)
+          setSelectedId(identity.id)
         }}
-        onRenamePlatform={handleRenamePlatform}
-        onDeletePlatform={handleDeletePlatform}
+        onDeleteIdentity={handleDeleteIdentity}
         onLock={handleLock}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
         profileName={currentProfileName}
         isMobile={false}
-        installPromptAvailable={!!deferredPrompt}
+        installPromptAvailable={Boolean(deferredPrompt)}
         onInstall={handleInstallApp}
       />
 
-      <main className="flex flex-1 flex-col min-w-0 bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
-        <MainArea
-          platform={selectedPlatform}
-          onOpenSidebar={() => setSidebarOpen(true)}
-          onSelectPlatform={setSelectedId}
-          onOpenImportText={() => setImportTextOpen(true)}
-          isMobile={false}
-        />
-      </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        {pageBanner}
+        <main className="flex min-w-0 flex-1 flex-col bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+          <MainArea
+            identity={selectedIdentity}
+            onOpenSidebar={() => setSidebarOpen(true)}
+            onSelectIdentity={setSelectedId}
+            onOpenImportText={() => setImportTextOpen(true)}
+            onAddPlatform={addPlatform}
+            onUpdatePlatform={updatePlatform}
+            onDeletePlatform={deletePlatform}
+            isMobile={false}
+          />
+        </main>
+      </div>
 
       <SettingsModal
         isOpen={settingsOpen}

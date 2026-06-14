@@ -1,9 +1,10 @@
 import { CryptoVault } from '../crypto/CryptoVault'
 import { base64ToBytes, bytesToBase64, stringToBytes, bytesToString } from '../crypto/encoding'
 import type { EncryptedPayload } from '../crypto/types'
-import type { Platform } from '../types'
+import type { Identity } from '../types'
 import { getVaultDb } from './vaultDb'
 import { generateId } from '../utils/id'
+import { identityMatchesEmail, normalizeIdentityRecord } from '../utils/identity'
 
 const VAULT_META_KEY = 'vault' as const
 const VAULT_VERIFICATION_MARKER = { marker: 'contras-vault-v1' } as const
@@ -183,9 +184,9 @@ export class VaultStore {
    * @param {string} profileId - ID del perfil activo.
    * @returns {Promise<Platform[]>} Array de plataformas ordenadas.
    */
-  async loadAllPlatforms(profileId: string): Promise<Platform[]> {
+  async loadAllIdentities(profileId: string): Promise<Identity[]> {
     if (!this.vault.isUnlocked()) {
-      throw new Error('La bóveda debe estar desbloqueada para leer plataformas.')
+      throw new Error('La bóveda debe estar desbloqueada para leer identidades.')
     }
 
     const db = await getVaultDb()
@@ -193,17 +194,30 @@ export class VaultStore {
     const allKeys = await tx.store.getAllKeys()
     const prefix = `${profileId}_`
 
-    const platforms: Platform[] = []
+    const payloads: EncryptedPayload[] = []
     for (const key of allKeys) {
       if (key.startsWith(prefix)) {
         const payload = await tx.store.get(key)
         if (payload) {
-          platforms.push(await this.vault.decryptJson<Platform>(payload))
+          payloads.push(payload)
         }
       }
     }
+    await tx.done
 
-    return platforms.sort((a, b) => a.name.localeCompare(b.name))
+    const identities: Identity[] = []
+    for (const payload of payloads) {
+      const identity = normalizeIdentityRecord(await this.vault.decryptJson<unknown>(payload))
+      const existingIdentity = identities.find((item) => identityMatchesEmail(item, identity.email))
+      if (existingIdentity) {
+        existingIdentity.platforms.push(...identity.platforms)
+        existingIdentity.updatedAt = new Date().toISOString()
+      } else {
+        identities.push(identity)
+      }
+    }
+
+    return identities.sort((a, b) => a.email.localeCompare(b.email))
   }
 
   /**
@@ -213,14 +227,14 @@ export class VaultStore {
    * @param {Platform} platform - Plataforma a guardar.
    * @returns {Promise<void>}
    */
-  async savePlatform(profileId: string, platform: Platform): Promise<void> {
+  async saveIdentity(profileId: string, identity: Identity): Promise<void> {
     if (!this.vault.isUnlocked()) {
       throw new Error('La bóveda debe estar desbloqueada para guardar.')
     }
 
-    const encrypted: EncryptedPayload = await this.vault.encryptJson(platform)
+    const encrypted: EncryptedPayload = await this.vault.encryptJson(identity)
     const db = await getVaultDb()
-    await db.put('platforms', encrypted, `${profileId}_${platform.id}`)
+    await db.put('platforms', encrypted, `${profileId}_${identity.id}`)
   }
 
   /**
@@ -230,17 +244,23 @@ export class VaultStore {
    * @param {Platform[]} platforms - Array de plataformas a guardar en lote.
    * @returns {Promise<void>}
    */
-  async saveMultiplePlatforms(profileId: string, platforms: Platform[]): Promise<void> {
+  async saveMultipleIdentities(profileId: string, identities: Identity[]): Promise<void> {
     if (!this.vault.isUnlocked()) {
       throw new Error('La bóveda debe estar desbloqueada para guardar.')
     }
 
+    const encryptedIdentities = await Promise.all(
+      identities.map(async (identity) => ({
+        key: `${profileId}_${identity.id}`,
+        payload: await this.vault.encryptJson(identity),
+      })),
+    )
+
     const db = await getVaultDb()
     const tx = db.transaction('platforms', 'readwrite')
     
-    for (const platform of platforms) {
-      const encrypted: EncryptedPayload = await this.vault.encryptJson(platform)
-      await tx.store.put(encrypted, `${profileId}_${platform.id}`)
+    for (const record of encryptedIdentities) {
+      await tx.store.put(record.payload, record.key)
     }
 
     await tx.done
@@ -253,9 +273,9 @@ export class VaultStore {
    * @param {string} platformId - ID de la plataforma.
    * @returns {Promise<void>}
    */
-  async deletePlatform(profileId: string, platformId: string): Promise<void> {
+  async deleteIdentity(profileId: string, identityId: string): Promise<void> {
     const db = await getVaultDb()
-    await db.delete('platforms', `${profileId}_${platformId}`)
+    await db.delete('platforms', `${profileId}_${identityId}`)
   }
 
   /**
@@ -274,19 +294,20 @@ export class VaultStore {
     const allKeys = await tx.store.getAllKeys()
     const prefix = `${profileId}_`
 
-    const platformsData: { id: string; payload: EncryptedPayload }[] = []
+    const identitiesData: { id: string; payload: EncryptedPayload }[] = []
     for (const key of allKeys) {
       if (key.startsWith(prefix)) {
         const payload = await tx.store.get(key)
         if (payload) {
           const platformId = key.substring(prefix.length)
-          platformsData.push({
+          identitiesData.push({
             id: platformId,
             payload
           })
         }
       }
     }
+    await tx.done
 
     const databaseDump = {
       meta: {
@@ -295,7 +316,7 @@ export class VaultStore {
         createdAt: profileRecord.createdAt,
         name: profileRecord.name
       },
-      platforms: platformsData
+      identities: identitiesData
     }
 
     const salt = CryptoVault.generateSalt()
@@ -343,7 +364,8 @@ export class VaultStore {
     const decryptedString = bytesToString(decryptedBytes)
     const databaseDump = JSON.parse(decryptedString)
 
-    if (!databaseDump.meta || !databaseDump.platforms) {
+    const importedRecords = databaseDump.identities ?? databaseDump.platforms
+    if (!databaseDump.meta || !importedRecords) {
       throw new Error('El contenido del backup no tiene el formato correcto.')
     }
 
@@ -373,7 +395,7 @@ export class VaultStore {
 
     // Insertar nuevas plataformas
     const txWrite = db.transaction('platforms', 'readwrite')
-    for (const record of databaseDump.platforms) {
+    for (const record of importedRecords) {
       await txWrite.store.put(record.payload, `${profileId}_${record.id}`)
     }
     await txWrite.done
@@ -398,19 +420,20 @@ export class VaultStore {
     const allKeys = await tx.store.getAllKeys()
     const prefix = `${profileId}_`
 
-    const platformsData: { id: string; payload: EncryptedPayload }[] = []
+    const identitiesData: { id: string; payload: EncryptedPayload }[] = []
     for (const key of allKeys) {
       if (key.startsWith(prefix)) {
         const payload = await tx.store.get(key)
         if (payload) {
           const platformId = key.substring(prefix.length)
-          platformsData.push({
+          identitiesData.push({
             id: platformId,
             payload
           })
         }
       }
     }
+    await tx.done
 
     const databaseDump = {
       meta: {
@@ -419,7 +442,7 @@ export class VaultStore {
         createdAt: profileRecord.createdAt,
         name: profileRecord.name
       },
-      platforms: platformsData
+      identities: identitiesData
     }
 
     // Cifrar usando la clave de sesión activa de memoria
@@ -462,7 +485,8 @@ export class VaultStore {
     const decryptedString = bytesToString(decryptedBytes)
     const databaseDump = JSON.parse(decryptedString)
 
-    if (!databaseDump.meta || !databaseDump.platforms) {
+    const importedRecords = databaseDump.identities ?? databaseDump.platforms
+    if (!databaseDump.meta || !importedRecords) {
       throw new Error('El contenido descargado de la nube no tiene el formato correcto.')
     }
 
@@ -491,7 +515,7 @@ export class VaultStore {
 
     // Registrar todas las plataformas importadas
     const txWrite = db.transaction('platforms', 'readwrite')
-    for (const record of databaseDump.platforms) {
+    for (const record of importedRecords) {
       await txWrite.store.put(record.payload, `${profileId}_${record.id}`)
     }
     await txWrite.done

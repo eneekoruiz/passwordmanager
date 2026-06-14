@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { getFriendlyErrorMessage } from '../utils/errors'
 
 interface SettingsModalProps {
   isOpen: boolean
@@ -56,8 +57,8 @@ export function SettingsModal({
       await onExport(exportPassword)
       setExportSuccess('Copia de seguridad exportada correctamente.')
       setExportPassword('')
-    } catch (err: any) {
-      setExportError(err.message || 'Error al exportar la copia de seguridad.')
+    } catch (error) {
+      setExportError(getFriendlyErrorMessage(error, 'Error al exportar la copia de seguridad.'))
     } finally {
       setLoadingExport(false)
     }
@@ -92,9 +93,12 @@ export function SettingsModal({
       setTimeout(() => {
         onClose()
       }, 1500)
-    } catch (err: any) {
+    } catch (error) {
       setImportError(
-        err.message || 'Contraseña incorrecta o archivo de copia de seguridad corrupto.'
+        getFriendlyErrorMessage(
+          error,
+          'Contraseña incorrecta o archivo de copia de seguridad corrupto.',
+        ),
       )
     } finally {
       setLoadingImport(false)

@@ -5,10 +5,11 @@ export function createEmptyAccount(): Account {
   const now = new Date().toISOString()
   return {
     id: generateId(),
+    name: '',
     username: '',
-    email: '',
     password: '',
-    phone: '',
+    linkedPhone: null,
+    linkedGoogleAccount: null,
     notes: '',
     apiKeys: [],
     recoveryCodes: '',
@@ -18,7 +19,7 @@ export function createEmptyAccount(): Account {
 }
 
 export function accountDisplayName(account: Account): string {
+  if (account.name.trim()) return account.name
   if (account.username.trim()) return account.username
-  if (account.email.trim()) return account.email
   return 'Cuenta sin nombre'
 }

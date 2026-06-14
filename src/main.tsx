@@ -2,25 +2,31 @@ import { StrictMode } from 'react'
 import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
+import { logUnexpectedError } from './utils/errors'
 
-createRoot(document.getElementById('root')!).render(
+const rootElement = document.getElementById('root')
+
+if (!rootElement) {
+  throw new Error('No se encontro el contenedor principal de la aplicacion.')
+}
+
+createRoot(rootElement).render(
   <StrictMode>
     <App />
   </StrictMode>
 )
 
-if ('serviceWorker' in navigator) {
+if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   const registerSW = () => {
     navigator.serviceWorker
       .register('/sw.js')
-      .then((reg) => console.log('Service Worker registrado con éxito:', reg.scope))
-      .catch((err) => console.error('Error al registrar Service Worker:', err))
+      .catch((error) => logUnexpectedError('Error al registrar Service Worker', error))
   }
 
   if (document.readyState === 'complete') {
     registerSW()
   } else {
-    window.addEventListener('load', registerSW)
+    window.addEventListener('load', registerSW, { once: true })
   }
 }
 

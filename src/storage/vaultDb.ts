@@ -1,4 +1,4 @@
-import { openDB, type DBSchema, type IDBPDatabase } from 'idb'
+import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { EncryptedPayload } from '../crypto/types'
 
 const DB_NAME = 'contras-vault'
@@ -25,17 +25,32 @@ interface ContrasDB extends DBSchema {
 
 let dbPromise: Promise<IDBPDatabase<ContrasDB>> | null = null
 
+function openVaultDatabase(): Promise<IDBPDatabase<ContrasDB>> {
+  return openDB<ContrasDB>(DB_NAME, DB_VERSION, {
+    upgrade(db) {
+      if (!db.objectStoreNames.contains('meta')) {
+        db.createObjectStore('meta')
+      }
+      if (!db.objectStoreNames.contains('platforms')) {
+        db.createObjectStore('platforms')
+      }
+    },
+  })
+}
+
 export function getVaultDb(): Promise<IDBPDatabase<ContrasDB>> {
   if (!dbPromise) {
-    dbPromise = openDB<ContrasDB>(DB_NAME, DB_VERSION, {
-      upgrade(db) {
-        if (!db.objectStoreNames.contains('meta')) {
-          db.createObjectStore('meta')
-        }
-        if (!db.objectStoreNames.contains('platforms')) {
-          db.createObjectStore('platforms')
-        }
-      },
+    dbPromise = openVaultDatabase().catch(async () => {
+      dbPromise = null
+      await deleteDB(DB_NAME)
+
+      try {
+        return await openVaultDatabase()
+      } catch {
+        throw new Error(
+          'IndexedDB no pudo recuperarse automaticamente. Reinicia el navegador o prueba con otro perfil.',
+        )
+      }
     })
   }
   return dbPromise

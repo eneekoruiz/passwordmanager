@@ -1,10 +1,10 @@
 import { useState } from 'react'
-import type { Account } from '../types'
+import type { Platform } from '../types'
 import { accountDisplayName } from '../utils/account'
 import { copyToClipboard } from '../utils/clipboard'
 
 interface AccountCardProps {
-  account: Account
+  account: Platform
   onEdit: () => void
 }
 
@@ -32,12 +32,12 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
           <p className="text-sm font-medium text-text-primary">
             {accountDisplayName(account)}
           </p>
-          {account.email && (
+          {account.linkedGoogleAccount && (
             <p className="mt-0.5 text-sm text-text-secondary truncate">
-              {account.email}
+              Google: {account.linkedGoogleAccount}
             </p>
           )}
-          {account.username && account.email && (
+          {account.username && (
             <p className="mt-0.5 text-xs text-text-tertiary truncate">
               @{account.username}
             </p>

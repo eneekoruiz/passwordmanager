@@ -13,9 +13,10 @@ export function normalizeAccount(account: Account): Account {
 
   return {
     ...account,
+    name: account.name.trim(),
     username: account.username.trim(),
-    email: account.email.trim(),
-    phone: account.phone?.trim() || undefined,
+    linkedPhone: account.linkedPhone?.trim() || null,
+    linkedGoogleAccount: account.linkedGoogleAccount?.trim() || null,
     notes: account.notes?.trim() || undefined,
     recoveryCodes: account.recoveryCodes?.trim() || undefined,
     apiKeys: apiKeys.length > 0 ? apiKeys : undefined,

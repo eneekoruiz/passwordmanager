@@ -1,9 +1,27 @@
 import { useState, useEffect } from 'react'
 
+function getInstallPromptDismissed(): boolean {
+  try {
+    return localStorage.getItem('contras_ios_install_dismissed') === 'true'
+  } catch {
+    return false
+  }
+}
+
+function setInstallPromptDismissed(): void {
+  try {
+    localStorage.setItem('contras_ios_install_dismissed', 'true')
+  } catch {
+    // Private browsing or restricted storage should not break the UI.
+  }
+}
+
 export function IOSInstallPrompt() {
   const [showPrompt, setShowPrompt] = useState(false)
 
   useEffect(() => {
+    if (typeof window === 'undefined') return
+
     // 1. Detectar si es iOS (iPhone, iPad, iPod)
     const isIOS =
       /iPhone|iPad|iPod/.test(navigator.userAgent) ||
@@ -12,10 +30,10 @@ export function IOSInstallPrompt() {
     // 2. Detectar si ya está instalada (en modo standalone)
     const isStandalone =
       window.matchMedia('(display-mode: standalone)').matches ||
-      (navigator as any).standalone === true
+      (navigator as Navigator & { standalone?: boolean }).standalone === true
 
     // 3. Comprobar si el usuario la cerró anteriormente en esta sesión/navegador
-    const isDismissed = localStorage.getItem('contras_ios_install_dismissed') === 'true'
+    const isDismissed = getInstallPromptDismissed()
 
     if (isIOS && !isStandalone && !isDismissed) {
       // Retrasar ligeramente la aparición para mejorar la UX (estilo Apple)
@@ -27,7 +45,8 @@ export function IOSInstallPrompt() {
   }, [])
 
   const handleDismiss = () => {
-    localStorage.setItem('contras_ios_install_dismissed', 'true')
+    if (typeof window === 'undefined') return
+    setInstallPromptDismissed()
     setShowPrompt(false)
   }
 
