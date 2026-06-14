@@ -149,13 +149,18 @@ export function AccountForm({
     return () => {
       setAccount({
         id: '',
+        type: 'ACCOUNT',
+        title: '',
         name: '',
         username: '',
         password: '',
+        authMethod: 'PASSWORD',
+        ssoProvider: null,
+        ssoEmail: null,
+        hardwareKey: false,
         fullName: null,
         linkedPhone: null,
         twoFactorAuth: null,
-        linkedGoogleAccount: null,
         notes: undefined,
         apiKeys: [],
         recoveryCodes: undefined,
@@ -206,8 +211,12 @@ export function AccountForm({
       setError('Indica el nombre de la plataforma.')
       return
     }
-    if (!normalized.password) {
+    if (normalized.authMethod === 'PASSWORD' && !normalized.password) {
       setError('La contraseña es obligatoria.')
+      return
+    }
+    if (normalized.authMethod === 'SSO' && !normalized.ssoEmail) {
+      setError('Indica el correo vinculado al proveedor SSO.')
       return
     }
 
@@ -222,7 +231,6 @@ export function AccountForm({
   }
 
   const apiKeys = account.apiKeys ?? []
-  const googleLinked = account.linkedGoogleAccount !== null
 
   return (
     <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-12 select-none animate-fade-in font-sans">
@@ -249,13 +257,98 @@ export function AccountForm({
           />
         </div>
         <PasswordField
-          label="Contraseña"
-          value={account.password}
+          label={account.authMethod === 'PASSWORD' ? 'Contraseña' : 'Contraseña no usada por este método'}
+          value={account.password ?? ''}
           onChange={(value) => updateField('password', value)}
           placeholder="••••••••"
-          required
+          required={account.authMethod === 'PASSWORD'}
+          disabled={account.authMethod !== 'PASSWORD'}
           showGenerator
         />
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <label className="block">
+            <span className="mb-1.5 block text-xs font-medium text-text-secondary">Método de acceso</span>
+            <select
+              value={account.authMethod}
+              onChange={(event) => {
+                const authMethod = event.target.value as Account['authMethod']
+                setAccount((prev) => ({
+                  ...prev,
+                  authMethod,
+                  password: authMethod === 'PASSWORD' ? prev.password ?? '' : null,
+                  ssoProvider: authMethod === 'SSO' ? prev.ssoProvider ?? 'Google' : null,
+                  ssoEmail: authMethod === 'SSO' ? prev.ssoEmail ?? identityEmail : null,
+                }))
+              }}
+              className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
+            >
+              <option value="PASSWORD">Contraseña</option>
+              <option value="SSO">SSO / Login social</option>
+              <option value="PASSKEY">Passkey / Biométrico</option>
+              <option value="MAGIC_LINK">Magic link por email</option>
+            </select>
+          </label>
+          <label className="flex h-[42px] items-center justify-between gap-3 self-end rounded-xl border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary">
+            <span>Llave física</span>
+            <input
+              type="checkbox"
+              checked={account.hardwareKey}
+              onChange={(event) => updateField('hardwareKey', event.target.checked)}
+              className="peer sr-only"
+            />
+            <span
+              className={`relative h-6 w-11 rounded-full transition-colors ${
+                account.hardwareKey ? 'bg-text-primary' : 'bg-text-tertiary/30'
+              }`}
+            >
+              <span
+                className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
+                  account.hardwareKey ? 'translate-x-5' : ''
+                }`}
+              />
+            </span>
+          </label>
+        </div>
+
+        {account.authMethod === 'SSO' && (
+          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-fade-in">
+            <label className="block">
+              <span className="mb-1.5 block text-xs font-medium text-text-secondary">Proveedor SSO</span>
+              <select
+                value={account.ssoProvider ?? 'Google'}
+                onChange={(event) => updateField('ssoProvider', event.target.value as Account['ssoProvider'])}
+                className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
+              >
+                <option value="Google">Google</option>
+                <option value="Apple">Apple</option>
+                <option value="Facebook">Facebook</option>
+                <option value="GitHub">GitHub</option>
+                <option value="Microsoft">Microsoft</option>
+                <option value="Otro">Otro</option>
+              </select>
+            </label>
+            <FormField
+              label="Correo vinculado"
+              type="email"
+              value={account.ssoEmail ?? ''}
+              onChange={(e) => updateField('ssoEmail', e.target.value.trim() || identityEmail)}
+              placeholder={identityEmail}
+              autoComplete="off"
+            />
+          </div>
+        )}
+
+        {account.authMethod === 'PASSKEY' && (
+          <div className="rounded-2xl border border-blue-100 bg-blue-50/70 p-3 text-xs font-medium text-blue-800 animate-fade-in">
+            Acceso registrado mediante passkey o biometría. No se almacena contraseña.
+          </div>
+        )}
+
+        {account.authMethod === 'MAGIC_LINK' && (
+          <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3 text-xs font-medium text-amber-800 animate-fade-in">
+            Acceso por enlace temporal enviado al correo de esta identidad.
+          </div>
+        )}
       </section>
 
       {/* 2. Sección Estrella (API Keys) */}
@@ -391,47 +484,6 @@ export function AccountForm({
               placeholder="Google Authenticator, SMS, Authy..."
               autoComplete="off"
             />
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_auto] sm:items-end">
-              {googleLinked ? (
-                <div className="animate-fade-in">
-                  <FormField
-                    label="Cuenta de Google vinculada"
-                    type="email"
-                    value={account.linkedGoogleAccount ?? ''}
-                    onChange={(e) => updateField('linkedGoogleAccount', e.target.value.trim() || identityEmail)}
-                    placeholder={identityEmail}
-                    autoComplete="off"
-                  />
-                </div>
-              ) : (
-                <div className="hidden sm:block" aria-hidden="true" />
-              )}
-              <label className="flex h-[42px] items-center justify-between gap-3 rounded-xl border border-border-subtle bg-surface px-3 text-xs font-semibold text-text-primary">
-                <span>Google SSO</span>
-                <input
-                  type="checkbox"
-                  checked={googleLinked}
-                  onChange={(event) =>
-                    updateField(
-                      'linkedGoogleAccount',
-                      event.target.checked ? identityEmail : null,
-                    )
-                  }
-                  className="peer sr-only"
-                />
-                <span
-                  className={`relative h-6 w-11 rounded-full transition-colors ${
-                    googleLinked ? 'bg-text-primary' : 'bg-text-tertiary/30'
-                  }`}
-                >
-                  <span
-                    className={`absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow-sm transition-transform ${
-                      googleLinked ? 'translate-x-5' : ''
-                    }`}
-                  />
-                </span>
-              </label>
-            </div>
             <FormTextarea
               label="Notas e Información Adicional"
               value={account.notes ?? ''}

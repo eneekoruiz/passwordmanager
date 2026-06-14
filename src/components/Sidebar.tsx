@@ -1,16 +1,20 @@
 import { useEffect, useState } from 'react'
-import type { Identity } from '../types'
+import type { Identity, LocalVaultItem, LocalVaultItemType } from '../types'
 import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
+import { LOCAL_ITEM_LABELS } from '../utils/vaultItem'
 
 interface SidebarProps {
   identities: Identity[]
+  localItems: LocalVaultItem[]
   selectedId: string | null
+  selectedLocalCategory: LocalVaultItemType | null
   searchQuery: string
   onSearchChange: (query: string) => void
   onSelect: (id: string) => void
+  onSelectLocalCategory: (type: LocalVaultItemType) => void
   onAddIdentity: (email: string) => Promise<void>
   onDeleteIdentity: (id: string) => Promise<void>
   onLock: () => void
@@ -25,10 +29,13 @@ interface SidebarProps {
 
 export function Sidebar({
   identities,
+  localItems,
   selectedId,
+  selectedLocalCategory,
   searchQuery,
   onSearchChange,
   onSelect,
+  onSelectLocalCategory,
   onAddIdentity,
   onDeleteIdentity,
   onLock,
@@ -196,6 +203,9 @@ export function Sidebar({
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
+          <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+            Identidades
+          </div>
           {identities.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
           ) : (
@@ -257,6 +267,32 @@ export function Sidebar({
               })}
             </ul>
           )}
+
+          <div className="mt-5 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+            Categorías locales
+          </div>
+          <ul className="space-y-0.5">
+            {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => {
+              const selected = selectedLocalCategory === type
+              const count = localItems.filter((item) => item.type === type).length
+              return (
+                <li key={type}>
+                  <button
+                    type="button"
+                    onClick={() => onSelectLocalCategory(type)}
+                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-colors ${
+                      selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+                    }`}
+                  >
+                    <span className="truncate text-sm font-medium text-text-primary/90">
+                      {LOCAL_ITEM_LABELS[type]}
+                    </span>
+                    <span className="text-xs tabular-nums text-text-tertiary">{count}</span>
+                  </button>
+                </li>
+              )
+            })}
+          </ul>
         </nav>
 
         {(!isMobile || (installPromptAvailable && onInstall)) && (

@@ -17,6 +17,8 @@ interface PasswordFieldProps {
   placeholder?: string
   /** Indica si el campo es obligatorio en el formulario */
   required?: boolean
+  /** Deshabilita edición cuando el secreto no usa contraseña */
+  disabled?: boolean
   /** Si es true, renderiza el botón sutil de generación de contraseñas y su panel */
   showGenerator?: boolean
 }
@@ -89,6 +91,7 @@ export function PasswordField({
   onChange,
   placeholder,
   required,
+  disabled,
   showGenerator = false,
 }: PasswordFieldProps) {
   const [visible, setVisible] = useState(false)
@@ -135,6 +138,7 @@ export function PasswordField({
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
           required={required}
+          disabled={disabled}
           className={`${inputClassName} ${prClassName} font-mono text-sm tracking-wide bg-surface-elevated border-border-subtle focus:border-border transition-all duration-200`}
         />
 
@@ -147,9 +151,9 @@ export function PasswordField({
 
         <div className="absolute right-1.5 flex items-center gap-0.5 z-10">
           {showGenerator && (
-            <button
-              type="button"
-              onClick={() => {
+          <button
+            type="button"
+            onClick={() => {
                 setShowGeneratorMenu((v) => {
                   const next = !v
                   if (next && !value) {
@@ -157,8 +161,9 @@ export function PasswordField({
                   }
                   return next
                 })
-              }}
-              className={`rounded-md p-1.5 active:scale-95 transition-all duration-150 ${
+            }}
+            disabled={disabled}
+            className={`rounded-md p-1.5 active:scale-95 transition-all duration-150 ${
                 showGeneratorMenu
                   ? 'bg-surface-active text-text-primary'
                   : 'text-text-tertiary hover:bg-surface-hover hover:text-text-secondary'
@@ -174,6 +179,7 @@ export function PasswordField({
           <button
             type="button"
             onClick={() => setVisible((v) => !v)}
+            disabled={disabled}
             className="rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150"
             aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >
@@ -192,7 +198,7 @@ export function PasswordField({
           <button
             type="button"
             onClick={handleCopy}
-            disabled={!value}
+            disabled={!value || disabled}
             className="rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150 disabled:opacity-40"
             aria-label="Copiar al portapapeles"
           >

@@ -7,6 +7,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
+import type { LocalVaultItemType } from './types'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -18,11 +19,14 @@ function VaultApp() {
     isReady,
     isUnlocked,
     identities,
+    localItems,
     addIdentity,
     deleteIdentity,
     addPlatform,
     updatePlatform,
     deletePlatform,
+    saveLocalItem,
+    deleteLocalItem,
     exportBackup,
     importBackup,
     importMassiveAccounts,
@@ -84,6 +88,7 @@ function VaultApp() {
   }
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalVaultItemType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -130,12 +135,20 @@ function VaultApp() {
 
   const handleSelect = (id: string) => {
     setSelectedId(id)
+    setSelectedLocalCategory(null)
+    setSidebarOpen(false)
+  }
+
+  const handleSelectLocalCategory = (type: LocalVaultItemType) => {
+    setSelectedLocalCategory(type)
+    setSelectedId(null)
     setSidebarOpen(false)
   }
 
   const handleLock = () => {
     logoutProfile()
     setSelectedId(null)
+    setSelectedLocalCategory(null)
     setSearchQuery('')
     setPageMessage(null)
   }
@@ -190,16 +203,20 @@ function VaultApp() {
       <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16">
         {pageBanner}
         <div className="flex-1 overflow-y-auto">
-          {selectedId === null ? (
+          {selectedId === null && selectedLocalCategory === null ? (
             <Sidebar
               identities={filteredIdentities}
+              localItems={localItems}
               selectedId={selectedId}
+              selectedLocalCategory={selectedLocalCategory}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelect={handleSelect}
+              onSelectLocalCategory={handleSelectLocalCategory}
               onAddIdentity={async (email) => {
                 const identity = await addIdentity(email)
                 setSelectedId(identity.id)
+                setSelectedLocalCategory(null)
               }}
               onDeleteIdentity={handleDeleteIdentity}
               onLock={handleLock}
@@ -214,12 +231,20 @@ function VaultApp() {
           ) : (
             <MainArea
               identity={selectedIdentity}
+              localCategory={selectedLocalCategory}
+              localItems={localItems}
               onOpenSidebar={() => {}}
-              onSelectIdentity={setSelectedId}
+              onSelectIdentity={(id) => {
+                setSelectedId(id)
+                setSelectedLocalCategory(null)
+              }}
+              onSelectLocalCategory={handleSelectLocalCategory}
               onOpenImportText={() => setImportTextOpen(true)}
               onAddPlatform={addPlatform}
               onUpdatePlatform={updatePlatform}
               onDeletePlatform={deletePlatform}
+              onSaveLocalItem={saveLocalItem}
+              onDeleteLocalItem={deleteLocalItem}
               isMobile={true}
             />
           )}
@@ -228,9 +253,12 @@ function VaultApp() {
         <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-black/5 bg-white/70 px-6 pb-safe shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-lg">
           <button
             type="button"
-            onClick={() => setSelectedId(null)}
+            onClick={() => {
+              setSelectedId(null)
+              setSelectedLocalCategory(null)
+            }}
             className={`flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
-              selectedId === null ? 'text-text-primary' : 'text-text-tertiary'
+              selectedId === null && selectedLocalCategory === null ? 'text-text-primary' : 'text-text-tertiary'
             }`}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -286,13 +314,17 @@ function VaultApp() {
     <div className="flex h-dvh overflow-hidden bg-surface">
       <Sidebar
         identities={filteredIdentities}
+        localItems={localItems}
         selectedId={selectedId}
+        selectedLocalCategory={selectedLocalCategory}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
         onSelect={handleSelect}
+        onSelectLocalCategory={handleSelectLocalCategory}
         onAddIdentity={async (email) => {
           const identity = await addIdentity(email)
           setSelectedId(identity.id)
+          setSelectedLocalCategory(null)
         }}
         onDeleteIdentity={handleDeleteIdentity}
         onLock={handleLock}
@@ -310,12 +342,20 @@ function VaultApp() {
         <main className="flex min-w-0 flex-1 flex-col bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
             identity={selectedIdentity}
+            localCategory={selectedLocalCategory}
+            localItems={localItems}
             onOpenSidebar={() => setSidebarOpen(true)}
-            onSelectIdentity={setSelectedId}
+            onSelectIdentity={(id) => {
+              setSelectedId(id)
+              setSelectedLocalCategory(null)
+            }}
+            onSelectLocalCategory={handleSelectLocalCategory}
             onOpenImportText={() => setImportTextOpen(true)}
             onAddPlatform={addPlatform}
             onUpdatePlatform={updatePlatform}
             onDeletePlatform={deletePlatform}
+            onSaveLocalItem={saveLocalItem}
+            onDeleteLocalItem={deleteLocalItem}
             isMobile={false}
           />
         </main>

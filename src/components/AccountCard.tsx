@@ -12,7 +12,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopyPassword = async () => {
-    const ok = await copyToClipboard(account.password)
+    const ok = await copyToClipboard(account.password ?? '')
     if (ok) {
       setCopied(true)
       setTimeout(() => setCopied(false), 1500)
@@ -32,9 +32,9 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
           <p className="text-sm font-medium text-text-primary">
             {accountDisplayName(account)}
           </p>
-          {account.linkedGoogleAccount && (
+          {account.authMethod === 'SSO' && account.ssoEmail && (
             <p className="mt-0.5 text-sm text-text-secondary truncate">
-              Google: {account.linkedGoogleAccount}
+              {account.ssoProvider ?? 'SSO'}: {account.ssoEmail}
             </p>
           )}
           {account.username && (

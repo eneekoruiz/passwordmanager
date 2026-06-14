@@ -1,13 +1,15 @@
 import { CryptoVault } from '../crypto/CryptoVault'
 import { base64ToBytes, bytesToBase64, stringToBytes, bytesToString } from '../crypto/encoding'
 import type { EncryptedPayload } from '../crypto/types'
-import type { Identity } from '../types'
+import type { Identity, LocalVaultItem } from '../types'
 import { getVaultDb } from './vaultDb'
 import { generateId } from '../utils/id'
 import { identityMatchesEmail, normalizeIdentityRecord } from '../utils/identity'
+import { normalizeUnknownLocalVaultItem } from '../utils/vaultItem'
 
 const VAULT_META_KEY = 'vault' as const
 const VAULT_VERIFICATION_MARKER = { marker: 'contras-vault-v1' } as const
+const LOCAL_ITEM_KEY_SEGMENT = '_item_'
 
 /**
  * @interface ProfileRecord
@@ -196,7 +198,7 @@ export class VaultStore {
 
     const payloads: EncryptedPayload[] = []
     for (const key of allKeys) {
-      if (key.startsWith(prefix)) {
+      if (key.startsWith(prefix) && !key.includes(LOCAL_ITEM_KEY_SEGMENT)) {
         const payload = await tx.store.get(key)
         if (payload) {
           payloads.push(payload)
@@ -218,6 +220,34 @@ export class VaultStore {
     }
 
     return identities.sort((a, b) => a.email.localeCompare(b.email))
+  }
+
+  async loadLocalItems(profileId: string): Promise<LocalVaultItem[]> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para leer secretos locales.')
+    }
+
+    const db = await getVaultDb()
+    const tx = db.transaction('platforms', 'readonly')
+    const allKeys = await tx.store.getAllKeys()
+    const prefix = `${profileId}${LOCAL_ITEM_KEY_SEGMENT}`
+
+    const payloads: EncryptedPayload[] = []
+    for (const key of allKeys) {
+      if (key.startsWith(prefix)) {
+        const payload = await tx.store.get(key)
+        if (payload) payloads.push(payload)
+      }
+    }
+    await tx.done
+
+    const items: LocalVaultItem[] = []
+    for (const payload of payloads) {
+      const item = normalizeUnknownLocalVaultItem(await this.vault.decryptJson<unknown>(payload))
+      if (item) items.push(item)
+    }
+
+    return items.sort((a, b) => a.title.localeCompare(b.title))
   }
 
   /**
@@ -264,6 +294,21 @@ export class VaultStore {
     }
 
     await tx.done
+  }
+
+  async saveLocalItem(profileId: string, item: LocalVaultItem): Promise<void> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para guardar.')
+    }
+
+    const encrypted: EncryptedPayload = await this.vault.encryptJson(item)
+    const db = await getVaultDb()
+    await db.put('platforms', encrypted, `${profileId}${LOCAL_ITEM_KEY_SEGMENT}${item.id}`)
+  }
+
+  async deleteLocalItem(profileId: string, itemId: string): Promise<void> {
+    const db = await getVaultDb()
+    await db.delete('platforms', `${profileId}${LOCAL_ITEM_KEY_SEGMENT}${itemId}`)
   }
 
   /**

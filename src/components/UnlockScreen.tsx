@@ -119,7 +119,7 @@ export function UnlockScreen() {
             <div className="space-y-2">
               <h1 className="text-xl font-bold tracking-tight text-text-primary">Sincronización en la Nube</h1>
               <p className="text-xs leading-relaxed text-text-secondary">
-                Inicia sesión para mantener tus contraseñas seguras y sincronizadas entre dispositivos. Nosotros nunca vemos tus datos.
+                Inicia sesión para mantener tus contraseñas seguras y sincronizadas.
               </p>
             </div>
 
@@ -150,7 +150,7 @@ export function UnlockScreen() {
                 <div className="space-y-1">
                   <h1 className="text-xl font-bold tracking-tight text-text-primary">Desbloquea tu Bóveda Local</h1>
                   <p className="text-xs leading-relaxed text-text-secondary">
-                    Tu bóveda está cerrada con encriptación de grado militar. Introduce tu <strong>Contraseña Maestra</strong> para abrirla en este dispositivo.
+                    Introduce tu <strong>Contraseña Maestra</strong> para abrirla. Nunca se envía a nuestros servidores.
                   </p>
                 </div>
 

@@ -20,15 +20,22 @@ export function createIdentity(email = LOCAL_IDENTITY_EMAIL): Identity {
 
 export function createPlatform(name: string, defaults?: Partial<Platform>): Platform {
   const now = nowIso()
+  const legacyGoogleAccount = (defaults as { linkedGoogleAccount?: string | null } | undefined)?.linkedGoogleAccount
+  const authMethod = defaults?.authMethod ?? (legacyGoogleAccount ? 'SSO' : 'PASSWORD')
   return {
     id: defaults?.id ?? generateId(),
+    type: 'ACCOUNT',
+    title: (defaults?.title ?? name).trim(),
     name: name.trim(),
     username: defaults?.username ?? '',
     password: defaults?.password ?? '',
+    authMethod,
+    ssoProvider: defaults?.ssoProvider ?? (legacyGoogleAccount ? 'Google' : null),
+    ssoEmail: defaults?.ssoEmail ?? legacyGoogleAccount ?? null,
+    hardwareKey: defaults?.hardwareKey ?? false,
     fullName: defaults?.fullName ?? null,
     linkedPhone: defaults?.linkedPhone ?? null,
     twoFactorAuth: defaults?.twoFactorAuth ?? null,
-    linkedGoogleAccount: defaults?.linkedGoogleAccount ?? null,
     notes: defaults?.notes,
     apiKeys: defaults?.apiKeys ?? [],
     recoveryCodes: defaults?.recoveryCodes,
@@ -40,6 +47,7 @@ export function createPlatform(name: string, defaults?: Partial<Platform>): Plat
 type LegacyAccount = Partial<Account> & {
   email?: string
   phone?: string
+  linkedGoogleAccount?: string | null
 }
 
 function isLegacyPlatform(value: unknown): value is {
@@ -72,10 +80,14 @@ export function normalizeIdentityRecord(record: unknown): Identity {
       platforms: identity.platforms.map((platform) =>
         createPlatform(platform.name, {
           ...platform,
+          title: platform.title ?? platform.name,
+          authMethod: platform.authMethod ?? ((platform as { linkedGoogleAccount?: string | null }).linkedGoogleAccount ? 'SSO' : 'PASSWORD'),
+          ssoProvider: platform.ssoProvider ?? ((platform as { linkedGoogleAccount?: string | null }).linkedGoogleAccount ? 'Google' : null),
+          ssoEmail: platform.ssoEmail ?? (platform as { linkedGoogleAccount?: string | null }).linkedGoogleAccount ?? null,
+          hardwareKey: platform.hardwareKey ?? false,
           fullName: platform.fullName ?? null,
           linkedPhone: platform.linkedPhone ?? null,
           twoFactorAuth: platform.twoFactorAuth ?? null,
-          linkedGoogleAccount: platform.linkedGoogleAccount ?? null,
         }),
       ),
     }
@@ -88,11 +100,15 @@ export function normalizeIdentityRecord(record: unknown): Identity {
     localIdentity.platforms = record.accounts.map((account) =>
       createPlatform(record.name, {
         ...account,
+        title: account.title ?? record.name,
         username: account.username ?? account.email ?? '',
+        authMethod: account.authMethod ?? (account.linkedGoogleAccount ? 'SSO' : 'PASSWORD'),
+        ssoProvider: account.ssoProvider ?? (account.linkedGoogleAccount ? 'Google' : null),
+        ssoEmail: account.ssoEmail ?? account.linkedGoogleAccount ?? null,
+        hardwareKey: account.hardwareKey ?? false,
         fullName: account.fullName ?? null,
         linkedPhone: account.linkedPhone ?? account.phone ?? null,
         twoFactorAuth: account.twoFactorAuth ?? null,
-        linkedGoogleAccount: account.linkedGoogleAccount ?? null,
       }),
     )
     return localIdentity

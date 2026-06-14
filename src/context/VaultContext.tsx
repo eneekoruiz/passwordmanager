@@ -20,15 +20,17 @@ import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
-import type { Identity, Platform } from '../types'
+import type { Identity, LocalVaultItem, Platform } from '../types'
 import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
+import { normalizeLocalVaultItem } from '../utils/vaultItem'
 
 interface VaultContextValue {
   isReady: boolean
   isInitialized: boolean
   isUnlocked: boolean
   identities: Identity[]
+  localItems: LocalVaultItem[]
   profiles: { id: string; name: string; createdAt: string }[]
   currentProfileId: string | null
   currentProfileName: string | null
@@ -45,6 +47,8 @@ interface VaultContextValue {
   addPlatform: (identityId: string, platform: Platform) => Promise<void>
   updatePlatform: (identityId: string, platformId: string, platform: Platform) => Promise<void>
   deletePlatform: (identityId: string, platformId: string) => Promise<void>
+  saveLocalItem: (item: LocalVaultItem) => Promise<void>
+  deleteLocalItem: (itemId: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
   importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<void>
@@ -84,6 +88,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [isInitialized, setIsInitialized] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [identities, setIdentities] = useState<Identity[]>([])
+  const [localItems, setLocalItems] = useState<LocalVaultItem[]>([])
   const [profiles, setProfiles] = useState<{ id: string; name: string; createdAt: string }[]>([])
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
@@ -120,19 +125,33 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [reportAppError])
 
-  const refreshIdentities = useCallback(async () => {
+  const refreshVaultData = useCallback(async () => {
     if (!currentProfileId) return
 
     try {
-      const loaded = await storeRef.current.loadAllIdentities(currentProfileId)
-      setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+      const [loadedIdentities, loadedLocalItems] = await Promise.all([
+        storeRef.current.loadAllIdentities(currentProfileId),
+        storeRef.current.loadLocalItems(currentProfileId),
+      ])
+      setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
+      setLocalItems(loadedLocalItems)
       setAppError(null)
     } catch (error) {
       setIdentities([])
-      reportAppError(error, 'No se pudieron cargar las identidades guardadas.')
+      setLocalItems([])
+      reportAppError(error, 'No se pudieron cargar los secretos guardados.')
       throw error
     }
   }, [currentProfileId, reportAppError])
+
+  const loadVaultDataForProfile = useCallback(async (profileId: string) => {
+    const [loadedIdentities, loadedLocalItems] = await Promise.all([
+      storeRef.current.loadAllIdentities(profileId),
+      storeRef.current.loadLocalItems(profileId),
+    ])
+    setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
+    setLocalItems(loadedLocalItems)
+  }, [])
 
   useEffect(() => {
     let mounted = true
@@ -183,6 +202,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setCurrentProfileId(null)
     setCurrentProfileName(null)
     setIdentities([])
+    setLocalItems([])
     setAppError(null)
   }, [])
 
@@ -225,14 +245,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       try {
         const updated = { ...identity, updatedAt: new Date().toISOString() }
         await storeRef.current.saveIdentity(currentProfileId, updated)
-        await refreshIdentities()
+        await refreshVaultData()
         triggerCloudSync()
       } catch (error) {
         reportAppError(error, 'No se pudo guardar la identidad.')
         throw error
       }
     },
-    [currentProfileId, refreshIdentities, reportAppError, triggerCloudSync],
+    [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
   )
 
   const addIdentity = useCallback(
@@ -243,21 +263,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       const identity = createIdentity(email)
       await storeRef.current.saveIdentity(currentProfileId, identity)
-      await refreshIdentities()
+      await refreshVaultData()
       triggerCloudSync()
       return identity
     },
-    [currentProfileId, identities, refreshIdentities, triggerCloudSync],
+    [currentProfileId, identities, refreshVaultData, triggerCloudSync],
   )
 
   const deleteIdentity = useCallback(
     async (identityId: string) => {
       if (!currentProfileId) return
       await storeRef.current.deleteIdentity(currentProfileId, identityId)
-      await refreshIdentities()
+      await refreshVaultData()
       triggerCloudSync()
     },
-    [currentProfileId, refreshIdentities, triggerCloudSync],
+    [currentProfileId, refreshVaultData, triggerCloudSync],
   )
 
   const addPlatform = useCallback(
@@ -321,14 +341,45 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
 
         await storeRef.current.saveMultipleIdentities(currentProfileId, Array.from(byEmail.values()))
-        await refreshIdentities()
+        await refreshVaultData()
         triggerCloudSync()
       } catch (error) {
         reportAppError(error, 'No se pudo completar la importacion masiva.')
         throw error
       }
     },
-    [currentProfileId, identities, refreshIdentities, reportAppError, triggerCloudSync],
+    [currentProfileId, identities, refreshVaultData, reportAppError, triggerCloudSync],
+  )
+
+  const saveLocalItem = useCallback(
+    async (item: LocalVaultItem) => {
+      if (!currentProfileId) return
+
+      try {
+        await storeRef.current.saveLocalItem(currentProfileId, normalizeLocalVaultItem(item))
+        await refreshVaultData()
+        triggerCloudSync()
+      } catch (error) {
+        reportAppError(error, 'No se pudo guardar el secreto local.')
+        throw error
+      }
+    },
+    [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
+  )
+
+  const deleteLocalItem = useCallback(
+    async (itemId: string) => {
+      if (!currentProfileId) return
+      try {
+        await storeRef.current.deleteLocalItem(currentProfileId, itemId)
+        await refreshVaultData()
+        triggerCloudSync()
+      } catch (error) {
+        reportAppError(error, 'No se pudo eliminar el secreto local.')
+        throw error
+      }
+    },
+    [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
   )
 
   const loginWithGoogleCloud = useCallback(async () => {
@@ -371,12 +422,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCurrentProfileId(targetProfileId)
       setCurrentProfileName(fallbackName)
       setIsUnlocked(true)
-      const loaded = await storeRef.current.loadAllIdentities(targetProfileId)
-      setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+      await loadVaultDataForProfile(targetProfileId)
       setCloudSyncStatus('synced')
       await listProfiles()
     },
-    [listProfiles],
+    [listProfiles, loadVaultDataForProfile],
   )
 
   const restoreProfileFromCloud = useCallback(async () => {
@@ -424,6 +474,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setCurrentProfileName(profileName)
         setIsUnlocked(true)
         setIdentities([localIdentity])
+        setLocalItems([])
 
         const encryptedBlob = await storeRef.current.exportCloudPayload(profileId)
         await setDoc(doc(dbClient, 'vaults', user.uid), {
@@ -461,8 +512,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCurrentProfileId(profileId)
           setCurrentProfileName(localDefaultProfile.name || 'Boveda Principal')
           setIsUnlocked(true)
-          const loaded = await storeRef.current.loadAllIdentities(profileId)
-          setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+          await loadVaultDataForProfile(profileId)
           setCloudSyncStatus('synced')
           return
         }
@@ -477,7 +527,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throw error
       }
     },
-    [reportCloudError, restoreIntoDefaultProfile],
+    [loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile],
   )
 
   const createProfile = useCallback(
@@ -498,12 +548,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCurrentProfileId(id)
       setCurrentProfileName(profile?.name ?? 'Usuario')
       setIsUnlocked(true)
-      const loaded = await storeRef.current.loadAllIdentities(id)
-      setIdentities(loaded.length > 0 ? loaded : [createIdentity()])
+      await loadVaultDataForProfile(id)
       setAppError(null)
       return true
     },
-    [],
+    [loadVaultDataForProfile],
   )
 
   const deleteCurrentProfile = useCallback(async () => {
@@ -527,10 +576,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
       await storeRef.current.importBackup(currentProfileId, backupJsonString, masterPassword)
       await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-      await refreshIdentities()
+      await refreshVaultData()
       triggerCloudSync()
     },
-    [currentProfileId, refreshIdentities, triggerCloudSync],
+    [currentProfileId, refreshVaultData, triggerCloudSync],
   )
 
   const value = useMemo<VaultContextValue>(
@@ -539,6 +588,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isInitialized,
       isUnlocked,
       identities,
+      localItems,
       profiles,
       currentProfileId,
       currentProfileName,
@@ -555,6 +605,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       addPlatform,
       updatePlatform,
       deletePlatform,
+      saveLocalItem,
+      deleteLocalItem,
       exportBackup,
       importBackup,
       importMassiveAccounts,
@@ -584,6 +636,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       currentProfileName,
       deleteCurrentProfile,
       deleteIdentity,
+      deleteLocalItem,
       deletePlatform,
       exportBackup,
       identities,
@@ -594,6 +647,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isInitialized,
       isReady,
       isUnlocked,
+      localItems,
       listProfiles,
       loginWithGoogleCloud,
       logoutCloud,
@@ -602,6 +656,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       restoreProfileFromCloud,
       restoreProfileFromGoogleCloud,
       saveIdentity,
+      saveLocalItem,
       selectProfile,
       syncActiveProfileToCloud,
       unlockOrRestoreVault,

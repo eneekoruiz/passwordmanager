@@ -187,7 +187,10 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
           fullName: fullName || null,
           linkedPhone: phone || null,
           twoFactorAuth: twoFactor || null,
-          linkedGoogleAccount: hasGoogleSso && email ? email : null,
+          authMethod: hasGoogleSso ? 'SSO' : 'PASSWORD',
+          ssoProvider: hasGoogleSso ? 'Google' : null,
+          ssoEmail: hasGoogleSso && email ? email : null,
+          hardwareKey: /yubikey|hardware|llave/i.test(twoFactor),
           notes,
           apiKeys: [],
         })
