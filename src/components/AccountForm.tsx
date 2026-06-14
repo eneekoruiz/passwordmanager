@@ -7,6 +7,7 @@ import { FormField, FormTextarea } from './ui/FormField'
 import { PasswordField } from './ui/PasswordField'
 import { copyToClipboard } from '../utils/clipboard'
 import { getFriendlyErrorMessage } from '../utils/errors'
+import { PlatformLogo } from './ui/PlatformLogo'
 
 interface AccountFormProps {
   mode: 'create' | 'edit'
@@ -117,6 +118,59 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
   )
 }
 
+const CopyIcon = () => (
+  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+    <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.646.049 1.288.11 1.927.184 1.102.124 1.99 1.003 1.99 2.122v6.228a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18.75v-6.228c0-1.12.888-2.002 1.99-2.122A48.394 48.394 0 0112 3c.775 0 1.545.09 2.298.266" />
+  </svg>
+)
+
+function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
+  const [copied, setCopied] = useState(false)
+  const [revealed, setRevealed] = useState(!isSecret)
+  if (!value) return null
+
+  const handleCopy = async (e?: React.MouseEvent) => {
+    if (e) e.stopPropagation()
+    const ok = await copyToClipboard(value)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  return (
+    <div className="group relative flex flex-col gap-1.5 rounded-2xl border border-black/[0.03] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 hover:-translate-y-[1px]">
+      <div className="flex items-center justify-between">
+        <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{label}</span>
+        {isSecret && (
+          <button type="button" onClick={() => setRevealed(!revealed)} className="text-[10px] font-bold text-text-tertiary hover:text-text-primary transition-colors focus:outline-none">
+            {revealed ? 'Ocultar' : 'Mostrar'}
+          </button>
+        )}
+      </div>
+      {isMultiline ? (
+        <div className="mt-0.5 whitespace-pre-wrap font-mono text-xs leading-relaxed text-text-secondary">{value}</div>
+      ) : (
+        <div className={`pr-10 text-sm font-semibold text-text-primary truncate transition-all duration-300 ${revealed ? '' : 'tracking-widest font-mono translate-y-[1px]'}`}>
+          {revealed ? value : '••••••••••••'}
+        </div>
+      )}
+      <button type="button" onClick={handleCopy} className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-xl border p-2 shadow-sm transition-all duration-200 active:scale-90 ${copied ? 'border-green-100 bg-green-50 text-green-600 opacity-100' : 'border-black/5 bg-surface text-text-tertiary opacity-0 hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100'}`} title="Copiar al portapapeles">
+        {copied ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <CopyIcon />}
+      </button>
+    </div>
+  )
+}
+
+const SSO_PROVIDERS = [
+  { name: 'Google', icon: <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> },
+  { name: 'Apple', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M15.42 10.27c0-2.3 1.86-3.37 1.94-3.41-1.06-1.56-2.7-1.78-3.3-1.81-1.4-.14-2.75.82-3.48.82-.7 0-1.81-.8-2.94-.78-1.5.02-2.9.87-3.67 2.21-1.56 2.7-.4 6.7.13 8.24.53 1.5 1.16 3.17 2.76 3.12 1.53-.05 2.1-.98 3.96-.98s2.38.98 4 .94c1.64-.04 2.15-1.54 2.68-3.08.62-1.85-.23-2.82-.25-2.84-.04-.02-1.83-.7-1.83-2.43zM14.02 5.09c.84-1.02 1.4-2.45 1.25-3.87-1.22.05-2.7.82-3.56 1.83-.76.88-1.43 2.33-1.25 3.72 1.36.1 2.72-.66 3.56-1.68z"/></svg> },
+  { name: 'GitHub', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg> },
+  { name: 'Microsoft', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/></svg> },
+  { name: 'Facebook', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> },
+  { name: 'X / Twitter', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+]
+
 export function AccountForm({
   mode,
   identityEmail,
@@ -130,9 +184,46 @@ export function AccountForm({
   )
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
+  const [isEditing, setIsEditing] = useState(mode === 'create')
+  const [showDeleteModal, setShowDeleteModal] = useState(false)
 
   const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement ||
+        e.target instanceof HTMLSelectElement
+      ) {
+        if (e.key === 'Escape') e.target.blur()
+        return
+      }
+
+      if (!isEditing && e.key.toLowerCase() === 'e') {
+        e.preventDefault()
+        setIsEditing(true)
+      } else if (e.key === 'Escape') {
+        e.preventDefault()
+        if (showDeleteModal) setShowDeleteModal(false)
+        else if (isEditing) handleCancelEdit()
+        else onCancel()
+      }
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [isEditing, showDeleteModal])
+
+  const handleCancelEdit = () => {
+    if (mode === 'create') {
+      onCancel()
+    } else {
+      setAccount(initialAccount ?? createEmptyAccount())
+      setIsEditing(false)
+      setError(null)
+    }
+  }
 
   const handleCopyRecoveryCodes = async () => {
     const ok = await copyToClipboard(account.recoveryCodes ?? '')
@@ -227,7 +318,7 @@ export function AccountForm({
   const passwordMethod = account.accessMethods.find((method) => method.type === 'PASSWORD')
   const passkeyEnabled = account.accessMethods.some((method) => method.type === 'PASSKEY')
   const magicLinkMethod = account.accessMethods.find((method) => method.type === 'MAGIC_LINK')
-  const ssoMethods = account.accessMethods.filter((method) => method.type === 'SSO')
+  const ssoMethod = account.accessMethods.find((method) => method.type === 'SSO')
 
   const setAccessMethods = (updater: (methods: Account['accessMethods']) => Account['accessMethods']) => {
     setAccount((prev) => ({ ...prev, accessMethods: updater(prev.accessMethods) }))
@@ -249,22 +340,22 @@ export function AccountForm({
     )
   }
 
-  const toggleSsoProvider = (provider: 'Google' | 'Apple', enabled: boolean) => {
-    setAccessMethods((methods) =>
-      enabled
-        ? [...methods, { id: crypto.randomUUID(), type: 'SSO', provider, email: identityEmail }]
-        : methods.filter((method) => method.type !== 'SSO' || method.provider !== provider),
-    )
+  const toggleSso = (enabled: boolean) => {
+    setAccessMethods((methods) => {
+      const filtered = methods.filter((m) => m.type !== 'SSO')
+      if (enabled) {
+        return [...filtered, { id: crypto.randomUUID(), type: 'SSO', provider: 'Google', email: identityEmail }]
+      }
+      return filtered
+    })
   }
 
-  const updateSsoEmail = (provider: 'Google' | 'Apple', email: string) => {
-    setAccessMethods((methods) =>
-      methods.map((method) =>
-        method.type === 'SSO' && method.provider === provider
-          ? { ...method, email: email.trim() || identityEmail }
-          : method,
-      ),
-    )
+  const updateSsoProvider = (provider: string) => {
+    setAccessMethods((methods) => methods.map((m) => (m.type === 'SSO' ? { ...m, provider: provider as any } : m)))
+  }
+
+  const updateSsoEmail = (email: string) => {
+    setAccessMethods((methods) => methods.map((m) => (m.type === 'SSO' ? { ...m, email: email.trim() || identityEmail } : m)))
   }
 
   const togglePasskey = (enabled: boolean) => {
@@ -291,8 +382,72 @@ export function AccountForm({
     )
   }
 
+  // MODO LECTURA (VIEW MODE)
+  if (!isEditing) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 pb-24 animate-fade-in font-sans">
+        <div className="flex items-center justify-between rounded-[2rem] border border-black/5 bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
+          <div className="flex items-center gap-4">
+            <PlatformLogo name={account.name} className="h-12 w-12 shrink-0 rounded-2xl shadow-sm border border-black/5" />
+            <div>
+              <h2 className="text-2xl font-bold tracking-tight text-text-primary">{account.name}</h2>
+              <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mt-0.5">Modo Lectura</p>
+            </div>
+          </div>
+          <button type="button" onClick={() => setIsEditing(true)} className="group flex items-center gap-2 rounded-xl bg-text-primary pl-5 pr-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 active:scale-[0.98]">
+            Editar
+            <kbd className="hidden sm:inline-flex h-5 items-center justify-center rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white/80 transition-colors group-hover:bg-white/20 group-hover:text-white">E</kbd>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <ReadOnlyField label="Usuario" value={account.username} />
+          {passwordMethod && <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret />}
+          {account.linkedPhone && <ReadOnlyField label="Teléfono vinculado" value={account.linkedPhone} />}
+          {ssoMethod && <ReadOnlyField label={`Login con ${ssoMethod.provider}`} value={ssoMethod.email || identityEmail} />}
+          {passkeyEnabled && <ReadOnlyField label="Biometría / Passkey" value="Activado" />}
+          {magicLinkMethod && <ReadOnlyField label="Magic Link" value={magicLinkMethod.email || identityEmail} />}
+          {account.twoFactorAuth && <ReadOnlyField label="2FA / Segundo Factor" value={account.twoFactorAuth} />}
+          {account.hardwareKey && <ReadOnlyField label="Llave Física (YubiKey)" value="Activada" />}
+        </div>
+
+        {apiKeys.length > 0 && (
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-bold text-text-tertiary px-1 uppercase tracking-wider">API Keys</h3>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {apiKeys.map(key => <ReadOnlyField key={key.id} label={`API Key: ${key.nombre}`} value={key.valor} isSecret />)}
+            </div>
+          </div>
+        )}
+        {account.recoveryCodes && (
+          <div className="space-y-3 pt-2">
+            <h3 className="text-xs font-bold text-text-tertiary px-1 uppercase tracking-wider">Códigos de Recuperación</h3>
+            <ReadOnlyField label="Códigos de emergencia" value={account.recoveryCodes} isSecret isMultiline />
+          </div>
+        )}
+        {account.fullName && <ReadOnlyField label="Nombre Completo" value={account.fullName} />}
+        {account.notes && <ReadOnlyField label="Notas Adicionales" value={account.notes} isMultiline />}
+      </div>
+    )
+  }
+
+  // MODO EDICIÓN (EDIT MODE)
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-12 select-none animate-fade-in font-sans">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-24 select-none animate-fade-in font-sans">
+      {/* Identity-First Banner */}
+      <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-surface to-white p-4 border border-border-subtle shadow-sm relative overflow-hidden">
+        <div className="absolute inset-y-0 left-0 w-1 bg-text-primary" />
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-text-primary text-white shadow-md">
+          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+          </svg>
+        </div>
+        <div className="flex flex-col min-w-0">
+          <span className="text-[10px] font-bold uppercase tracking-widest text-text-tertiary">Identidad Activa</span>
+          <span className="text-sm font-bold text-text-primary truncate">{identityEmail}</span>
+        </div>
+      </div>
+
       {/* 1. Sección Principal (Credenciales) */}
       <section className="space-y-4">
         <div className="flex flex-col border-b border-border-subtle pb-2 mb-2">
@@ -334,21 +489,11 @@ export function AccountForm({
         </div>
 
         <div className="rounded-3xl border border-border-subtle bg-white p-4 shadow-subtle">
-          <div className="mb-4 flex items-start justify-between gap-3">
-            <div>
-              <h4 className="text-sm font-bold text-text-primary">Vías de Acceso</h4>
-              <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">
-                Puedes activar varias formas de entrar en la misma plataforma.
-              </p>
-            </div>
-            <label className="flex items-center gap-2 rounded-xl bg-surface px-3 py-2 text-xs font-semibold text-text-primary">
-              <input
-                type="checkbox"
-                checked={account.hardwareKey}
-                onChange={(event) => updateField('hardwareKey', event.target.checked)}
-              />
-              YubiKey
-            </label>
+          <div className="mb-4">
+            <h4 className="text-sm font-bold text-text-primary">Vías de Acceso</h4>
+            <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">
+              Puedes activar varias formas de entrar en la misma plataforma.
+            </p>
           </div>
 
           <div className="space-y-3">
@@ -371,66 +516,81 @@ export function AccountForm({
               />
             )}
 
-            {(['Google', 'Apple'] as const).map((provider) => {
-              const method = ssoMethods.find((item) => item.provider === provider)
-              return (
-                <div key={provider} className="space-y-2">
-                  <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
-                    <input
-                      type="checkbox"
-                      checked={Boolean(method)}
-                      onChange={(event) => toggleSsoProvider(provider, event.target.checked)}
-                    />
-                    Login con {provider}
-                  </label>
-                  {method && (
-                    <FormField
-                      label={`Correo usado en ${provider}`}
-                      type="email"
-                      value={method.email ?? ''}
-                      onChange={(event) => updateSsoEmail(provider, event.target.value)}
-                      placeholder={identityEmail}
-                      autoComplete="off"
-                    />
-                  )}
+            <div className="space-y-3 pt-2">
+              <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+                <input
+                  type="checkbox"
+                  checked={Boolean(ssoMethod)}
+                  onChange={(event) => toggleSso(event.target.checked)}
+                />
+                Login Social (SSO)
+              </label>
+              {ssoMethod && (
+                <div className="pl-6 space-y-3 animate-fade-in">
+                  <div className="flex flex-wrap gap-2">
+                    {SSO_PROVIDERS.map((p) => (
+                      <button
+                        key={p.name}
+                        type="button"
+                        onClick={() => updateSsoProvider(p.name)}
+                        className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border text-[11px] font-semibold transition-all active:scale-95 ${
+                          ssoMethod.provider === p.name ? 'border-text-primary bg-text-primary text-white shadow-md' : 'border-border-subtle bg-surface hover:bg-surface-hover text-text-secondary'
+                        }`}
+                      >
+                        {p.icon}
+                        {p.name}
+                      </button>
+                    ))}
+                  </div>
+                  <FormField
+                    label="Correo usado en este SSO"
+                    type="email"
+                    value={ssoMethod.email ?? ''}
+                    onChange={(event) => updateSsoEmail(event.target.value)}
+                    placeholder={identityEmail}
+                    autoComplete="off"
+                  />
                 </div>
-              )
-            })}
+              )}
+            </div>
+          </div>
+        </div>
+      </section>
 
+      {/* 2. Opciones avanzadas / API Keys / Notas */}
+      <section className="pt-2">
+        <Accordion title="Opciones avanzadas / Seguridad extra">
+          <div className="mb-6 mt-3 flex flex-col gap-3 rounded-2xl border border-black/5 bg-surface/50 p-4">
+            <h4 className="text-xs font-bold text-text-primary">Otros métodos de acceso</h4>
+            <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+              <input
+                type="checkbox"
+                checked={account.hardwareKey}
+                onChange={(event) => updateField('hardwareKey', event.target.checked)}
+              />
+              Llave Física (YubiKey)
+            </label>
             <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               <input
                 type="checkbox"
                 checked={passkeyEnabled}
                 onChange={(event) => togglePasskey(event.target.checked)}
               />
-              Passkey / biometría
+              Passkey / Biometría
             </label>
-
             <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
               <input
                 type="checkbox"
                 checked={Boolean(magicLinkMethod)}
                 onChange={(event) => toggleMagicLink(event.target.checked)}
               />
-              Magic link
+              Magic Link
             </label>
             {magicLinkMethod && (
-              <FormField
-                label="Correo para magic link"
-                type="email"
-                value={magicLinkMethod.email ?? ''}
-                onChange={(event) => updateMagicLinkEmail(event.target.value)}
-                placeholder={identityEmail}
-                autoComplete="off"
-              />
+              <FormField label="Correo para magic link" type="email" value={magicLinkMethod.email ?? ''} onChange={(event) => updateMagicLinkEmail(event.target.value)} placeholder={identityEmail} autoComplete="off" />
             )}
           </div>
-        </div>
-      </section>
 
-      {/* 2. Opciones avanzadas: menos ruido para el uso diario */}
-      <section className="pt-2">
-        <Accordion title="Opciones avanzadas / Seguridad extra">
           <div className="space-y-6 pt-3 pb-1">
         <div className="flex items-center justify-between border-b border-border-subtle pb-2">
           <div className="flex flex-col">
@@ -532,8 +692,9 @@ export function AccountForm({
           />
         </div>
       </div>
+      </div>
 
-      <div className="space-y-4">
+          <div className="space-y-4">
             <div className="grid grid-cols-1 gap-4">
               <FormField
                 label="Nombre completo"
@@ -557,7 +718,6 @@ export function AccountForm({
               placeholder="Notas libres, Fecha de nacimiento, Respuestas de recuperación..."
             />
           </div>
-          </div>
         </Accordion>
       </section>
 
@@ -575,7 +735,7 @@ export function AccountForm({
           {mode === 'edit' && onDelete && (
             <button
               type="button"
-              onClick={() => onDelete()}
+              onClick={() => setShowDeleteModal(true)}
               className="text-sm font-semibold text-red-600 hover:text-red-700 active:scale-95 transition-all"
             >
               Eliminar cuenta
@@ -585,20 +745,53 @@ export function AccountForm({
         <div className="flex gap-2">
           <button
             type="button"
-            onClick={onCancel}
-            className="rounded-lg px-4 py-2 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
+              onClick={handleCancelEdit}
+              className="rounded-xl px-5 py-2.5 text-sm font-semibold text-text-secondary transition-all hover:bg-surface-hover active:scale-95"
           >
             Cancelar
           </button>
           <button
             type="submit"
             disabled={saving}
-            className="rounded-lg bg-text-primary px-4 py-2 text-sm font-semibold text-white transition-opacity hover:opacity-90 disabled:opacity-50"
+              className="rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95"
           >
-            {saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar'}
+              {saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar Cambios'}
           </button>
         </div>
       </div>
+
+      {/* Modal Seguro de Borrado */}
+      {showDeleteModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-fade-in">
+          <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/90 p-6 shadow-2xl backdrop-blur-xl text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 shadow-sm">
+              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="mb-2 text-lg font-bold text-text-primary tracking-tight">¿Eliminar definitivamente?</h3>
+            <p className="mb-6 text-xs leading-relaxed text-text-secondary">
+              ¿Estás seguro de que deseas eliminar esta plataforma? Esta acción no se puede deshacer y borrará permanentemente la contraseña y las API Keys asociadas.
+            </p>
+            <div className="flex gap-3">
+              <button
+                type="button"
+                onClick={() => setShowDeleteModal(false)}
+                className="flex-1 rounded-xl bg-surface-hover px-4 py-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-active"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => { setShowDeleteModal(false); onDelete?.() }}
+                className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 shadow-sm shadow-red-600/20"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </form>
   )
 }
