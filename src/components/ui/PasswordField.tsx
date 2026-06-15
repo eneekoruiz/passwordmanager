@@ -124,7 +124,7 @@ export function PasswordField({
     onChange(pw)
   }
 
-  const prClassName = showGenerator ? 'pr-28' : 'pr-20'
+  const prClassName = showGenerator ? 'pr-36' : 'pr-24'
 
   return (
     <label className="block relative">
@@ -139,7 +139,7 @@ export function PasswordField({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          className={`${inputClassName} ${prClassName} font-mono text-sm tracking-wide bg-surface-elevated border-border-subtle focus:border-border transition-all duration-200`}
+          className={`${inputClassName} ${prClassName} font-mono text-sm tracking-wide`}
         />
 
         {/* Burbuja de feedback de copiado al estilo iOS/macOS */}

@@ -194,7 +194,7 @@ export function MainArea({
                 </div>
               ) : (
                 <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                  {selectedLocalItems.map((item) => (
+                  {selectedLocalItems.map((item, index) => (
                     <button
                       key={item.id}
                       type="button"
@@ -202,7 +202,8 @@ export function MainArea({
                         setEditingLocalItem(item)
                         setView('edit')
                       }}
-                      className="min-h-[96px] rounded-lg border border-border-subtle bg-white p-4 text-left shadow-subtle transition-colors hover:bg-surface-hover"
+                      style={{ animationDelay: `${index * 45}ms` }}
+                      className="animate-vault-slide-up min-h-[96px] rounded-xl border border-black/[0.06] bg-white/85 p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.025)] backdrop-blur transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white hover:shadow-[0_18px_45px_rgba(0,0,0,0.055)] active:scale-[0.98]"
                     >
                       <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
                         {LOCAL_ITEM_LABELS[item.type]}
@@ -227,7 +228,7 @@ export function MainArea({
               />
             ) : (
               <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
-                {identity?.platforms.map((platform) => (
+                {identity?.platforms.map((platform, index) => (
                   <button
                     key={platform.id}
                     type="button"
@@ -235,7 +236,8 @@ export function MainArea({
                       setEditingPlatform(platform)
                       setView('edit')
                     }}
-                    className="flex min-h-[96px] items-start gap-3 rounded-lg border border-border-subtle bg-white p-4 text-left shadow-subtle transition-colors hover:bg-surface-hover"
+                    style={{ animationDelay: `${index * 45}ms` }}
+                    className="animate-vault-slide-up flex min-h-[104px] items-start gap-3 rounded-xl border border-black/[0.06] bg-white/85 p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.025)] backdrop-blur transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white hover:shadow-[0_18px_45px_rgba(0,0,0,0.055)] active:scale-[0.98]"
                   >
                     <PlatformLogo name={platform.name} className="h-9 w-9" />
                     <span className="min-w-0 flex-1">

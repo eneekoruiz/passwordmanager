@@ -1,5 +1,5 @@
-import { useState, useEffect, type FormEvent, type CSSProperties } from 'react'
-import type { Account, ApiKeyEntry } from '../types'
+import { useState, useEffect, type FormEvent, type CSSProperties, type MouseEvent, type ReactNode } from 'react'
+import type { Account, ApiKeyEntry, SsoProvider } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
 import { Accordion } from './ui/Accordion'
@@ -129,7 +129,7 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
   const [revealed, setRevealed] = useState(!isSecret)
   if (!value) return null
 
-  const handleCopy = async (e?: React.MouseEvent) => {
+  const handleCopy = async (e?: MouseEvent) => {
     if (e) e.stopPropagation()
     const ok = await copyToClipboard(value)
     if (ok) {
@@ -162,13 +162,16 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
   )
 }
 
-const SSO_PROVIDERS = [
+const SSO_PROVIDERS: Array<{
+  name: SsoProvider
+  icon: ReactNode
+}> = [
   { name: 'Google', icon: <svg className="h-4 w-4" viewBox="0 0 24 24"><path fill="currentColor" d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"/><path fill="currentColor" d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z"/><path fill="currentColor" d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z"/><path fill="currentColor" d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z"/></svg> },
   { name: 'Apple', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M15.42 10.27c0-2.3 1.86-3.37 1.94-3.41-1.06-1.56-2.7-1.78-3.3-1.81-1.4-.14-2.75.82-3.48.82-.7 0-1.81-.8-2.94-.78-1.5.02-2.9.87-3.67 2.21-1.56 2.7-.4 6.7.13 8.24.53 1.5 1.16 3.17 2.76 3.12 1.53-.05 2.1-.98 3.96-.98s2.38.98 4 .94c1.64-.04 2.15-1.54 2.68-3.08.62-1.85-.23-2.82-.25-2.84-.04-.02-1.83-.7-1.83-2.43zM14.02 5.09c.84-1.02 1.4-2.45 1.25-3.87-1.22.05-2.7.82-3.56 1.83-.76.88-1.43 2.33-1.25 3.72 1.36.1 2.72-.66 3.56-1.68z"/></svg> },
   { name: 'GitHub', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path fillRule="evenodd" clipRule="evenodd" d="M12 2C6.477 2 2 6.477 2 12c0 4.42 2.865 8.166 6.839 9.489.5.092.682-.217.682-.482 0-.237-.008-.866-.013-1.7-2.782.603-3.369-1.34-3.369-1.34-.454-1.156-1.11-1.463-1.11-1.463-.908-.62.069-.608.069-.608 1.003.07 1.531 1.03 1.531 1.03.892 1.529 2.341 1.087 2.91.831.092-.646.35-1.086.636-1.336-2.22-.253-4.555-1.11-4.555-4.943 0-1.091.39-1.984 1.029-2.683-.103-.253-.446-1.27.098-2.647 0 0 .84-.269 2.75 1.025A9.578 9.578 0 0112 6.836c.85.004 1.705.114 2.504.336 1.909-1.294 2.747-1.025 2.747-1.025.546 1.379.203 2.394.1 2.647.64.699 1.028 1.592 1.028 2.683 0 3.842-2.339 4.687-4.566 4.935.359.309.678.919.678 1.852 0 1.336-.012 2.415-.012 2.743 0 .267.18.578.688.48C19.138 20.161 22 16.416 22 12c0-5.523-4.477-10-10-10z"/></svg> },
   { name: 'Microsoft', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M11.4 24H0V12.6h11.4V24zM24 24H12.6V12.6H24V24zM11.4 11.4H0V0h11.4v11.4zM24 11.4H12.6V0H24v11.4z"/></svg> },
   { name: 'Facebook', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M24 12.073c0-6.627-5.373-12-12-12s-12 5.373-12 12c0 5.99 4.388 10.954 10.125 11.854v-8.385H7.078v-3.469h3.047V9.43c0-3.007 1.792-4.669 4.533-4.669 1.312 0 2.686.235 2.686.235v2.953H15.83c-1.491 0-1.956.925-1.956 1.874v2.25h3.328l-.532 3.469h-2.796v8.385C19.612 23.027 24 18.062 24 12.073z"/></svg> },
-  { name: 'X / Twitter', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="currentColor"><path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-5.214-6.817L4.99 21.75H1.68l7.73-8.835L1.254 2.25H8.08l4.713 6.231zm-1.161 17.52h1.833L7.084 4.126H5.117z"/></svg> },
+  { name: 'Otro', icon: <svg className="h-4 w-4" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2" /><path strokeLinecap="round" strokeLinejoin="round" d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg> },
 ]
 
 export function AccountForm({
@@ -350,8 +353,8 @@ export function AccountForm({
     })
   }
 
-  const updateSsoProvider = (provider: string) => {
-    setAccessMethods((methods) => methods.map((m) => (m.type === 'SSO' ? { ...m, provider: provider as any } : m)))
+  const updateSsoProvider = (provider: SsoProvider) => {
+    setAccessMethods((methods) => methods.map((m) => (m.type === 'SSO' ? { ...m, provider } : m)))
   }
 
   const updateSsoEmail = (email: string) => {
@@ -385,18 +388,17 @@ export function AccountForm({
   // MODO LECTURA (VIEW MODE)
   if (!isEditing) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6 pb-24 animate-fade-in font-sans">
-        <div className="flex items-center justify-between rounded-[2rem] border border-black/5 bg-white p-6 shadow-[0_8px_30px_rgba(0,0,0,0.03)] transition-all duration-300 hover:shadow-[0_12px_40px_rgba(0,0,0,0.06)]">
+      <div className="mx-auto max-w-2xl space-y-6 pb-24 font-sans animate-vault-morph">
+        <div className="flex items-center justify-between rounded-2xl border border-black/[0.06] bg-white/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.055)] backdrop-blur transition-all duration-300 hover:shadow-[0_30px_100px_rgba(0,0,0,0.075)]">
           <div className="flex items-center gap-4">
             <PlatformLogo name={account.name} className="h-12 w-12 shrink-0 rounded-2xl shadow-sm border border-black/5" />
             <div>
               <h2 className="text-2xl font-bold tracking-tight text-text-primary">{account.name}</h2>
-              <p className="text-[10px] font-bold text-text-tertiary uppercase tracking-wider mt-0.5">Modo Lectura</p>
+              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">Resumen seguro</p>
             </div>
           </div>
-          <button type="button" onClick={() => setIsEditing(true)} className="group flex items-center gap-2 rounded-xl bg-text-primary pl-5 pr-4 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all duration-200 hover:opacity-90 hover:-translate-y-0.5 active:scale-[0.98]">
+          <button type="button" onClick={() => setIsEditing(true)} className="rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition-all duration-150 hover:-translate-y-0.5 hover:opacity-95 active:scale-[0.98]">
             Editar
-            <kbd className="hidden sm:inline-flex h-5 items-center justify-center rounded border border-white/20 bg-white/10 px-1.5 font-mono text-[10px] font-medium text-white/80 transition-colors group-hover:bg-white/20 group-hover:text-white">E</kbd>
           </button>
         </div>
 
@@ -433,7 +435,7 @@ export function AccountForm({
 
   // MODO EDICIÓN (EDIT MODE)
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-24 select-none animate-fade-in font-sans">
+    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-24 select-none font-sans animate-vault-morph">
       {/* Identity-First Banner */}
       <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-surface to-white p-4 border border-border-subtle shadow-sm relative overflow-hidden">
         <div className="absolute inset-y-0 left-0 w-1 bg-text-primary" />
