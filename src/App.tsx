@@ -317,7 +317,7 @@ function VaultApp() {
   }
 
   return (
-    <div className="flex h-dvh overflow-hidden bg-surface">
+    <div className="flex min-h-dvh bg-surface">
       <Sidebar
         identities={filteredIdentities}
         localItems={localItems}
@@ -345,7 +345,7 @@ function VaultApp() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {pageBanner}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
             identity={selectedIdentity}
             localCategory={selectedLocalCategory}

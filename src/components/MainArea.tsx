@@ -52,7 +52,7 @@ export function MainArea({
 
   if (!identity && !localCategory) {
     return (
-      <div className="flex flex-1 flex-col">
+      <div className="flex min-h-0 flex-1 flex-col">
         {!isMobile && (
           <header className="flex items-center gap-3 border-b border-border-subtle px-4 py-3 lg:hidden">
             <button
@@ -127,6 +127,17 @@ export function MainArea({
         )}
 
         <div className="min-w-0 flex-1">
+          {isFormView && identity && (
+            <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] bg-white/85 px-3 py-1 shadow-[0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur">
+              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]" />
+              <span className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
+                Identidad activa
+              </span>
+              <span className="truncate text-xs font-semibold text-text-primary">
+                {identity.email}
+              </span>
+            </div>
+          )}
           <h2 className="truncate text-lg font-semibold text-text-primary">
             {isFormView
               ? view === 'create'
@@ -138,13 +149,15 @@ export function MainArea({
                 ? LOCAL_ITEM_LABELS[localCategory]
                 : identity?.email}
           </h2>
-          {!isFormView && (
-            <p className="mt-0.5 text-xs text-text-tertiary">
-              {localCategory
+          <p className="mt-0.5 truncate text-xs text-text-tertiary">
+            {isFormView
+              ? localCategory
+                ? LOCAL_ITEM_LABELS[localCategory]
+                : identity?.email
+              : localCategory
                 ? `${selectedLocalItems.length} secreto${selectedLocalItems.length !== 1 ? 's' : ''}`
                 : `${identity?.platforms.length ?? 0} plataforma${identity?.platforms.length !== 1 ? 's' : ''}`}
-            </p>
-          )}
+          </p>
         </div>
 
         {isFormView ? (
@@ -173,7 +186,7 @@ export function MainArea({
         )}
       </header>
 
-      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-6">
+      <div className="flex-1 overflow-y-auto px-4 py-4 lg:overflow-y-auto lg:px-8 lg:py-6">
         {view === 'grid' && (
           <>
             {localCategory ? (
@@ -193,7 +206,7 @@ export function MainArea({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                   {selectedLocalItems.map((item, index) => (
                     <button
                       key={item.id}
@@ -203,8 +216,9 @@ export function MainArea({
                         setView('edit')
                       }}
                       style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up min-h-[96px] rounded-xl border border-black/[0.06] bg-white/85 p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.025)] backdrop-blur transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white hover:shadow-[0_18px_45px_rgba(0,0,0,0.055)] active:scale-[0.98]"
+                      className="animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                     >
+                      <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                       <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
                         {LOCAL_ITEM_LABELS[item.type]}
                       </span>
@@ -227,7 +241,7 @@ export function MainArea({
                 onImportText={onOpenImportText}
               />
             ) : (
-              <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
                 {identity?.platforms.map((platform, index) => (
                   <button
                     key={platform.id}
@@ -237,8 +251,9 @@ export function MainArea({
                       setView('edit')
                     }}
                     style={{ animationDelay: `${index * 45}ms` }}
-                    className="animate-vault-slide-up flex min-h-[104px] items-start gap-3 rounded-xl border border-black/[0.06] bg-white/85 p-4 text-left shadow-[0_10px_30px_rgba(0,0,0,0.025)] backdrop-blur transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white hover:shadow-[0_18px_45px_rgba(0,0,0,0.055)] active:scale-[0.98]"
+                    className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                   >
+                    <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                     <PlatformLogo name={platform.name} className="h-9 w-9" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-text-primary">
