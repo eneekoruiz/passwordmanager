@@ -55,3 +55,8 @@ export function getVaultDb(): Promise<IDBPDatabase<ContrasDB>> {
   }
   return dbPromise
 }
+
+export async function deleteVaultDb(): Promise<void> {
+  dbPromise = null
+  await deleteDB(DB_NAME)
+}

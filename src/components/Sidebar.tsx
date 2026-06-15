@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Identity, LocalVaultItem, LocalVaultItemType } from '../types'
+import type { Identity, LocalVaultItem, LocalVaultItemType, VaultGroupMode } from '../types'
 import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -9,11 +9,15 @@ import { LOCAL_ITEM_LABELS } from '../utils/vaultItem'
 interface SidebarProps {
   identities: Identity[]
   localItems: LocalVaultItem[]
+  groupMode: VaultGroupMode
   selectedId: string | null
+  selectedPlatformName: string | null
   selectedLocalCategory: LocalVaultItemType | null
   searchQuery: string
   onSearchChange: (query: string) => void
+  onGroupModeChange: (mode: VaultGroupMode) => void
   onSelect: (id: string) => void
+  onSelectPlatform: (platformName: string) => void
   onSelectLocalCategory: (type: LocalVaultItemType) => void
   onAddIdentity: (email: string) => Promise<void>
   onDeleteIdentity: (id: string) => Promise<void>
@@ -30,11 +34,15 @@ interface SidebarProps {
 export function Sidebar({
   identities,
   localItems,
+  groupMode,
   selectedId,
+  selectedPlatformName,
   selectedLocalCategory,
   searchQuery,
   onSearchChange,
+  onGroupModeChange,
   onSelect,
+  onSelectPlatform,
   onSelectLocalCategory,
   onAddIdentity,
   onDeleteIdentity,
@@ -55,6 +63,20 @@ export function Sidebar({
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
+  const query = searchQuery.trim().toLowerCase()
+  const visibleIdentities = query
+    ? identities.filter((identity) => identity.email.toLowerCase().includes(query))
+    : identities
+  const platformSummaries = identities
+    .flatMap((identity) => identity.platforms.map((platform) => platform.name.trim()).filter(Boolean))
+    .reduce<Array<{ name: string; count: number }>>((acc, name) => {
+      const existing = acc.find((item) => item.name.toLowerCase() === name.toLowerCase())
+      if (existing) existing.count += 1
+      else acc.push({ name, count: 1 })
+      return acc
+    }, [])
+    .filter((platform) => !query || platform.name.toLowerCase().includes(query))
+    .sort((a, b) => a.name.localeCompare(b.name))
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -199,18 +221,64 @@ export function Sidebar({
               {sidebarError}
             </div>
           )}
-          <SearchBar value={searchQuery} onChange={onSearchChange} placeholder="Buscar identidades..." />
+          <div className="mb-3 grid grid-cols-2 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+            {(['identity', 'platform'] as VaultGroupMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onGroupModeChange(mode)}
+                className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all duration-150 ${
+                  groupMode === mode
+                    ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)]'
+                    : 'text-text-secondary hover:bg-surface-hover'
+                }`}
+              >
+                {mode === 'identity' ? 'Identidad' : 'Plataforma'}
+              </button>
+            ))}
+          </div>
+          <SearchBar
+            value={searchQuery}
+            onChange={onSearchChange}
+            placeholder={groupMode === 'identity' ? 'Buscar identidades...' : 'Buscar plataformas...'}
+          />
         </div>
 
         <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
           <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-            Identidades
+            {groupMode === 'identity' ? 'Identidades' : 'Plataformas'}
           </div>
-          {identities.length === 0 ? (
+          {groupMode === 'platform' ? (
+            platformSummaries.length === 0 ? (
+              <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay plataformas.</p>
+            ) : (
+              <ul className="space-y-0.5 animate-vault-morph">
+                {platformSummaries.map((platform) => {
+                  const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
+                  return (
+                    <li key={platform.name}>
+                      <button
+                        type="button"
+                        onClick={() => onSelectPlatform(platform.name)}
+                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-colors ${
+                          selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+                        }`}
+                      >
+                        <span className="truncate text-sm font-medium text-text-primary/90">
+                          {platform.name}
+                        </span>
+                        <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>
+                      </button>
+                    </li>
+                  )
+                })}
+              </ul>
+            )
+          ) : visibleIdentities.length === 0 ? (
             <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
           ) : (
-            <ul className="space-y-0.5">
-              {identities.map((identity) => {
+            <ul className="space-y-0.5 animate-vault-morph">
+              {visibleIdentities.map((identity) => {
                 const selected = identity.id === selectedId
                 return (
                   <li key={identity.id}>

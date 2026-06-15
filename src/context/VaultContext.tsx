@@ -10,16 +10,18 @@ import {
 } from 'react'
 import {
   GoogleAuthProvider,
+  deleteUser,
   onAuthStateChanged,
   signInWithPopup,
   signOut,
   type Auth,
   type User,
 } from 'firebase/auth'
-import { doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
+import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
+import { deleteVaultDb } from '../storage/vaultDb'
 import type { Identity, LocalVaultItem, Platform } from '../types'
 import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
@@ -50,6 +52,7 @@ interface VaultContextValue {
   saveLocalItem: (item: LocalVaultItem) => Promise<void>
   deleteLocalItem: (itemId: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
+  verifyCurrentMasterPassword: (masterPassword: string) => Promise<boolean>
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
   importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<string | null>
   cloudUserEmail: string | null
@@ -61,8 +64,10 @@ interface VaultContextValue {
   syncActiveProfileToCloud: () => Promise<void>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
   restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
-  initializeNewVault: (masterPassword: string) => Promise<void>
+  initializeNewVault: (masterPassword: string, recoveryPhrase: string) => Promise<void>
   unlockOrRestoreVault: (masterPassword: string) => Promise<void>
+  recoverVaultWithSeed: (recoveryPhrase: string, newMasterPassword: string) => Promise<void>
+  nukeAccount: () => Promise<void>
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -458,7 +463,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   )
 
   const initializeNewVault = useCallback(
-    async (masterPassword: string) => {
+    async (masterPassword: string, recoveryPhrase: string) => {
       setCloudError(null)
       setCloudSyncStatus('syncing')
       try {
@@ -467,7 +472,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!user) throw new Error('No hay una sesion valida en Firebase.')
 
         const profileName = 'Boveda Principal'
-        const profileId = await storeRef.current.createProfile(profileName, masterPassword)
+        const profileId = await storeRef.current.createProfile(profileName, masterPassword, recoveryPhrase)
         const unlocked = await storeRef.current.unlockProfile(profileId, masterPassword)
         if (!unlocked) throw new Error('La boveda nueva no pudo desbloquearse.')
 
@@ -533,6 +538,92 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile],
   )
 
+  const recoverVaultWithSeed = useCallback(
+    async (recoveryPhrase: string, newMasterPassword: string) => {
+      setCloudError(null)
+      setCloudSyncStatus('syncing')
+      let recoveredMasterPassword: string | null = null
+      try {
+        const { dbClient } = getFirebaseClients()
+        const user = firebaseUserRef.current
+        if (!user) throw new Error('No hay una sesion valida en Firebase.')
+
+        const profileId = 'default'
+        const knownProfiles = await storeRef.current.listProfiles()
+        const localDefaultProfile = knownProfiles.find((profile) => profile.id === profileId)
+
+        if (localDefaultProfile) {
+          recoveredMasterPassword = await storeRef.current.recoverMasterPassword(profileId, recoveryPhrase)
+        } else {
+          const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+          const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
+          if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda en la nube.')
+          recoveredMasterPassword = await storeRef.current.recoverMasterPasswordFromCloudPayload(blob, recoveryPhrase)
+          await restoreIntoDefaultProfile(blob, recoveredMasterPassword, 'Boveda Principal')
+        }
+
+        await storeRef.current.rotateProfilePassword(
+          profileId,
+          recoveredMasterPassword,
+          newMasterPassword,
+          recoveryPhrase,
+        )
+        setCurrentProfileId(profileId)
+        setCurrentProfileName('Boveda Principal')
+        setIsUnlocked(true)
+        await loadVaultDataForProfile(profileId)
+        triggerCloudSync()
+        setCloudSyncStatus('synced')
+        await listProfiles()
+      } catch (error) {
+        setCloudSyncStatus('error')
+        reportCloudError(error, 'No se pudo recuperar la boveda con la frase semilla.')
+        throw error
+      } finally {
+        recoveredMasterPassword = null
+      }
+    },
+    [listProfiles, loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile, triggerCloudSync],
+  )
+
+  const nukeAccount = useCallback(async () => {
+    setCloudError(null)
+    setCloudSyncStatus('syncing')
+    const user = firebaseUserRef.current
+    if (!user) throw new Error('No hay una sesion valida en Firebase.')
+
+    try {
+      const { dbClient } = getFirebaseClients()
+      await deleteDoc(doc(dbClient, 'vaults', user.uid))
+      await deleteUser(user)
+      vaultRef.current.lock()
+      await deleteVaultDb()
+      firebaseUserRef.current = null
+      setCloudUserEmail(null)
+      setCloudVaultExists(null)
+      setCloudSyncStatus('idle')
+      setIsUnlocked(false)
+      setCurrentProfileId(null)
+      setCurrentProfileName(null)
+      setIdentities([])
+      setLocalItems([])
+      setProfiles([])
+      setIsInitialized(false)
+      setAppError(null)
+      await listProfiles()
+    } catch (error) {
+      setCloudSyncStatus('error')
+      const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code?: unknown }).code) : ''
+      if (code === 'auth/requires-recent-login') {
+        const message = 'Firebase requiere una re-autenticacion reciente antes de destruir la cuenta. Cierra sesion, vuelve a entrar con Google y repite la accion.'
+        setCloudError(message)
+        throw new Error(message)
+      }
+      reportCloudError(error, 'No se pudo destruir la boveda y la cuenta.')
+      throw error
+    }
+  }, [listProfiles, reportCloudError])
+
   const createProfile = useCallback(
     async (name: string, password: string) => {
       const id = await storeRef.current.createProfile(name, password)
@@ -574,6 +665,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId],
   )
 
+  const verifyCurrentMasterPassword = useCallback(
+    async (masterPassword: string) => {
+      if (!currentProfileId) throw new Error('No hay un perfil activo para verificar.')
+      return storeRef.current.unlockProfile(currentProfileId, masterPassword)
+    },
+    [currentProfileId],
+  )
+
   const importBackup = useCallback(
     async (backupJsonString: string, masterPassword: string) => {
       if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
@@ -611,6 +710,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       saveLocalItem,
       deleteLocalItem,
       exportBackup,
+      verifyCurrentMasterPassword,
       importBackup,
       importMassiveAccounts,
       cloudUserEmail,
@@ -624,6 +724,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       restoreProfileFromGoogleCloud,
       initializeNewVault,
       unlockOrRestoreVault,
+      recoverVaultWithSeed,
+      nukeAccount,
     }),
     [
       addIdentity,
@@ -642,6 +744,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       deleteLocalItem,
       deletePlatform,
       exportBackup,
+      verifyCurrentMasterPassword,
       identities,
       importBackup,
       importMassiveAccounts,
@@ -658,6 +761,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       profiles,
       restoreProfileFromCloud,
       restoreProfileFromGoogleCloud,
+      recoverVaultWithSeed,
+      nukeAccount,
       saveIdentity,
       saveLocalItem,
       selectProfile,

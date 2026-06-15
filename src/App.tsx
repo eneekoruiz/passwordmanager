@@ -7,7 +7,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
-import type { LocalVaultItemType } from './types'
+import type { LocalVaultItemType, VaultGroupMode } from './types'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -28,9 +28,12 @@ function VaultApp() {
     saveLocalItem,
     deleteLocalItem,
     exportBackup,
+    verifyCurrentMasterPassword,
     importBackup,
     importMassiveAccounts,
     currentProfileName,
+    cloudSyncStatus,
+    syncActiveProfileToCloud,
     logoutProfile,
     appError,
     clearAppError,
@@ -88,17 +91,14 @@ function VaultApp() {
   }
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [groupMode, setGroupMode] = useState<VaultGroupMode>('identity')
+  const [selectedPlatformName, setSelectedPlatformName] = useState<string | null>(null)
   const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalVaultItemType | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
-
-  const filteredIdentities = useMemo(() => {
-    const query = searchQuery.trim().toLowerCase()
-    if (!query) return identities
-    return identities.filter((identity) => identity.email.toLowerCase().includes(query))
-  }, [identities, searchQuery])
+  const [mobileSyncCheckVisible, setMobileSyncCheckVisible] = useState(false)
 
   const selectedIdentity = useMemo(
     () => identities.find((identity) => identity.id === selectedId) ?? null,
@@ -110,6 +110,39 @@ function VaultApp() {
   useEffect(() => {
     setPageMessage(appError)
   }, [appError])
+
+  useEffect(() => {
+    if (cloudSyncStatus !== 'synced') return
+    setMobileSyncCheckVisible(true)
+    const timer = window.setTimeout(() => setMobileSyncCheckVisible(false), 1600)
+    return () => window.clearTimeout(timer)
+  }, [cloudSyncStatus])
+
+  useEffect(() => {
+    if (!isUnlocked) return
+    const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const
+    let timer: number | null = null
+
+    const resetTimer = () => {
+      if (timer !== null) window.clearTimeout(timer)
+      timer = window.setTimeout(() => {
+        logoutProfile()
+        setSelectedId(null)
+        setSelectedPlatformName(null)
+        setSelectedLocalCategory(null)
+        setSearchQuery('')
+        setPageMessage('Sesión bloqueada automáticamente por inactividad.')
+      }, 5 * 60 * 1000)
+    }
+
+    events.forEach((event) => window.addEventListener(event, resetTimer, { passive: true }))
+    resetTimer()
+
+    return () => {
+      if (timer !== null) window.clearTimeout(timer)
+      events.forEach((event) => window.removeEventListener(event, resetTimer))
+    }
+  }, [isUnlocked, logoutProfile])
 
   if (!isReady) {
     return (
@@ -135,19 +168,37 @@ function VaultApp() {
 
   const handleSelect = (id: string) => {
     setSelectedId(id)
+    setSelectedPlatformName(null)
     setSelectedLocalCategory(null)
     setSidebarOpen(false)
+  }
+
+  const handleSelectPlatform = (platformName: string) => {
+    setSelectedPlatformName(platformName)
+    setSelectedId(null)
+    setSelectedLocalCategory(null)
+    setSidebarOpen(false)
+  }
+
+  const handleGroupModeChange = (mode: VaultGroupMode) => {
+    setGroupMode(mode)
+    setSearchQuery('')
+    setSelectedId(null)
+    setSelectedPlatformName(null)
+    setSelectedLocalCategory(null)
   }
 
   const handleSelectLocalCategory = (type: LocalVaultItemType) => {
     setSelectedLocalCategory(type)
     setSelectedId(null)
+    setSelectedPlatformName(null)
     setSidebarOpen(false)
   }
 
   const handleLock = () => {
     logoutProfile()
     setSelectedId(null)
+    setSelectedPlatformName(null)
     setSelectedLocalCategory(null)
     setSearchQuery('')
     setPageMessage(null)
@@ -181,6 +232,7 @@ function VaultApp() {
   const handleImportBackup = async (backupJsonString: string, password: string) => {
     await importBackup(backupJsonString, password)
     setSelectedId(null)
+    setSelectedPlatformName(null)
   }
 
   const pageBanner = pageMessage ? (
@@ -198,24 +250,61 @@ function VaultApp() {
     </div>
   ) : null
 
+  const mobileSyncButton = isMobile ? (
+    <button
+      type="button"
+      onClick={() => {
+        void syncActiveProfileToCloud().catch((error) => {
+          reportUiError(error, 'No se pudo sincronizar la bóveda.')
+        })
+      }}
+      disabled={cloudSyncStatus === 'syncing'}
+      className="fixed right-4 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-2xl border border-black/5 bg-white/85 text-text-secondary shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-all active:scale-[0.96] disabled:opacity-70"
+      aria-label="Sincronizar bóveda"
+    >
+      {mobileSyncCheckVisible ? (
+        <svg className="h-5 w-5 text-emerald-600 animate-vault-morph" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+        </svg>
+      ) : cloudSyncStatus === 'error' ? (
+        <span className="relative flex h-5 w-5 items-center justify-center">
+          <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+          </svg>
+          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-600" />
+        </span>
+      ) : (
+        <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
+        </svg>
+      )}
+    </button>
+  ) : null
+
   if (isMobile) {
     return (
       <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16">
+        {mobileSyncButton}
         {pageBanner}
         <div className="flex-1 overflow-y-auto">
-          {selectedId === null && selectedLocalCategory === null ? (
+          {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
-              identities={filteredIdentities}
+              identities={identities}
               localItems={localItems}
+              groupMode={groupMode}
               selectedId={selectedId}
+              selectedPlatformName={selectedPlatformName}
               selectedLocalCategory={selectedLocalCategory}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
+              onGroupModeChange={handleGroupModeChange}
               onSelect={handleSelect}
+              onSelectPlatform={handleSelectPlatform}
               onSelectLocalCategory={handleSelectLocalCategory}
               onAddIdentity={async (email) => {
                 const identity = await addIdentity(email)
                 setSelectedId(identity.id)
+                setSelectedPlatformName(null)
                 setSelectedLocalCategory(null)
               }}
               onDeleteIdentity={handleDeleteIdentity}
@@ -230,12 +319,16 @@ function VaultApp() {
             />
           ) : (
             <MainArea
+              identities={identities}
               identity={selectedIdentity}
+              groupMode={groupMode}
+              selectedPlatformName={selectedPlatformName}
               localCategory={selectedLocalCategory}
               localItems={localItems}
               onOpenSidebar={() => {}}
               onSelectIdentity={(id) => {
                 setSelectedId(id)
+                setSelectedPlatformName(null)
                 setSelectedLocalCategory(null)
               }}
               onSelectLocalCategory={handleSelectLocalCategory}
@@ -255,10 +348,11 @@ function VaultApp() {
             type="button"
             onClick={() => {
               setSelectedId(null)
+              setSelectedPlatformName(null)
               setSelectedLocalCategory(null)
             }}
             className={`flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
-              selectedId === null && selectedLocalCategory === null ? 'text-text-primary' : 'text-text-tertiary'
+              selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? 'text-text-primary' : 'text-text-tertiary'
             }`}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -295,6 +389,9 @@ function VaultApp() {
           isOpen={settingsOpen}
           onClose={() => setSettingsOpen(false)}
           onExport={handleExportBackup}
+          identities={identities}
+          localItems={localItems}
+          onVerifyMasterPassword={verifyCurrentMasterPassword}
           onImport={handleImportBackup}
           onOpenImportText={() => setImportTextOpen(true)}
         />
@@ -306,6 +403,7 @@ function VaultApp() {
             const identityId = await importMassiveAccounts(rows)
             if (identityId) {
               setSelectedId(identityId)
+              setSelectedPlatformName(null)
               setSelectedLocalCategory(null)
             }
           }}
@@ -319,17 +417,22 @@ function VaultApp() {
   return (
     <div className="flex min-h-dvh bg-surface">
       <Sidebar
-        identities={filteredIdentities}
+        identities={identities}
         localItems={localItems}
+        groupMode={groupMode}
         selectedId={selectedId}
+        selectedPlatformName={selectedPlatformName}
         selectedLocalCategory={selectedLocalCategory}
         searchQuery={searchQuery}
         onSearchChange={setSearchQuery}
+        onGroupModeChange={handleGroupModeChange}
         onSelect={handleSelect}
+        onSelectPlatform={handleSelectPlatform}
         onSelectLocalCategory={handleSelectLocalCategory}
         onAddIdentity={async (email) => {
           const identity = await addIdentity(email)
           setSelectedId(identity.id)
+          setSelectedPlatformName(null)
           setSelectedLocalCategory(null)
         }}
         onDeleteIdentity={handleDeleteIdentity}
@@ -347,12 +450,16 @@ function VaultApp() {
         {pageBanner}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
+            identities={identities}
             identity={selectedIdentity}
+            groupMode={groupMode}
+            selectedPlatformName={selectedPlatformName}
             localCategory={selectedLocalCategory}
             localItems={localItems}
             onOpenSidebar={() => setSidebarOpen(true)}
             onSelectIdentity={(id) => {
               setSelectedId(id)
+              setSelectedPlatformName(null)
               setSelectedLocalCategory(null)
             }}
             onSelectLocalCategory={handleSelectLocalCategory}
@@ -371,6 +478,9 @@ function VaultApp() {
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onExport={handleExportBackup}
+        identities={identities}
+        localItems={localItems}
+        onVerifyMasterPassword={verifyCurrentMasterPassword}
         onImport={handleImportBackup}
         onOpenImportText={() => setImportTextOpen(true)}
       />
@@ -382,6 +492,7 @@ function VaultApp() {
           const identityId = await importMassiveAccounts(rows)
           if (identityId) {
             setSelectedId(identityId)
+            setSelectedPlatformName(null)
             setSelectedLocalCategory(null)
           }
         }}

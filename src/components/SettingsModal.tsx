@@ -1,10 +1,17 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, type FormEvent } from 'react'
 import { getFriendlyErrorMessage } from '../utils/errors'
+import type { Identity, LocalVaultItem } from '../types'
+import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
+
+type PlaintextExportFormat = 'csv' | 'json'
 
 interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
   onExport: (masterPassword: string) => Promise<void>
+  identities: Identity[]
+  localItems: LocalVaultItem[]
+  onVerifyMasterPassword: (masterPassword: string) => Promise<boolean>
   onImport: (backupJsonString: string, masterPassword: string) => Promise<void>
   onOpenImportText: () => void
 }
@@ -17,33 +24,55 @@ export function SettingsModal({
   isOpen,
   onClose,
   onExport,
+  identities,
+  localItems,
+  onVerifyMasterPassword,
   onImport,
   onOpenImportText,
 }: SettingsModalProps) {
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
   const [backupFile, setBackupFile] = useState<File | null>(null)
+  const [plaintextFormat, setPlaintextFormat] = useState<PlaintextExportFormat>('csv')
+  const [selectedIdentityIds, setSelectedIdentityIds] = useState<string[]>([])
+  const [securityModalOpen, setSecurityModalOpen] = useState(false)
+  const [securityPassword, setSecurityPassword] = useState('')
   
   const [exportError, setExportError] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
+  const [plaintextExportError, setPlaintextExportError] = useState<string | null>(null)
   const [exportSuccess, setExportSuccess] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
+  const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
 
   const [loadingExport, setLoadingExport] = useState(false)
   const [loadingImport, setLoadingImport] = useState(false)
+  const [loadingPlaintextExport, setLoadingPlaintextExport] = useState(false)
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
     return () => {
       setExportPassword('')
       setImportPassword('')
+      setSecurityPassword('')
       setBackupFile(null)
     }
   }, [])
 
   if (!isOpen) return null
 
-  const handleExport = async (e: React.FormEvent) => {
+  const selectedIdentities =
+    selectedIdentityIds.length === 0
+      ? identities
+      : identities.filter((identity) => selectedIdentityIds.includes(identity.id))
+
+  const toggleIdentitySelection = (id: string) => {
+    setSelectedIdentityIds((ids) =>
+      ids.includes(id) ? ids.filter((item) => item !== id) : [...ids, id],
+    )
+  }
+
+  const handleExport = async (e: FormEvent) => {
     e.preventDefault()
     setExportError(null)
     setExportSuccess(null)
@@ -64,7 +93,59 @@ export function SettingsModal({
     }
   }
 
-  const handleImport = async (e: React.FormEvent) => {
+  const handlePlaintextExport = async (event: FormEvent) => {
+    event.preventDefault()
+    setPlaintextExportError(null)
+    setPlaintextExportSuccess(null)
+
+    if (selectedIdentities.length === 0) {
+      setPlaintextExportError('Selecciona al menos una identidad para exportar.')
+      return
+    }
+
+    setSecurityPassword('')
+    setSecurityModalOpen(true)
+  }
+
+  const executePlaintextExport = async (event: FormEvent) => {
+    event.preventDefault()
+    setPlaintextExportError(null)
+    setPlaintextExportSuccess(null)
+
+    if (!securityPassword) {
+      setPlaintextExportError('Introduce tu Contraseña Maestra para autorizar la exportación.')
+      return
+    }
+
+    let plaintext = ''
+    setLoadingPlaintextExport(true)
+    try {
+      const verified = await onVerifyMasterPassword(securityPassword)
+      if (!verified) {
+        setPlaintextExportError('Contraseña Maestra incorrecta.')
+        return
+      }
+
+      const date = new Date().toISOString().slice(0, 10)
+      if (plaintextFormat === 'csv') {
+        plaintext = buildPlaintextCsv(selectedIdentities)
+        downloadPlaintextFile(plaintext, `contras_export_${date}.csv`, 'text/csv;charset=utf-8')
+      } else {
+        plaintext = buildPlaintextJson(selectedIdentities, selectedIdentityIds.length === 0 ? localItems : [])
+        downloadPlaintextFile(plaintext, `contras_export_${date}.json`, 'application/json;charset=utf-8')
+      }
+      setPlaintextExportSuccess('Exportación en texto plano generada. Elimina el archivo cuando termines.')
+      setSecurityModalOpen(false)
+      setSecurityPassword('')
+    } catch (error) {
+      setPlaintextExportError(getFriendlyErrorMessage(error, 'No se pudo generar la exportación.'))
+    } finally {
+      plaintext = ''
+      setLoadingPlaintextExport(false)
+    }
+  }
+
+  const handleImport = async (e: FormEvent) => {
     e.preventDefault()
     setImportError(null)
     setImportSuccess(null)
@@ -114,7 +195,7 @@ export function SettingsModal({
         aria-label="Cerrar modal"
       />
 
-      <div className="relative z-10 w-full max-w-md rounded-2xl border border-black/5 bg-white/80 backdrop-blur-xl p-6 shadow-[0_15px_50px_rgba(0,0,0,0.12)] space-y-5 flex flex-col text-left font-sans">
+      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-black/5 bg-white/80 backdrop-blur-xl p-6 shadow-[0_15px_50px_rgba(0,0,0,0.12)] space-y-5 flex flex-col text-left font-sans">
         <header className="flex items-center justify-between border-b border-border-subtle pb-3">
           <div className="flex flex-col">
             <h2 className="text-base font-bold text-text-primary">Datos y Copias de Seguridad</h2>
@@ -149,6 +230,92 @@ export function SettingsModal({
             >
               Importar desde Google Docs / TSV...
             </button>
+          </section>
+
+          <hr className="border-border-subtle" />
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Exportación Portable sin Cifrar</h3>
+              <p className="mt-1 text-[11px] text-text-secondary leading-relaxed">
+                Genera CSV compatible con gestores de contraseñas o JSON completo con todos los metadatos.
+              </p>
+            </div>
+            <form onSubmit={handlePlaintextExport} className="space-y-3">
+              <div className="grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
+                {(['csv', 'json'] as PlaintextExportFormat[]).map((format) => (
+                  <button
+                    key={format}
+                    type="button"
+                    onClick={() => setPlaintextFormat(format)}
+                    className={`rounded-lg px-3 py-2 text-xs font-bold transition-all ${
+                      plaintextFormat === format
+                        ? 'bg-text-primary text-white shadow-sm'
+                        : 'text-text-secondary hover:bg-surface-hover'
+                    }`}
+                  >
+                    {format.toUpperCase()}
+                  </button>
+                ))}
+              </div>
+
+              <div className="rounded-xl border border-border-subtle bg-white/70 p-3">
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">
+                    Alcance
+                  </span>
+                  <button
+                    type="button"
+                    onClick={() => setSelectedIdentityIds([])}
+                    className="rounded-lg px-2 py-1 text-[10px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
+                  >
+                    Toda la bóveda
+                  </button>
+                </div>
+                <div className="max-h-32 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+                  {identities.map((identity) => {
+                    const checked = selectedIdentityIds.length === 0 || selectedIdentityIds.includes(identity.id)
+                    return (
+                      <label
+                        key={identity.id}
+                        className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover"
+                      >
+                        <span className="truncate">{identity.email}</span>
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleIdentitySelection(identity.id)}
+                        />
+                      </label>
+                    )
+                  })}
+                </div>
+                <p className="mt-2 text-[10px] text-text-tertiary">
+                  {selectedIdentityIds.length === 0
+                    ? 'Se exportará toda la bóveda, incluidos secretos locales en JSON.'
+                    : `Se exportarán ${selectedIdentities.length} identidad(es).`}
+                </p>
+              </div>
+
+              {plaintextExportError && (
+                <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">
+                  {plaintextExportError}
+                </div>
+              )}
+              {plaintextExportSuccess && (
+                <div className="rounded-lg border border-amber-100 bg-amber-50 p-2 text-[10px] font-medium text-amber-800">
+                  {plaintextExportSuccess}
+                </div>
+              )}
+
+              <button
+                type="submit"
+                disabled={loadingPlaintextExport || identities.length === 0}
+                className="flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-900 transition-all hover:bg-amber-100 disabled:opacity-40 active:scale-[0.98]"
+              >
+                Exportar con re-autenticación
+              </button>
+            </form>
           </section>
 
           <hr className="border-border-subtle" />
@@ -272,6 +439,57 @@ export function SettingsModal({
           </section>
         </div>
       </div>
+      {securityModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-950/25 p-4 backdrop-blur-md animate-vault-morph">
+          <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white/95 p-6 text-left shadow-[0_30px_90px_rgba(146,64,14,0.22)]">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-100 text-amber-700">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M4.93 19.07h14.14c1.54 0 2.5-1.67 1.73-3L13.73 3.93c-.77-1.33-2.69-1.33-3.46 0L3.2 16.07c-.77 1.33.19 3 1.73 3z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold tracking-tight text-text-primary">Re-autenticación requerida</h2>
+            <div className="mt-4 rounded-2xl border border-amber-200 bg-amber-50 p-3 text-[11px] font-medium leading-relaxed text-amber-900">
+              Atención: El archivo que vas a descargar contiene todas tus contraseñas y claves en texto plano y sin encriptar. Cualquiera que tenga acceso a este archivo podrá leer tus credenciales. Guárdalo en un entorno seguro (como un USB cifrado) y elimínalo de tu carpeta de Descargas lo antes posible.
+            </div>
+            <form onSubmit={executePlaintextExport} className="mt-5 space-y-4">
+              <input
+                type="password"
+                value={securityPassword}
+                onChange={(event) => setSecurityPassword(event.target.value)}
+                placeholder="Contraseña Maestra"
+                className="w-full rounded-xl border border-border-subtle bg-surface px-3 py-2.5 text-sm font-medium text-text-primary outline-none transition-colors focus:border-border"
+                autoComplete="current-password"
+              />
+              {plaintextExportError && (
+                <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">
+                  {plaintextExportError}
+                </div>
+              )}
+              <div className="grid grid-cols-2 gap-3">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setSecurityModalOpen(false)
+                    setSecurityPassword('')
+                    setPlaintextExportError(null)
+                  }}
+                  disabled={loadingPlaintextExport}
+                  className="min-h-11 rounded-xl bg-surface-hover px-4 py-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-active disabled:opacity-50"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="submit"
+                  disabled={loadingPlaintextExport || !securityPassword}
+                  className="min-h-11 rounded-xl bg-amber-600 px-4 py-3 text-sm font-bold text-white shadow-sm shadow-amber-700/20 transition-all hover:bg-amber-700 disabled:opacity-40 active:scale-[0.98]"
+                >
+                  {loadingPlaintextExport ? 'Verificando...' : 'Descargar'}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

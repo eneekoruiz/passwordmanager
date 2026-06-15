@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import type { Identity, LocalVaultItem, LocalVaultItemType, Platform } from '../types'
+import { useMemo, useState } from 'react'
+import type { Identity, LocalVaultItem, LocalVaultItemType, Platform, VaultGroupMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
 import { AccountForm } from './AccountForm'
@@ -10,7 +10,10 @@ import { VaultItemForm } from './VaultItemForm'
 type ViewMode = 'grid' | 'create' | 'edit'
 
 interface MainAreaProps {
+  identities: Identity[]
   identity: Identity | null
+  groupMode: VaultGroupMode
+  selectedPlatformName: string | null
   localCategory: LocalVaultItemType | null
   localItems: LocalVaultItem[]
   onOpenSidebar: () => void
@@ -25,8 +28,23 @@ interface MainAreaProps {
   isMobile?: boolean
 }
 
+interface PlatformAccount {
+  identityId: string
+  identityEmail: string
+  platform: Platform
+}
+
+interface EditingPlatformContext {
+  identityId: string
+  identityEmail: string
+  platform: Platform
+}
+
 export function MainArea({
+  identities,
   identity,
+  groupMode,
+  selectedPlatformName,
   localCategory,
   localItems,
   onOpenSidebar,
@@ -41,7 +59,7 @@ export function MainArea({
   isMobile = false,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
-  const [editingPlatform, setEditingPlatform] = useState<Platform | null>(null)
+  const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
   const [editingLocalItem, setEditingLocalItem] = useState<LocalVaultItem | null>(null)
 
   const resetView = () => {
@@ -50,7 +68,24 @@ export function MainArea({
     setEditingLocalItem(null)
   }
 
-  if (!identity && !localCategory) {
+  const platformAccounts = useMemo<PlatformAccount[]>(() => {
+    if (groupMode !== 'platform' || !selectedPlatformName) return []
+    const target = selectedPlatformName.trim().toLowerCase()
+    return identities.flatMap((item) =>
+      item.platforms
+        .filter((platform) => platform.name.trim().toLowerCase() === target)
+        .map((platform) => ({
+          identityId: item.id,
+          identityEmail: item.email,
+          platform,
+        })),
+    )
+  }, [groupMode, identities, selectedPlatformName])
+
+  const selectedPlatformDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName
+  const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
+
+  if (!hasVaultSelection) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
         {!isMobile && (
@@ -101,7 +136,7 @@ export function MainArea({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
-      <header className="flex items-center gap-3 border-b border-border-subtle px-4 py-3 lg:px-8 lg:py-5">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border-subtle bg-white/72 px-4 py-3 shadow-sm backdrop-blur-xl lg:px-8 lg:py-5">
         {isMobile ? (
           <button
             type="button"
@@ -144,10 +179,12 @@ export function MainArea({
                 ? localCategory
                   ? `Nuevo ${LOCAL_ITEM_LABELS[localCategory]}`
                   : 'Nueva plataforma'
-                : editingPlatform?.name ?? editingLocalItem?.title
+                : editingPlatform?.platform.name ?? editingLocalItem?.title
               : localCategory
                 ? LOCAL_ITEM_LABELS[localCategory]
-                : identity?.email}
+                : groupMode === 'platform'
+                  ? selectedPlatformDisplayName
+                  : identity?.email}
           </h2>
           <p className="mt-0.5 truncate text-xs text-text-tertiary">
             {isFormView
@@ -156,7 +193,9 @@ export function MainArea({
                 : identity?.email
               : localCategory
                 ? `${selectedLocalItems.length} secreto${selectedLocalItems.length !== 1 ? 's' : ''}`
-                : `${identity?.platforms.length ?? 0} plataforma${identity?.platforms.length !== 1 ? 's' : ''}`}
+                : groupMode === 'platform'
+                  ? `${platformAccounts.length} cuenta${platformAccounts.length !== 1 ? 's' : ''} en esta plataforma`
+                  : `${identity?.platforms.length ?? 0} plataforma${identity?.platforms.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
@@ -168,14 +207,18 @@ export function MainArea({
           >
             Volver
           </button>
-        ) : (
+        ) : (groupMode === 'platform' && !localCategory) ? null : (
           <button
             type="button"
             onClick={() => {
               if (localCategory) {
                 setEditingLocalItem(createLocalVaultItem(localCategory))
               } else if (identity) {
-                setEditingPlatform(createPlatform('', { username: identity.email }))
+                setEditingPlatform({
+                  identityId: identity.id,
+                  identityEmail: identity.email,
+                  platform: createPlatform('', { username: identity.email }),
+                })
               }
               setView('create')
             }}
@@ -232,10 +275,66 @@ export function MainArea({
                   ))}
                 </div>
               )
+            ) : groupMode === 'platform' && selectedPlatformName ? (
+              platformAccounts.length === 0 ? (
+                <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center animate-vault-morph">
+                  <p className="text-sm font-semibold text-text-primary">No hay cuentas para {selectedPlatformName}</p>
+                  <p className="mt-1 max-w-sm text-xs text-text-secondary">Cambia a la vista por identidad para crear una nueva cuenta desde su correo propietario.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                  {platformAccounts.map(({ identityId, identityEmail, platform }, index) => (
+                    <button
+                      key={`${identityId}-${platform.id}`}
+                      type="button"
+                      onClick={() => {
+                        setEditingPlatform({ identityId, identityEmail, platform })
+                        setView('edit')
+                      }}
+                      style={{ animationDelay: `${index * 45}ms` }}
+                      className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                    >
+                      <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+                      <PlatformLogo name={platform.name} className="h-9 w-9" />
+                      <span className="min-w-0 flex-1">
+                        <span className="block truncate text-sm font-semibold text-text-primary">
+                          {platform.username || identityEmail}
+                        </span>
+                        <span className="mt-1 block truncate text-xs text-text-secondary">
+                          {identityEmail}
+                        </span>
+                        <span className="mt-3 flex flex-wrap gap-1.5">
+                          {platform.accessMethods
+                            .filter((method) => method.type === 'SSO')
+                            .map((method) => (
+                            <span key={method.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                              {method.provider}
+                            </span>
+                            ))}
+                          {platform.accessMethods.some((method) => method.type === 'PASSKEY') && (
+                            <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                              Passkey
+                            </span>
+                          )}
+                          {platform.twoFactorAuth && (
+                            <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                              2FA
+                            </span>
+                          )}
+                        </span>
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              )
             ) : identity && identity.platforms.length === 0 ? (
               <EmptyState
                 onAddPassword={() => {
-                  setEditingPlatform(createPlatform('', { username: identity.email }))
+                  setEditingPlatform({
+                    identityId: identity.id,
+                    identityEmail: identity.email,
+                    platform: createPlatform('', { username: identity.email }),
+                  })
                   setView('create')
                 }}
                 onImportText={onOpenImportText}
@@ -247,7 +346,11 @@ export function MainArea({
                     key={platform.id}
                     type="button"
                     onClick={() => {
-                      setEditingPlatform(platform)
+                      setEditingPlatform({
+                        identityId: identity.id,
+                        identityEmail: identity.email,
+                        platform,
+                      })
                       setView('edit')
                     }}
                     style={{ animationDelay: `${index * 45}ms` }}
@@ -314,31 +417,31 @@ export function MainArea({
           </>
         )}
 
-        {view === 'create' && identity && editingPlatform && (
+        {view === 'create' && editingPlatform && (
           <AccountForm
             mode="create"
-            identityEmail={identity.email}
-            initialAccount={editingPlatform}
+            identityEmail={editingPlatform.identityEmail}
+            initialAccount={editingPlatform.platform}
             onSave={async (platform) => {
-              await onAddPlatform(identity.id, platform)
+              await onAddPlatform(editingPlatform.identityId, platform)
               resetView()
             }}
             onCancel={resetView}
           />
         )}
 
-        {view === 'edit' && identity && editingPlatform && (
+        {view === 'edit' && editingPlatform && (
           <AccountForm
             mode="edit"
-            identityEmail={identity.email}
-            initialAccount={editingPlatform}
+            identityEmail={editingPlatform.identityEmail}
+            initialAccount={editingPlatform.platform}
             onSave={async (platform) => {
-              await onUpdatePlatform(identity.id, editingPlatform.id, platform)
+              await onUpdatePlatform(editingPlatform.identityId, editingPlatform.platform.id, platform)
               resetView()
             }}
             onCancel={resetView}
             onDelete={async () => {
-              await onDeletePlatform(identity.id, editingPlatform.id)
+              await onDeletePlatform(editingPlatform.identityId, editingPlatform.platform.id)
               resetView()
             }}
           />
