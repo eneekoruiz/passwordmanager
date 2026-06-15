@@ -13,7 +13,7 @@ import {
   bytesToString,
   stringToBytes,
 } from './encoding'
-import type { EncryptedPayload, VaultMetadata } from './types'
+import type { EncryptedPayload, RecoveryBundle, VaultMetadata } from './types'
 
 /**
  * @class CryptoVault
@@ -264,6 +264,37 @@ export class CryptoVault {
       metadata: CryptoVault.createVaultMetadata(salt),
       encryptedPayload,
     }
+  }
+
+  static async createRecoveryBundle(
+    recoveryPhrase: string,
+    masterPassword: string,
+  ): Promise<RecoveryBundle> {
+    const salt = CryptoVault.generateSalt()
+    const key = await CryptoVault.deriveKey(recoveryPhrase, salt)
+    const encryptedMasterPassword = await CryptoVault.encryptBytes(
+      stringToBytes(masterPassword),
+      key,
+    )
+
+    return {
+      salt: bytesToBase64(salt),
+      encryptedMasterPassword,
+      createdAt: new Date().toISOString(),
+    }
+  }
+
+  static async decryptRecoveryBundle(
+    recoveryPhrase: string,
+    recoveryBundle: RecoveryBundle,
+  ): Promise<string> {
+    const salt = base64ToBytes(recoveryBundle.salt)
+    const key = await CryptoVault.deriveKey(recoveryPhrase, salt)
+    const plaintext = await CryptoVault.decryptBytes(
+      recoveryBundle.encryptedMasterPassword,
+      key,
+    )
+    return bytesToString(plaintext)
   }
 
   /**

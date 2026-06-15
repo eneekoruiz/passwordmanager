@@ -14,6 +14,12 @@ export interface EncryptedPayload {
   data: string
 }
 
+export interface RecoveryBundle {
+  salt: string
+  encryptedMasterPassword: EncryptedPayload
+  createdAt: string
+}
+
 /**
  * Metadatos de bóveda almacenables en persistencia.
  * El salt es público: su función es impedir ataques con tablas precalculadas (rainbow tables),

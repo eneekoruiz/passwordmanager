@@ -1,6 +1,6 @@
 import { CryptoVault } from '../crypto/CryptoVault'
 import { base64ToBytes, bytesToBase64, stringToBytes, bytesToString } from '../crypto/encoding'
-import type { EncryptedPayload } from '../crypto/types'
+import type { EncryptedPayload, RecoveryBundle } from '../crypto/types'
 import type { Identity, LocalVaultItem } from '../types'
 import { getVaultDb } from './vaultDb'
 import { generateId } from '../utils/id'
@@ -20,6 +20,7 @@ interface ProfileRecord {
   name: string
   salt: string
   verification: EncryptedPayload
+  recovery?: RecoveryBundle
   createdAt: string
 }
 
@@ -113,7 +114,7 @@ export class VaultStore {
    * @param {string} password - Contraseña maestra para este perfil en particular.
    * @returns {Promise<string>} ID generado para el nuevo perfil.
    */
-  async createProfile(name: string, password: string): Promise<string> {
+  async createProfile(name: string, password: string, recoveryPhrase?: string): Promise<string> {
     const profileId = generateId()
     const { metadata, encryptedPayload } = await CryptoVault.createEncryptedVault(
       password,
@@ -126,6 +127,9 @@ export class VaultStore {
       name: name.trim(),
       salt: metadata.salt,
       verification: encryptedPayload,
+      recovery: recoveryPhrase
+        ? await CryptoVault.createRecoveryBundle(recoveryPhrase, password)
+        : undefined,
       createdAt: metadata.createdAt,
     }
     await db.put('meta', profileRecord, `profile_${profileId}`)
@@ -154,6 +158,51 @@ export class VaultStore {
 
     await this.vault.unlock(password, salt)
     return true
+  }
+
+  async recoverMasterPassword(profileId: string, recoveryPhrase: string): Promise<string> {
+    const db = await getVaultDb()
+    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    if (!profileRecord?.recovery) {
+      throw new Error('Esta boveda no tiene kit de recuperacion configurado.')
+    }
+    return CryptoVault.decryptRecoveryBundle(recoveryPhrase, profileRecord.recovery)
+  }
+
+  async rotateProfilePassword(
+    profileId: string,
+    currentPassword: string,
+    nextPassword: string,
+    recoveryPhrase: string,
+  ): Promise<void> {
+    const unlocked = await this.unlockProfile(profileId, currentPassword)
+    if (!unlocked) throw new Error('No se pudo validar la clave actual recuperada.')
+
+    const [identities, localItems] = await Promise.all([
+      this.loadAllIdentities(profileId),
+      this.loadLocalItems(profileId),
+    ])
+    const { metadata, encryptedPayload } = await CryptoVault.createEncryptedVault(
+      nextPassword,
+      VAULT_VERIFICATION_MARKER,
+    )
+    const db = await getVaultDb()
+    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    if (!profileRecord) throw new Error('Perfil no encontrado.')
+
+    const updatedProfile: ProfileRecord = {
+      ...profileRecord,
+      salt: metadata.salt,
+      verification: encryptedPayload,
+      recovery: await CryptoVault.createRecoveryBundle(recoveryPhrase, nextPassword),
+    }
+    await db.put('meta', updatedProfile, `profile_${profileId}`)
+    await this.vault.unlock(nextPassword, base64ToBytes(metadata.salt))
+
+    await this.saveMultipleIdentities(profileId, identities)
+    for (const item of localItems) {
+      await this.saveLocalItem(profileId, item)
+    }
   }
 
   /**
@@ -359,7 +408,8 @@ export class VaultStore {
         salt: profileRecord.salt,
         verification: profileRecord.verification,
         createdAt: profileRecord.createdAt,
-        name: profileRecord.name
+        name: profileRecord.name,
+        recovery: profileRecord.recovery,
       },
       identities: identitiesData
     }
@@ -423,7 +473,8 @@ export class VaultStore {
       ...profileRecord,
       name: databaseDump.meta.name || profileRecord.name,
       salt: databaseDump.meta.salt,
-      verification: databaseDump.meta.verification
+      verification: databaseDump.meta.verification,
+      recovery: databaseDump.meta.recovery,
     }
     await db.put('meta', updatedProfile, `profile_${profileId}`)
 
@@ -485,7 +536,8 @@ export class VaultStore {
         salt: profileRecord.salt,
         verification: profileRecord.verification,
         createdAt: profileRecord.createdAt,
-        name: profileRecord.name
+        name: profileRecord.name,
+        recovery: profileRecord.recovery,
       },
       identities: identitiesData
     }
@@ -496,6 +548,7 @@ export class VaultStore {
     const syncBlob = {
       v: 1,
       salt: profileRecord.salt,
+      recovery: profileRecord.recovery,
       iv: encryptedPayload.iv,
       data: encryptedPayload.data
     }
@@ -543,6 +596,7 @@ export class VaultStore {
       name: databaseDump.meta.name || 'Bóveda Nube',
       salt: databaseDump.meta.salt,
       verification: databaseDump.meta.verification,
+      recovery: databaseDump.meta.recovery ?? backup.recovery,
       createdAt: databaseDump.meta.createdAt || new Date().toISOString()
     }
     await db.put('meta', restoredProfile, `profile_${profileId}`)
@@ -564,5 +618,14 @@ export class VaultStore {
       await txWrite.store.put(record.payload, `${profileId}_${record.id}`)
     }
     await txWrite.done
+  }
+
+  async recoverMasterPasswordFromCloudPayload(payloadJson: string, recoveryPhrase: string): Promise<string> {
+    const backup = JSON.parse(payloadJson)
+    const recovery = backup.recovery as RecoveryBundle | undefined
+    if (!recovery) {
+      throw new Error('La boveda en la nube no contiene kit de recuperacion.')
+    }
+    return CryptoVault.decryptRecoveryBundle(recoveryPhrase, recovery)
   }
 }

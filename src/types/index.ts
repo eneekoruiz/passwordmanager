@@ -7,9 +7,17 @@ export interface ApiKeyEntry {
 
 export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE'
 export type LocalVaultItemType = Exclude<VaultItemType, 'ACCOUNT'>
+export type VaultGroupMode = 'identity' | 'platform'
 export type AuthMethod = 'PASSWORD' | 'SSO' | 'PASSKEY' | 'MAGIC_LINK'
-export type SsoProvider = 'Google' | 'Apple' | 'Facebook' | 'GitHub' | 'Microsoft' | 'Otro'
+export type SsoProvider = string
+export type TwoFactorType = 'NONE' | 'PIN' | 'TOTP' | 'SMS'
 export type WifiSecurityType = 'WPA2' | 'WPA3' | 'WEP' | 'OPEN' | 'OTHER'
+
+export interface TwoFactorConfig {
+  type: TwoFactorType
+  pin?: string | null
+  secret?: string | null
+}
 
 export interface PasswordAccessMethod {
   id: string
@@ -57,8 +65,9 @@ export interface AccountVaultItem extends BaseVaultItem {
   accessMethods: AccountAccessMethod[]
   hardwareKey: boolean
   fullName: string | null
+  birthDate: string | null
   linkedPhone: string | null
-  twoFactorAuth: string | null
+  twoFactorAuth: TwoFactorConfig | string | null
   notes?: string
   apiKeys?: ApiKeyEntry[]
   recoveryCodes?: string

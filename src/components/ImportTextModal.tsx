@@ -177,13 +177,10 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
         const identityEmail = email || LOCAL_IDENTITY_EMAIL
         const hasGoogleSso = /google|sso/i.test(`${twoFactor} ${platformName}`)
 
-        const notesParts: string[] = []
-        if (birthdate) notesParts.push(`Fecha de nacimiento: ${birthdate}`)
-        const notes = notesParts.length > 0 ? notesParts.join('\n') : undefined
-
         const platform = createPlatform(platformName, {
           username: username || email,
           fullName: fullName || null,
+          birthDate: birthdate || null,
           linkedPhone: phone || null,
           twoFactorAuth: twoFactor || null,
           accessMethods: [
@@ -198,7 +195,6 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
               : []),
           ],
           hardwareKey: /yubikey|hardware|llave/i.test(twoFactor),
-          notes,
           apiKeys: [],
         })
 
