@@ -388,7 +388,7 @@ export function AccountForm({
   // MODO LECTURA (VIEW MODE)
   if (!isEditing) {
     return (
-      <div className="mx-auto max-w-2xl space-y-6 pb-24 font-sans animate-vault-morph">
+      <div className="mx-auto w-full max-w-5xl space-y-5 pb-24 font-sans animate-vault-morph">
         <div className="flex items-center justify-between rounded-2xl border border-black/[0.06] bg-white/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.055)] backdrop-blur transition-all duration-300 hover:shadow-[0_30px_100px_rgba(0,0,0,0.075)]">
           <div className="flex items-center gap-4">
             <PlatformLogo name={account.name} className="h-12 w-12 shrink-0 rounded-2xl shadow-sm border border-black/5" />
@@ -435,9 +435,9 @@ export function AccountForm({
 
   // MODO EDICIÓN (EDIT MODE)
   return (
-    <form onSubmit={handleSubmit} className="mx-auto max-w-2xl space-y-8 pb-24 select-none font-sans animate-vault-morph">
+    <form onSubmit={handleSubmit} className="mx-auto flex min-h-full w-full max-w-5xl flex-col gap-5 pb-6 select-none font-sans animate-vault-morph">
       {/* Identity-First Banner */}
-      <div className="flex items-center gap-3 rounded-2xl bg-gradient-to-r from-surface to-white p-4 border border-border-subtle shadow-sm relative overflow-hidden">
+      <div className="relative flex items-center gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-white/90 p-4 shadow-[0_16px_48px_rgba(0,0,0,0.045)] backdrop-blur">
         <div className="absolute inset-y-0 left-0 w-1 bg-text-primary" />
         <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-text-primary text-white shadow-md">
           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -451,7 +451,8 @@ export function AccountForm({
       </div>
 
       {/* 1. Sección Principal (Credenciales) */}
-      <section className="space-y-4">
+      <section className="grid gap-5 xl:grid-cols-[minmax(0,1fr)_minmax(360px,0.82fr)]">
+        <div className="space-y-4 rounded-2xl border border-black/[0.06] bg-white/80 p-5 shadow-[0_14px_40px_rgba(0,0,0,0.035)] backdrop-blur">
         <div className="flex flex-col border-b border-border-subtle pb-2 mb-2">
           <h3 className="text-sm font-bold text-text-primary">Credenciales Principales</h3>
           <p className="text-[10px] text-text-tertiary font-medium">Información de acceso básico para esta cuenta.</p>
@@ -489,8 +490,9 @@ export function AccountForm({
             autoComplete="off"
           />
         </div>
+        </div>
 
-        <div className="rounded-3xl border border-border-subtle bg-white p-4 shadow-subtle">
+        <div className="rounded-2xl border border-black/[0.06] bg-white/90 p-5 shadow-[0_18px_54px_rgba(0,0,0,0.045)] backdrop-blur">
           <div className="mb-4">
             <h4 className="text-sm font-bold text-text-primary">Vías de Acceso</h4>
             <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">
@@ -560,7 +562,7 @@ export function AccountForm({
       </section>
 
       {/* 2. Opciones avanzadas / API Keys / Notas */}
-      <section className="pt-2">
+      <section>
         <Accordion title="Opciones avanzadas / Seguridad extra">
           <div className="mb-6 mt-3 flex flex-col gap-3 rounded-2xl border border-black/5 bg-surface/50 p-4">
             <h4 className="text-xs font-bold text-text-primary">Otros métodos de acceso</h4>
@@ -732,7 +734,7 @@ export function AccountForm({
         </div>
       )}
 
-      <div className="mt-8 flex items-center justify-between gap-3 border-t border-border-subtle pt-6">
+      <div className="sticky bottom-0 z-30 -mx-4 mt-auto flex items-center justify-between gap-3 border-t border-black/[0.06] bg-white/85 px-4 py-3 shadow-[0_-18px_50px_rgba(0,0,0,0.08)] backdrop-blur-xl sm:mx-0 sm:rounded-2xl sm:border">
         <div>
           {mode === 'edit' && onDelete && (
             <button

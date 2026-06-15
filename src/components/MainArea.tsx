@@ -100,7 +100,7 @@ export function MainArea({
     : []
 
   return (
-    <div className="flex flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col">
       <header className="flex items-center gap-3 border-b border-border-subtle px-4 py-3 lg:px-8 lg:py-5">
         {isMobile ? (
           <button
@@ -173,7 +173,7 @@ export function MainArea({
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-6">
+      <div className="min-h-0 flex-1 overflow-y-auto px-4 py-4 lg:px-8 lg:py-6">
         {view === 'grid' && (
           <>
             {localCategory ? (

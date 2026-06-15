@@ -343,9 +343,9 @@ function VaultApp() {
         onInstall={handleInstallApp}
       />
 
-      <div className="flex min-w-0 flex-1 flex-col">
+      <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {pageBanner}
-        <main className="flex min-w-0 flex-1 flex-col bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
             identity={selectedIdentity}
             localCategory={selectedLocalCategory}
