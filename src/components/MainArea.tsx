@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import type { Identity, LocalVaultItem, LocalVaultItemType, Platform, VaultGroupMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
@@ -67,6 +67,12 @@ export function MainArea({
     setEditingPlatform(null)
     setEditingLocalItem(null)
   }
+
+  const activeContextKey = `${groupMode}:${identity?.id ?? ''}:${selectedPlatformName ?? ''}:${localCategory ?? ''}`
+
+  useEffect(() => {
+    resetView()
+  }, [activeContextKey])
 
   const platformAccounts = useMemo<PlatformAccount[]>(() => {
     if (groupMode !== 'platform' || !selectedPlatformName) return []

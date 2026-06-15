@@ -64,10 +64,11 @@ export function Sidebar({
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
   const query = searchQuery.trim().toLowerCase()
+  const cloudIdentities = identities.filter((identity) => identity.email !== LOCAL_IDENTITY_EMAIL)
   const visibleIdentities = query
-    ? identities.filter((identity) => identity.email.toLowerCase().includes(query))
-    : identities
-  const platformSummaries = identities
+    ? cloudIdentities.filter((identity) => identity.email.toLowerCase().includes(query))
+    : cloudIdentities
+  const platformSummaries = cloudIdentities
     .flatMap((identity) => identity.platforms.map((platform) => platform.name.trim()).filter(Boolean))
     .reduce<Array<{ name: string; count: number }>>((acc, name) => {
       const existing = acc.find((item) => item.name.toLowerCase() === name.toLowerCase())
@@ -144,9 +145,9 @@ export function Sidebar({
           isMobile
             ? 'flex h-full w-full flex-col bg-surface'
             : `
-              fixed inset-y-0 left-0 z-30 flex w-full max-w-[320px] flex-col
+              fixed inset-y-0 left-0 z-30 flex h-screen w-full max-w-[320px] flex-col
               border-r border-border-subtle bg-surface transition-transform duration-300 ease-out
-              lg:static lg:z-auto lg:w-72 lg:max-w-none lg:translate-x-0
+              lg:sticky lg:top-0 lg:z-auto lg:w-80 lg:max-w-none lg:translate-x-0
               ${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `
         }
@@ -155,7 +156,7 @@ export function Sidebar({
         <header className="flex items-start justify-between px-4 pb-3 pt-4 lg:px-5 lg:pt-5">
           <div className="min-w-0 text-left">
             <div className="flex items-center gap-2">
-              <h1 className="text-base font-bold tracking-tight text-text-primary">Contras</h1>
+              <h1 className="text-xl font-bold tracking-tight text-text-primary">Contras</h1>
               {syncIndicator}
             </div>
             {profileName && (
@@ -168,7 +169,7 @@ export function Sidebar({
             <button
               type="button"
               onClick={() => setShowAddForm((value) => !value)}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover"
+              className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
               aria-label="Añadir identidad"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -179,7 +180,7 @@ export function Sidebar({
               <button
                 type="button"
                 onClick={onLock}
-                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover"
+                className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
                 aria-label="Bloquear boveda"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -227,7 +228,7 @@ export function Sidebar({
                 key={mode}
                 type="button"
                 onClick={() => onGroupModeChange(mode)}
-                className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all duration-150 ${
+                className={`min-h-10 rounded-lg px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
                   groupMode === mode
                     ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)]'
                     : 'text-text-secondary hover:bg-surface-hover'
@@ -246,7 +247,7 @@ export function Sidebar({
 
         <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
           <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-            {groupMode === 'identity' ? 'Identidades' : 'Plataformas'}
+            {groupMode === 'identity' ? 'Identidades Cloud' : 'Plataformas Cloud'}
           </div>
           {groupMode === 'platform' ? (
             platformSummaries.length === 0 ? (
@@ -260,7 +261,7 @@ export function Sidebar({
                       <button
                         type="button"
                         onClick={() => onSelectPlatform(platform.name)}
-                        className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-colors ${
+                        className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
                           selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
                         }`}
                       >
@@ -292,7 +293,7 @@ export function Sidebar({
                         onClick={() => onSelect(identity.id)}
                         className="min-w-0 flex-1 px-3 py-2.5 text-left"
                       >
-                        <span className="block truncate text-sm font-medium text-text-primary/90">
+                        <span className="block truncate text-[15px] font-semibold text-text-primary/95">
                           {identity.email}
                         </span>
                       </button>
@@ -337,8 +338,11 @@ export function Sidebar({
           )}
 
           <div className="mt-5 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-            Categorías locales
+            Secretos Locales
           </div>
+          <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
+            Datos sin correo: Wi‑Fi, finanzas, licencias y notas.
+          </p>
           <ul className="space-y-0.5">
             {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => {
               const selected = selectedLocalCategory === type
@@ -348,11 +352,11 @@ export function Sidebar({
                   <button
                     type="button"
                     onClick={() => onSelectLocalCategory(type)}
-                    className={`flex w-full items-center justify-between rounded-lg px-3 py-2.5 text-left transition-colors ${
+                    className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
                       selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
                     }`}
                   >
-                    <span className="truncate text-sm font-medium text-text-primary/90">
+                    <span className="truncate text-[15px] font-semibold text-text-primary/90">
                       {LOCAL_ITEM_LABELS[type]}
                     </span>
                     <span className="text-xs tabular-nums text-text-tertiary">{count}</span>

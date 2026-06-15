@@ -277,6 +277,7 @@ export function AccountForm({
         hardwareKey: false,
         fullName: null,
         birthDate: null,
+        accountCreatedAt: null,
         linkedPhone: null,
         twoFactorAuth: { type: 'NONE', pin: null, secret: null },
         notes: undefined,
@@ -468,6 +469,7 @@ export function AccountForm({
         )}
         {account.fullName && <ReadOnlyField label="Nombre Completo" value={account.fullName} />}
         {account.birthDate && <ReadOnlyField label="Fecha de nacimiento" value={account.birthDate} />}
+        {account.accountCreatedAt && <ReadOnlyField label="Fecha de creación de cuenta" value={account.accountCreatedAt} />}
         {account.notes && <ReadOnlyField label="Notas Adicionales" value={account.notes} isMultiline />}
       </div>
     )
@@ -501,7 +503,7 @@ export function AccountForm({
 
         <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
           <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
-            <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+            <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
               <input
                 type="checkbox"
                 checked={Boolean(passwordMethod)}
@@ -526,7 +528,7 @@ export function AccountForm({
           </div>
 
           <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
-            <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+            <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
               <input
                 type="checkbox"
                 checked={Boolean(ssoMethod)}
@@ -562,7 +564,7 @@ export function AccountForm({
         </div>
 
         <div className="flex flex-wrap gap-4 rounded-2xl border border-black/[0.04] bg-surface/40 p-4">
-          <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
             <input
               type="checkbox"
               checked={account.hardwareKey}
@@ -570,7 +572,7 @@ export function AccountForm({
             />
             Llave física
           </label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
             <input
               type="checkbox"
               checked={passkeyEnabled}
@@ -578,7 +580,7 @@ export function AccountForm({
             />
             Passkey / Biometría
           </label>
-          <label className="flex items-center gap-2 text-xs font-semibold text-text-primary">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
             <input
               type="checkbox"
               checked={Boolean(magicLinkMethod)}
@@ -594,12 +596,8 @@ export function AccountForm({
         </div>
       </section>
 
-      <section className="space-y-5 rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
-        <div className="flex flex-col border-b border-border-subtle pb-3">
-          <h3 className="text-sm font-bold text-text-primary">Información de la Cuenta</h3>
-          <p className="text-[10px] font-medium text-text-tertiary">Datos personales, segundo factor y notas generales.</p>
-        </div>
-
+      <section className="rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
+        <Accordion title="Información de la Cuenta">
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             label="Nombre completo"
@@ -616,6 +614,13 @@ export function AccountForm({
             autoComplete="off"
           />
           <FormField
+            label="Fecha de creación de la cuenta"
+            type="date"
+            value={account.accountCreatedAt ?? ''}
+            onChange={(e) => updateField('accountCreatedAt', e.target.value || null)}
+            autoComplete="off"
+          />
+          <FormField
             label="Teléfono vinculado"
             type="tel"
             value={account.linkedPhone ?? ''}
@@ -624,11 +629,11 @@ export function AccountForm({
             autoComplete="off"
           />
           <label className="block">
-            <span className="mb-1.5 block text-xs font-medium text-text-secondary">2FA / Segundo factor</span>
+            <span className="mb-1.5 block text-sm font-semibold text-text-secondary">2FA / Segundo factor</span>
             <select
               value={twoFactorConfig.type}
               onChange={(event) => updateTwoFactorType(event.target.value as TwoFactorType)}
-              className="w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-sm text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.025)] outline-none transition-all duration-150 focus:border-black/15 focus:bg-white focus:ring-2 focus:ring-black/[0.035]"
+              className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-base text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.025)] outline-none transition-all duration-150 focus:border-black/15 focus:bg-white focus:ring-2 focus:ring-black/[0.035]"
             >
               {(['NONE', 'PIN', 'TOTP', 'SMS'] as TwoFactorType[]).map((type) => (
                 <option key={type} value={type}>{TWO_FACTOR_LABELS[type]}</option>
@@ -672,10 +677,11 @@ export function AccountForm({
           onChange={(e) => updateField('notes', e.target.value)}
           placeholder="Notas libres, respuestas de recuperación, contexto operativo..."
         />
+        </Accordion>
       </section>
 
       <section className="rounded-2xl border border-black/[0.08] bg-slate-50/80 p-5 shadow-[0_12px_38px_rgba(15,23,42,0.04)]">
-        <Accordion title="Opciones Avanzadas / Desarrollador" defaultOpen>
+        <Accordion title="Opciones Avanzadas / Desarrollador">
           <div className="space-y-6 pt-3 pb-1">
             <div className="space-y-3">
               <div className="flex flex-col border-b border-border-subtle pb-2">

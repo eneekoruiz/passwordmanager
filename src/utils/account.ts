@@ -13,6 +13,7 @@ export function createEmptyAccount(): Account {
     hardwareKey: false,
     fullName: null,
     birthDate: null,
+    accountCreatedAt: now.slice(0, 10),
     linkedPhone: null,
     twoFactorAuth: { type: 'NONE', pin: null, secret: null },
     notes: '',

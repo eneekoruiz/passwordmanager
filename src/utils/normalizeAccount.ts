@@ -63,6 +63,7 @@ export function normalizeAccount(account: Account): Account {
     hardwareKey: Boolean(account.hardwareKey),
     fullName: account.fullName?.trim() || null,
     birthDate: account.birthDate?.trim() || null,
+    accountCreatedAt: account.accountCreatedAt?.trim() || null,
     linkedPhone: account.linkedPhone?.trim() || null,
     twoFactorAuth: normalizeTwoFactor(account.twoFactorAuth),
     notes: account.notes?.trim() || undefined,

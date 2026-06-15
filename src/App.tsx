@@ -250,43 +250,51 @@ function VaultApp() {
     </div>
   ) : null
 
-  const mobileSyncButton = isMobile ? (
-    <button
-      type="button"
-      onClick={() => {
-        void syncActiveProfileToCloud().catch((error) => {
-          reportUiError(error, 'No se pudo sincronizar la bóveda.')
-        })
-      }}
-      disabled={cloudSyncStatus === 'syncing'}
-      className="fixed right-4 top-3 z-50 flex h-11 w-11 items-center justify-center rounded-2xl border border-black/5 bg-white/85 text-text-secondary shadow-[0_10px_30px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-all active:scale-[0.96] disabled:opacity-70"
-      aria-label="Sincronizar bóveda"
-    >
-      {mobileSyncCheckVisible ? (
-        <svg className="h-5 w-5 text-emerald-600 animate-vault-morph" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-        </svg>
-      ) : cloudSyncStatus === 'error' ? (
-        <span className="relative flex h-5 w-5 items-center justify-center">
-          <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+  const mobileTopBar = isMobile ? (
+    <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b border-black/5 bg-white/85 px-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
+      <div className="min-w-0">
+        <p className="truncate text-sm font-bold text-text-primary">Contras</p>
+        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+          {currentProfileName ?? 'Bóveda segura'}
+        </p>
+      </div>
+      <button
+        type="button"
+        onClick={() => {
+          void syncActiveProfileToCloud().catch((error) => {
+            reportUiError(error, 'No se pudo sincronizar la bóveda.')
+          })
+        }}
+        disabled={cloudSyncStatus === 'syncing'}
+        className="flex h-11 w-11 items-center justify-center rounded-2xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96] disabled:opacity-70"
+        aria-label="Sincronizar bóveda"
+      >
+        {mobileSyncCheckVisible ? (
+          <svg className="h-5 w-5 text-emerald-600 animate-vault-morph" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
           </svg>
-          <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-600" />
-        </span>
-      ) : (
-        <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
-        </svg>
-      )}
-    </button>
+        ) : cloudSyncStatus === 'error' ? (
+          <span className="relative flex h-5 w-5 items-center justify-center">
+            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-600" />
+          </span>
+        ) : (
+          <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
+          </svg>
+        )}
+      </button>
+    </header>
   ) : null
 
   if (isMobile) {
     return (
       <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16">
-        {mobileSyncButton}
+        {mobileTopBar}
         {pageBanner}
-        <div className="flex-1 overflow-y-auto">
+        <div className="flex-1 overflow-y-auto pt-14">
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={identities}

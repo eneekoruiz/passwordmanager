@@ -66,6 +66,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   hardwareKey: boolean
   fullName: string | null
   birthDate: string | null
+  accountCreatedAt: string | null
   linkedPhone: string | null
   twoFactorAuth: TwoFactorConfig | string | null
   notes?: string

@@ -32,6 +32,7 @@ function extraFor(platform: Platform, identityEmail: string): string {
   const parts: string[] = []
   if (platform.fullName) parts.push(`Nombre completo: ${platform.fullName}`)
   if (platform.birthDate) parts.push(`Fecha de nacimiento: ${platform.birthDate}`)
+  if (platform.accountCreatedAt) parts.push(`Fecha de creacion de cuenta: ${platform.accountCreatedAt}`)
   if (platform.linkedPhone) parts.push(`Telefono: ${platform.linkedPhone}`)
   if (platform.hardwareKey) parts.push('Llave fisica: activada')
   if (platform.recoveryCodes) parts.push(`Codigos de recuperacion:\n${platform.recoveryCodes}`)
