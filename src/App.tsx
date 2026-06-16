@@ -300,7 +300,7 @@ function VaultApp() {
     }
 
     for (const item of localItems) {
-      const label = LOCAL_ITEM_LABELS[item.type]
+      const label = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
       const name = vaultItemDisplayName(item)
       if (fuzzyMatch(`${label} ${name} ${item.title}`, query)) {
         results.push({
@@ -309,7 +309,7 @@ function VaultApp() {
           subtitle: label,
           action: () => handleSelectLocalCategory({
             id: item.categoryId ?? item.type,
-            label: LOCAL_ITEM_LABELS[item.type],
+            label,
             type: item.type,
             custom: Boolean(item.categoryId && item.categoryId !== item.type),
           }),

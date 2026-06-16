@@ -55,6 +55,7 @@ export interface BaseVaultItem {
   type: VaultItemType
   title: string
   categoryId?: string | null
+  categoryLabel?: string | null
   createdAt: string
   updatedAt: string
 }

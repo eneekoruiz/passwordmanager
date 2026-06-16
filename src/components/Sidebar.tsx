@@ -108,6 +108,20 @@ export function Sidebar({
     window.localStorage.setItem(CUSTOM_CATEGORIES_STORAGE_KEY, JSON.stringify(customLocalCategories))
   }, [customLocalCategories])
 
+  const categoriesFromItems = localItems.reduce<LocalCategory[]>((categories, item) => {
+    const id = item.categoryId ?? item.type
+    if (id === item.type || categories.some((category) => category.id === id)) return categories
+    categories.push({
+      id,
+      label: item.categoryLabel?.trim() || item.title || LOCAL_ITEM_LABELS[item.type],
+      type: item.type,
+      custom: true,
+      updatedAt: item.updatedAt,
+      createdAt: item.createdAt,
+    })
+    return categories
+  }, [])
+
   const localCategoryOptions: LocalCategory[] = [
     ...(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => ({
       id: type,
@@ -116,6 +130,9 @@ export function Sidebar({
       custom: false,
     })),
     ...customLocalCategories,
+    ...categoriesFromItems.filter(
+      (fromItem) => !customLocalCategories.some((custom) => custom.id === fromItem.id),
+    ),
   ]
 
   const handleAddLocalCategory = () => {

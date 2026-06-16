@@ -222,7 +222,7 @@ export function MainArea({
             type="button"
             onClick={() => {
               if (localCategory) {
-                setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id))
+                setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
               } else if (identity) {
                 setEditingPlatform({
                   identityId: identity.id,
@@ -250,7 +250,7 @@ export function MainArea({
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id))
+                      setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
                       setView('create')
                     }}
                     className="mt-4 rounded-xl bg-text-primary px-4 py-2 text-xs font-semibold text-white"

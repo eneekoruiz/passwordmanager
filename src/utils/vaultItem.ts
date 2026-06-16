@@ -17,13 +17,18 @@ export const LOCAL_ITEM_LABELS: Record<LocalVaultItemType, string> = {
   SECURE_NOTE: 'Notas seguras',
 }
 
-export function createLocalVaultItem(type: LocalVaultItemType, categoryId: string = type): LocalVaultItem {
+export function createLocalVaultItem(
+  type: LocalVaultItemType,
+  categoryId: string = type,
+  categoryLabel: string = LOCAL_ITEM_LABELS[type],
+): LocalVaultItem {
   const now = nowIso()
   const base = {
     id: generateId(),
     type,
     title: '',
     categoryId,
+    categoryLabel,
     createdAt: now,
     updatedAt: now,
   }
@@ -64,11 +69,15 @@ export function createLocalVaultItem(type: LocalVaultItemType, categoryId: strin
 
 export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
   const updatedAt = new Date().toISOString()
+  const categoryId = item.categoryId ?? item.type
+  const categoryLabel = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
 
   switch (item.type) {
     case 'WIFI':
       return {
         ...item,
+        categoryId,
+        categoryLabel,
         title: (item.title || item.ssid || 'Red Wi-Fi').trim(),
         ssid: item.ssid.trim(),
         password: item.password?.trim() || null,
@@ -78,6 +87,8 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
     case 'SOFTWARE_LICENSE':
       return {
         ...item,
+        categoryId,
+        categoryLabel,
         title: (item.title || item.softwareName || 'Licencia').trim(),
         softwareName: item.softwareName.trim(),
         licenseKey: item.licenseKey.trim(),
@@ -86,6 +97,8 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
     case 'FINANCE':
       return {
         ...item,
+        categoryId,
+        categoryLabel,
         title: (item.title || 'Tarjeta').trim(),
         cardNumber: item.cardNumber.trim(),
         pin: item.pin?.trim() || null,
@@ -96,6 +109,8 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
     case 'SECURE_NOTE':
       return {
         ...item,
+        categoryId,
+        categoryLabel,
         title: (item.title || 'Nota segura').trim(),
         markdown: item.markdown.trim(),
         updatedAt,
