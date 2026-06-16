@@ -80,7 +80,7 @@ export function createPlatform(name: string, defaults?: Partial<Platform>): Plat
     hardwareKey: defaults?.hardwareKey ?? false,
     fullName: defaults?.fullName ?? null,
     birthDate: defaults?.birthDate ?? null,
-    accountCreatedAt: defaults?.accountCreatedAt ?? now.slice(0, 10),
+    accountCreatedAt: defaults?.accountCreatedAt ?? null,
     linkedPhone: defaults?.linkedPhone ?? null,
     twoFactorAuth: defaults?.twoFactorAuth ?? null,
     notes: defaults?.notes,

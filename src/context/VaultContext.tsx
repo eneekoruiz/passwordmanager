@@ -211,7 +211,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setAppError(null)
   }, [])
 
-  const syncActiveProfileToCloud = useCallback(async () => {
+  const getLocalVaultUpdatedAt = useCallback(() => {
+    const timestamps = [
+      ...identities.flatMap((identity) => [
+        identity.updatedAt,
+        identity.createdAt,
+        ...identity.platforms.flatMap((platform) => [platform.updatedAt, platform.createdAt]),
+      ]),
+      ...localItems.flatMap((item) => [item.updatedAt, item.createdAt]),
+    ].filter(Boolean)
+
+    return timestamps.reduce((latest, value) => {
+      const time = Date.parse(value)
+      return Number.isFinite(time) ? Math.max(latest, time) : latest
+    }, 0)
+  }, [identities, localItems])
+
+  const uploadActiveProfileToCloud = useCallback(async () => {
     const user = firebaseUserRef.current
     if (!currentProfileId || !user) {
       setCloudSyncStatus('idle')
@@ -228,6 +244,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         encrypted_vault_blob: encryptedBlob,
         updated_at: new Date().toISOString(),
       })
+      setCloudVaultExists(true)
       setCloudSyncStatus('synced')
     } catch (error) {
       logUnexpectedError('Error al sincronizar con Firebase', error)
@@ -237,11 +254,52 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [currentProfileId, reportCloudError])
 
+  const syncActiveProfileToCloud = useCallback(async () => {
+    const user = firebaseUserRef.current
+    if (!currentProfileId || !user) {
+      setCloudSyncStatus('idle')
+      return
+    }
+
+    setCloudSyncStatus('syncing')
+    setCloudError(null)
+
+    try {
+      const { dbClient } = getFirebaseClients()
+      const vaultRefDoc = doc(dbClient, 'vaults', user.uid)
+      const snapshot = await getDoc(vaultRefDoc)
+      const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
+      const cloudUpdatedAt = Date.parse(String(snapshot.data()?.updated_at ?? '')) || 0
+      const localUpdatedAt = getLocalVaultUpdatedAt()
+
+      if (snapshot.exists() && cloudBlob && cloudUpdatedAt > localUpdatedAt + 1000) {
+        await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+        await refreshVaultData()
+        setCloudVaultExists(true)
+        setCloudSyncStatus('synced')
+        return
+      }
+
+      const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
+      await setDoc(vaultRefDoc, {
+        encrypted_vault_blob: encryptedBlob,
+        updated_at: new Date().toISOString(),
+      })
+      setCloudVaultExists(true)
+      setCloudSyncStatus('synced')
+    } catch (error) {
+      logUnexpectedError('Error al sincronizar con Firebase', error)
+      setCloudSyncStatus('error')
+      reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
+      throw error
+    }
+  }, [currentProfileId, getLocalVaultUpdatedAt, refreshVaultData, reportCloudError])
+
   const triggerCloudSync = useCallback(() => {
-    void syncActiveProfileToCloud().catch((error) => {
+    void uploadActiveProfileToCloud().catch((error) => {
       logUnexpectedError('Fallo silencioso en background sync', error)
     })
-  }, [syncActiveProfileToCloud])
+  }, [uploadActiveProfileToCloud])
 
   const saveIdentity = useCallback(
     async (identity: Identity) => {
