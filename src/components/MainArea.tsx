@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Identity, LocalVaultItem, LocalVaultItemType, Platform, VaultGroupMode } from '../types'
+import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, Platform, VaultGroupMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
@@ -14,13 +14,13 @@ interface MainAreaProps {
   identity: Identity | null
   groupMode: VaultGroupMode
   selectedPlatformName: string | null
-  localCategory: LocalVaultItemType | null
+  localCategory: LocalCategory | null
   localItems: LocalVaultItem[]
   onOpenSidebar: () => void
   onRequestNavigation: (action: () => void) => void
   onUnsavedStateChange: (dirty: boolean, actions: UnsavedFormActions | null) => void
   onSelectIdentity: (id: string | null) => void
-  onSelectLocalCategory: (type: LocalVaultItemType) => void
+  onSelectLocalCategory: (category: LocalCategory) => void
   onOpenImportText: () => void
   onAddPlatform: (identityId: string, platform: Platform) => Promise<void>
   onUpdatePlatform: (identityId: string, platformId: string, platform: Platform) => Promise<void>
@@ -72,7 +72,7 @@ export function MainArea({
     setEditingLocalItem(null)
   }
 
-  const activeContextKey = `${groupMode}:${identity?.id ?? ''}:${selectedPlatformName ?? ''}:${localCategory ?? ''}`
+  const activeContextKey = `${groupMode}:${identity?.id ?? ''}:${selectedPlatformName ?? ''}:${localCategory?.id ?? ''}`
 
   useEffect(() => {
     resetView()
@@ -125,7 +125,7 @@ export function MainArea({
                 <button
                   key={type}
                   type="button"
-                  onClick={() => onSelectLocalCategory(type)}
+                  onClick={() => onSelectLocalCategory({ id: type, label: LOCAL_ITEM_LABELS[type], type, custom: false })}
                   className="rounded-2xl border border-border-subtle bg-white p-5 text-left shadow-subtle transition-colors hover:bg-surface-hover"
                 >
                   <span className="block text-sm font-bold text-text-primary">{LOCAL_ITEM_LABELS[type]}</span>
@@ -141,7 +141,7 @@ export function MainArea({
 
   const isFormView = view === 'create' || view === 'edit'
   const selectedLocalItems = localCategory
-    ? localItems.filter((item) => item.type === localCategory)
+    ? localItems.filter((item) => (item.categoryId ?? item.type) === localCategory.id)
     : []
 
   return (
@@ -187,11 +187,11 @@ export function MainArea({
             {isFormView
               ? view === 'create'
                 ? localCategory
-                  ? `Nuevo ${LOCAL_ITEM_LABELS[localCategory]}`
+                  ? `Nuevo ${localCategory.label}`
                   : 'Nueva plataforma'
                 : editingPlatform?.platform.name ?? editingLocalItem?.title
               : localCategory
-                ? LOCAL_ITEM_LABELS[localCategory]
+                ? localCategory.label
                 : groupMode === 'platform'
                   ? selectedPlatformDisplayName
                   : identity?.email}
@@ -199,7 +199,7 @@ export function MainArea({
           <p className="mt-0.5 truncate text-xs text-text-tertiary">
             {isFormView
               ? localCategory
-                ? LOCAL_ITEM_LABELS[localCategory]
+                ? localCategory.label
                 : identity?.email
               : localCategory
                 ? `${selectedLocalItems.length} secreto${selectedLocalItems.length !== 1 ? 's' : ''}`
@@ -222,7 +222,7 @@ export function MainArea({
             type="button"
             onClick={() => {
               if (localCategory) {
-                setEditingLocalItem(createLocalVaultItem(localCategory))
+                setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id))
               } else if (identity) {
                 setEditingPlatform({
                   identityId: identity.id,
@@ -245,12 +245,12 @@ export function MainArea({
             {localCategory ? (
               selectedLocalItems.length === 0 ? (
                 <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center">
-                  <p className="text-sm font-semibold text-text-primary">Sin secretos en {LOCAL_ITEM_LABELS[localCategory]}</p>
+                  <p className="text-sm font-semibold text-text-primary">Sin secretos en {localCategory.label}</p>
                   <p className="mt-1 max-w-sm text-xs text-text-secondary">Crea el primer registro. Se cifrará localmente antes de sincronizarse con Firebase.</p>
                   <button
                     type="button"
                     onClick={() => {
-                      setEditingLocalItem(createLocalVaultItem(localCategory))
+                      setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id))
                       setView('create')
                     }}
                     className="mt-4 rounded-xl bg-text-primary px-4 py-2 text-xs font-semibold text-white"

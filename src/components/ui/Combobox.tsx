@@ -1,5 +1,6 @@
 import { useMemo, useRef, useState, type KeyboardEvent } from 'react'
 import { inputClassName } from './FormField'
+import { PlatformLogo } from './PlatformLogo'
 
 interface ComboboxOption {
   label: string
@@ -128,12 +129,17 @@ export function Combobox({
                 type="button"
                 onMouseDown={(event) => event.preventDefault()}
                 onClick={() => chooseValue(option.label)}
-                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2 text-left transition-colors ${
+                className={`flex w-full items-center justify-between gap-3 rounded-xl px-3 py-2.5 text-left transition-all duration-150 ${
                   activeIndex === index ? 'bg-surface-active' : 'hover:bg-surface-hover'
                 }`}
               >
-                <span className="truncate text-sm font-semibold text-text-primary">{option.label}</span>
-                {option.meta && <span className="truncate text-[10px] font-medium text-text-tertiary">{option.meta}</span>}
+                <span className="flex min-w-0 items-center gap-3">
+                  <PlatformLogo name={option.label} className="h-7 w-7 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
+                  <span className="min-w-0">
+                    <span className="block truncate text-sm font-semibold text-text-primary">{option.label}</span>
+                    {option.meta && <span className="block truncate text-[10px] font-medium text-text-tertiary">{option.meta}</span>}
+                  </span>
+                </span>
               </button>
             ))}
             {showCreate && (

@@ -1,4 +1,5 @@
 import { useState, useEffect } from 'react'
+import { POPULAR_SERVICES } from '../../data/popularServices'
 
 interface PlatformLogoProps {
   name: string
@@ -19,6 +20,8 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
 
   const getDomainFromName = (n: string): string => {
     const clean = n.trim().toLowerCase()
+    const known = POPULAR_SERVICES.find((service) => service.name.toLowerCase() === clean)
+    if (known) return known.domain
     if (clean.includes('.')) return clean
     // Remover caracteres especiales y espacios
     const sanitized = clean.replace(/[^a-z0-9]/g, '')

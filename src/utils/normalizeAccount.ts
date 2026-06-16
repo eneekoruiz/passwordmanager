@@ -26,7 +26,7 @@ function normalizeTwoFactor(twoFactorAuth: Account['twoFactorAuth']): TwoFactorC
   if (typeof twoFactorAuth === 'string') {
     const value = twoFactorAuth.trim()
     if (!value) return null
-    return { type: 'TOTP', secret: value }
+    return { type: 'TOTP', secret: value, authenticatorApp: null }
   }
 
   if (twoFactorAuth.type === 'NONE') return null
@@ -36,7 +36,8 @@ function normalizeTwoFactor(twoFactorAuth: Account['twoFactorAuth']): TwoFactorC
   }
   if (twoFactorAuth.type === 'TOTP') {
     const secret = twoFactorAuth.secret?.trim() || null
-    return secret ? { type: 'TOTP', secret } : null
+    const authenticatorApp = twoFactorAuth.authenticatorApp?.trim() || null
+    return secret ? { type: 'TOTP', secret, authenticatorApp } : null
   }
   if (twoFactorAuth.type === 'SMS') return { type: 'SMS' }
 

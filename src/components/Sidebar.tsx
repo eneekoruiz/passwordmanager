@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import type { Identity, LocalVaultItem, LocalVaultItemType, VaultGroupMode } from '../types'
+import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode } from '../types'
 import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -12,13 +12,13 @@ interface SidebarProps {
   groupMode: VaultGroupMode
   selectedId: string | null
   selectedPlatformName: string | null
-  selectedLocalCategory: LocalVaultItemType | null
+  selectedLocalCategory: LocalCategory | null
   searchQuery: string
   onSearchChange: (query: string) => void
   onGroupModeChange: (mode: VaultGroupMode) => void
   onSelect: (id: string) => void
   onSelectPlatform: (platformName: string) => void
-  onSelectLocalCategory: (type: LocalVaultItemType) => void
+  onSelectLocalCategory: (category: LocalCategory) => void
   onAddIdentity: (email: string) => Promise<void>
   onDeleteIdentity: (id: string) => Promise<void>
   onLock: () => void
@@ -29,13 +29,6 @@ interface SidebarProps {
   isMobile?: boolean
   installPromptAvailable?: boolean
   onInstall?: () => void
-}
-
-interface LocalCategoryOption {
-  id: string
-  label: string
-  type: LocalVaultItemType
-  custom: boolean
 }
 
 const CUSTOM_CATEGORIES_STORAGE_KEY = 'contras.customLocalCategories.v1'
@@ -58,13 +51,12 @@ export function Sidebar({
   onLock,
   isOpen,
   onClose,
-  onOpenSettings,
   profileName,
   isMobile = false,
   installPromptAvailable = false,
   onInstall,
 }: SidebarProps) {
-  const { cloudUserEmail, cloudSyncStatus, syncActiveProfileToCloud, logoutCloud } = useVault()
+  const { cloudUserEmail, cloudSyncStatus, syncActiveProfileToCloud } = useVault()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [sidebarError, setSidebarError] = useState<string | null>(null)
@@ -72,12 +64,12 @@ export function Sidebar({
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
-  const [customLocalCategories, setCustomLocalCategories] = useState<LocalCategoryOption[]>(() => {
+  const [customLocalCategories, setCustomLocalCategories] = useState<LocalCategory[]>(() => {
     if (typeof window === 'undefined') return []
     try {
       const stored = window.localStorage.getItem(CUSTOM_CATEGORIES_STORAGE_KEY)
       if (!stored) return []
-      return (JSON.parse(stored) as LocalCategoryOption[]).filter((item) => item.custom && item.label && item.type)
+      return (JSON.parse(stored) as LocalCategory[]).filter((item) => item.custom && item.id && item.label && item.type)
     } catch {
       return []
     }
@@ -116,7 +108,7 @@ export function Sidebar({
     window.localStorage.setItem(CUSTOM_CATEGORIES_STORAGE_KEY, JSON.stringify(customLocalCategories))
   }, [customLocalCategories])
 
-  const localCategoryOptions: LocalCategoryOption[] = [
+  const localCategoryOptions: LocalCategory[] = [
     ...(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => ({
       id: type,
       label: LOCAL_ITEM_LABELS[type],
@@ -138,6 +130,8 @@ export function Sidebar({
         label: cleanLabel,
         type: 'SECURE_NOTE',
         custom: true,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       },
     ])
   }
@@ -404,13 +398,13 @@ export function Sidebar({
           </p>
           <ul className="space-y-0.5">
             {localCategoryOptions.map((category) => {
-              const selected = selectedLocalCategory === category.type
-              const count = localItems.filter((item) => item.type === category.type).length
+              const selected = selectedLocalCategory?.id === category.id
+              const count = localItems.filter((item) => (item.categoryId ?? item.type) === category.id).length
               return (
                 <li key={category.id}>
                   <button
                     type="button"
-                    onClick={() => onSelectLocalCategory(category.type)}
+                    onClick={() => onSelectLocalCategory(category)}
                     className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
                       selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
                     }`}
@@ -432,34 +426,16 @@ export function Sidebar({
         {(!isMobile || (installPromptAvailable && onInstall)) && (
           <footer className="flex flex-col gap-2.5 border-t border-border-subtle bg-surface p-3">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
-              {!isMobile && (
+              {cloudUserEmail && (
                 <button
                   type="button"
-                  onClick={onOpenSettings}
-                  className="rounded-lg border border-black/5 px-2 py-1 text-[10px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+                  onClick={() => void syncActiveProfileToCloud()}
+                  disabled={cloudSyncStatus === 'syncing'}
+                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-black/5 bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover disabled:opacity-60"
                 >
-                  Copia Local / TSV
+                  <span className={`h-2 w-2 rounded-full ${cloudSyncStatus === 'syncing' ? 'animate-pulse bg-blue-500' : cloudSyncStatus === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`} />
+                  {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar / Refrescar'}
                 </button>
-              )}
-
-              {cloudUserEmail && (
-                <div className="flex items-center gap-1.5">
-                  <button
-                    type="button"
-                    onClick={() => void syncActiveProfileToCloud()}
-                    disabled={cloudSyncStatus === 'syncing'}
-                    className="rounded-lg border border-black/5 px-2 py-1 text-[10px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-                  >
-                    Sincronizar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={logoutCloud}
-                    className="rounded-lg px-2 py-1 text-[10px] font-semibold text-red-600 transition-colors hover:bg-red-50"
-                  >
-                    Salir
-                  </button>
-                </div>
               )}
             </div>
 
