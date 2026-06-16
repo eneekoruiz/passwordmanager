@@ -86,6 +86,9 @@ export function createPlatform(name: string, defaults?: Partial<Platform>): Plat
     notes: defaults?.notes,
     apiKeys: defaults?.apiKeys ?? [],
     recoveryCodes: defaults?.recoveryCodes,
+    customFields: defaults?.customFields ?? [],
+    passwordHistory: defaults?.passwordHistory ?? [],
+    sensitive: defaults?.sensitive ?? false,
     createdAt: defaults?.createdAt ?? now,
     updatedAt: now,
   }

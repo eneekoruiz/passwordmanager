@@ -1,4 +1,4 @@
-import type { Account, AccountAccessMethod, ApiKeyEntry, TwoFactorConfig } from '../types'
+import type { Account, AccountAccessMethod, ApiKeyEntry, CustomFieldEntry, PasswordHistoryEntry, TwoFactorConfig } from '../types'
 
 function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountAccessMethod[] {
   return methods
@@ -55,6 +55,26 @@ export function normalizeAccount(account: Account): Account {
         valor: key.valor.trim(),
       })) ?? []
 
+  const customFields: CustomFieldEntry[] =
+    account.customFields
+      ?.filter((field) => field.key.trim() || field.value.trim())
+      .map((field) => ({
+        id: field.id || crypto.randomUUID(),
+        key: field.key.trim(),
+        value: field.value.trim(),
+        protected: Boolean(field.protected),
+      })) ?? []
+
+  const passwordHistory: PasswordHistoryEntry[] =
+    account.passwordHistory
+      ?.filter((entry) => entry.password.trim())
+      .map((entry) => ({
+        id: entry.id || crypto.randomUUID(),
+        password: entry.password,
+        changedAt: entry.changedAt || new Date().toISOString(),
+      }))
+      .slice(-10) ?? []
+
   return {
     ...account,
     title: (account.title || account.name).trim(),
@@ -70,6 +90,9 @@ export function normalizeAccount(account: Account): Account {
     notes: account.notes?.trim() || undefined,
     recoveryCodes: account.recoveryCodes?.trim() || undefined,
     apiKeys: apiKeys.length > 0 ? apiKeys : undefined,
+    customFields: customFields.length > 0 ? customFields : undefined,
+    passwordHistory: passwordHistory.length > 0 ? passwordHistory : undefined,
+    sensitive: Boolean(account.sensitive),
   }
 }
 

@@ -8,6 +8,15 @@ type PlaintextExportFormat = 'csv' | 'json'
 const checkboxClassName =
   'h-5 w-5 shrink-0 cursor-pointer rounded-md border border-black/15 bg-white accent-slate-950 shadow-sm transition-transform duration-150 checked:scale-105 focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
 
+function passwordForPlatform(platform: Identity['platforms'][number]): string {
+  return platform.accessMethods.find((method) => method.type === 'PASSWORD')?.password ?? ''
+}
+
+function passwordStrengthIssue(password: string): boolean {
+  if (password.length < 8) return true
+  return !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)
+}
+
 interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
@@ -16,6 +25,9 @@ interface SettingsModalProps {
   localItems: LocalVaultItem[]
   onVerifyMasterPassword: (masterPassword: string) => Promise<boolean>
   onChangeMasterPassword: (currentPassword: string, nextPassword: string, recoveryPhrase: string) => Promise<void>
+  travelModeEnabled: boolean
+  onEnableTravelMode: () => void
+  onDisableTravelMode: (masterPassword: string) => Promise<void>
   onImport: (backupJsonString: string, masterPassword: string) => Promise<void>
   onOpenImportText: () => void
 }
@@ -32,6 +44,9 @@ export function SettingsModal({
   localItems,
   onVerifyMasterPassword,
   onChangeMasterPassword,
+  travelModeEnabled,
+  onEnableTravelMode,
+  onDisableTravelMode,
   onImport,
   onOpenImportText,
 }: SettingsModalProps) {
@@ -45,6 +60,7 @@ export function SettingsModal({
   const [currentMasterPassword, setCurrentMasterPassword] = useState('')
   const [nextMasterPassword, setNextMasterPassword] = useState('')
   const [recoveryPhrase, setRecoveryPhrase] = useState('')
+  const [travelPassword, setTravelPassword] = useState('')
   
   const [exportError, setExportError] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
@@ -54,11 +70,13 @@ export function SettingsModal({
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
   const [credentialsMessage, setCredentialsMessage] = useState<string | null>(null)
   const [credentialsError, setCredentialsError] = useState<string | null>(null)
+  const [travelError, setTravelError] = useState<string | null>(null)
 
   const [loadingExport, setLoadingExport] = useState(false)
   const [loadingImport, setLoadingImport] = useState(false)
   const [loadingPlaintextExport, setLoadingPlaintextExport] = useState(false)
   const [loadingPasswordChange, setLoadingPasswordChange] = useState(false)
+  const [loadingTravelMode, setLoadingTravelMode] = useState(false)
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -69,6 +87,7 @@ export function SettingsModal({
       setCurrentMasterPassword('')
       setNextMasterPassword('')
       setRecoveryPhrase('')
+      setTravelPassword('')
       setBackupFile(null)
     }
   }, [])
@@ -79,6 +98,26 @@ export function SettingsModal({
     selectedIdentityIds.length === 0
       ? identities
       : identities.filter((identity) => selectedIdentityIds.includes(identity.id))
+
+  const healthEntries = identities.flatMap((identity) =>
+    identity.platforms.map((platform) => ({
+      identityEmail: identity.email,
+      platform,
+      password: passwordForPlatform(platform),
+    })),
+  ).filter((entry) => entry.password)
+  const reusedPasswords = healthEntries.filter((entry, _, all) =>
+    all.some((other) => other !== entry && other.password === entry.password),
+  )
+  const weakPasswords = healthEntries.filter((entry) => passwordStrengthIssue(entry.password))
+  const oldPasswords = healthEntries.filter((entry) => {
+    const time = Date.parse(entry.platform.updatedAt)
+    return Number.isFinite(time) && Date.now() - time > 365 * 24 * 60 * 60 * 1000
+  })
+  const healthScore = Math.max(
+    0,
+    100 - reusedPasswords.length * 18 - weakPasswords.length * 14 - oldPasswords.length * 8,
+  )
 
   const toggleIdentitySelection = (id: string) => {
     setSelectedIdentityIds((ids) =>
@@ -227,6 +266,20 @@ export function SettingsModal({
     }
   }
 
+  const handleDisableTravelMode = async (event: FormEvent) => {
+    event.preventDefault()
+    setTravelError(null)
+    setLoadingTravelMode(true)
+    try {
+      await onDisableTravelMode(travelPassword)
+      setTravelPassword('')
+    } catch (error) {
+      setTravelError(getFriendlyErrorMessage(error, 'No se pudo desactivar el Modo Viaje.'))
+    } finally {
+      setLoadingTravelMode(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-fade-in">
       <button
@@ -255,6 +308,45 @@ export function SettingsModal({
         </header>
 
         <div className="space-y-5 overflow-y-auto max-h-[420px] pr-1 scrollbar-thin">
+          <section className="space-y-3">
+            <div className="rounded-3xl border border-black/[0.06] bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm">
+              <div className="flex items-center justify-between gap-4">
+                <div>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Dashboard de Salud</h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">Auditoría local Zero-Knowledge. Nada sale de este dispositivo.</p>
+                </div>
+                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-text-primary text-lg font-black text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)]">
+                  {healthScore}
+                </div>
+              </div>
+              <div className="mt-4 grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
+                  <p className="text-lg font-black text-red-700">{reusedPasswords.length}</p>
+                  <p className="text-[10px] font-bold text-red-700">Reutilizadas</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
+                  <p className="text-lg font-black text-amber-800">{weakPasswords.length}</p>
+                  <p className="text-[10px] font-bold text-amber-800">Débiles</p>
+                </div>
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
+                  <p className="text-lg font-black text-blue-800">{oldPasswords.length}</p>
+                  <p className="text-[10px] font-bold text-blue-800">Antiguas</p>
+                </div>
+              </div>
+              {(reusedPasswords.length || weakPasswords.length || oldPasswords.length) ? (
+                <div className="mt-3 max-h-28 overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2">
+                  {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry.platform.name} · ${entry.identityEmail}`))]
+                    .slice(0, 8)
+                    .map((label) => (
+                      <div key={label} className="rounded-xl px-2 py-1.5 text-[11px] font-semibold text-text-secondary">{label}</div>
+                    ))}
+                </div>
+              ) : null}
+            </div>
+          </section>
+
+          <hr className="border-border-subtle" />
+
           {/* Sección de Importación Masiva */}
           <section className="space-y-2.5">
             <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Importación Masiva TSV</h3>
@@ -271,6 +363,56 @@ export function SettingsModal({
             >
               Importar desde Google Docs / TSV...
             </button>
+          </section>
+
+          <hr className="border-border-subtle" />
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Modo Viaje</h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                Oculta visualmente plataformas marcadas como sensibles hasta verificar la Contraseña Maestra.
+              </p>
+            </div>
+            <div className={`rounded-2xl border p-4 ${travelModeEnabled ? 'border-blue-100 bg-blue-50' : 'border-black/[0.06] bg-white/70'}`}>
+              <div className="flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-bold text-text-primary">{travelModeEnabled ? 'Modo Viaje activo' : 'Bóveda completa visible'}</p>
+                  <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                    Marca cuentas como sensibles desde el formulario de cuenta.
+                  </p>
+                </div>
+                {!travelModeEnabled && (
+                  <button
+                    type="button"
+                    onClick={onEnableTravelMode}
+                    className="min-h-10 rounded-xl bg-text-primary px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5"
+                  >
+                    Activar
+                  </button>
+                )}
+              </div>
+              {travelModeEnabled && (
+                <form onSubmit={handleDisableTravelMode} className="mt-4 space-y-2">
+                  <input
+                    type="password"
+                    value={travelPassword}
+                    onChange={(event) => setTravelPassword(event.target.value)}
+                    placeholder="Contraseña Maestra para desactivar"
+                    className="w-full rounded-lg border border-border-subtle bg-white px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                    autoComplete="current-password"
+                  />
+                  {travelError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{travelError}</div>}
+                  <button
+                    type="submit"
+                    disabled={loadingTravelMode || !travelPassword}
+                    className="min-h-10 w-full rounded-xl bg-text-primary px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40"
+                  >
+                    {loadingTravelMode ? 'Verificando...' : 'Desactivar Modo Viaje'}
+                  </button>
+                </form>
+              )}
+            </div>
           </section>
 
           <hr className="border-border-subtle" />

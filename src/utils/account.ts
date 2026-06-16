@@ -19,6 +19,9 @@ export function createEmptyAccount(): Account {
     notes: '',
     apiKeys: [],
     recoveryCodes: '',
+    customFields: [],
+    passwordHistory: [],
+    sensitive: false,
     createdAt: now,
     updatedAt: now,
   }

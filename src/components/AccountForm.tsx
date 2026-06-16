@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
-import type { Account, ApiKeyEntry, SsoProvider, TwoFactorConfig, TwoFactorType } from '../types'
+import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
 import { Accordion } from './ui/Accordion'
@@ -234,6 +234,10 @@ function twoFactorDisplay(value: Account['twoFactorAuth']): string | null {
   return 'SMS'
 }
 
+function passwordValue(account: Account): string {
+  return account.accessMethods.find((method) => method.type === 'PASSWORD')?.password ?? ''
+}
+
 export function AccountForm({
   mode,
   identityEmail,
@@ -322,6 +326,9 @@ export function AccountForm({
         notes: undefined,
         apiKeys: [],
         recoveryCodes: undefined,
+        customFields: [],
+        passwordHistory: [],
+        sensitive: false,
         createdAt: '',
         updatedAt: '',
       })
@@ -360,6 +367,32 @@ export function AccountForm({
     }))
   }
 
+  const addCustomField = () => {
+    setAccount((prev) => ({
+      ...prev,
+      customFields: [
+        ...(prev.customFields ?? []),
+        { id: crypto.randomUUID(), key: '', value: '', protected: false },
+      ],
+    }))
+  }
+
+  const updateCustomField = <K extends keyof CustomFieldEntry>(id: string, key: K, value: CustomFieldEntry[K]) => {
+    setAccount((prev) => ({
+      ...prev,
+      customFields: (prev.customFields ?? []).map((field) =>
+        field.id === id ? { ...field, [key]: value } : field,
+      ),
+    }))
+  }
+
+  const removeCustomField = (id: string) => {
+    setAccount((prev) => ({
+      ...prev,
+      customFields: (prev.customFields ?? []).filter((field) => field.id !== id),
+    }))
+  }
+
   const accountForPersistence = (value: Account): Account => ({
     ...value,
     accessMethods: passwordEnabled
@@ -370,7 +403,30 @@ export function AccountForm({
   const saveCurrentAccount = async () => {
     setError(null)
 
-    const normalized = normalizeAccount(accountForPersistence(account))
+    const previousPassword = passwordValue(baselineAccount)
+    const nextPassword = passwordValue(account)
+    const shouldArchivePassword =
+      mode === 'edit' &&
+      passwordEnabled &&
+      previousPassword &&
+      nextPassword &&
+      previousPassword !== nextPassword
+
+    const accountWithHistory: Account = shouldArchivePassword
+      ? {
+          ...account,
+          passwordHistory: [
+            ...(account.passwordHistory ?? []),
+            {
+              id: crypto.randomUUID(),
+              password: previousPassword,
+              changedAt: new Date().toISOString(),
+            },
+          ].slice(-10),
+        }
+      : account
+
+    const normalized = normalizeAccount(accountForPersistence(accountWithHistory))
     if (!normalized.name) {
       setError('Indica el nombre de la plataforma.')
       return
@@ -542,6 +598,14 @@ export function AccountForm({
         {account.birthDate && <ReadOnlyField label="Fecha de nacimiento" value={account.birthDate} />}
         {account.accountCreatedAt && <ReadOnlyField label="Fecha de creación de cuenta" value={account.accountCreatedAt} />}
         {account.notes && <ReadOnlyField label="Notas Adicionales" value={account.notes} isMultiline />}
+        {(account.customFields ?? []).map((field) => (
+          <ReadOnlyField
+            key={field.id}
+            label={field.key || 'Campo personalizado'}
+            value={field.value}
+            isSecret={field.protected}
+          />
+        ))}
       </div>
     )
   }
@@ -663,6 +727,15 @@ export function AccountForm({
               onChange={(event) => toggleMagicLink(event.target.checked)}
             />
             Magic Link
+          </label>
+          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
+            <input
+              type="checkbox"
+              className={checkboxClassName}
+              checked={Boolean(account.sensitive)}
+              onChange={(event) => updateField('sensitive', event.target.checked)}
+            />
+            Sensible / ocultar en Modo Viaje
           </label>
           {magicLinkMethod && (
             <div className="w-full animate-vault-morph sm:max-w-sm">
@@ -858,6 +931,104 @@ export function AccountForm({
                   style={!recoveryCodesVisible ? ({ WebkitTextSecurity: 'disc' } as CSSProperties) : undefined}
                 />
               </div>
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-2">
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-bold text-text-primary">Campos personalizados</h3>
+                  <p className="text-[10px] font-medium text-text-tertiary">Pares clave/valor ilimitados para PINs, respuestas de seguridad o datos específicos.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={addCustomField}
+                  className="flex items-center gap-1.5 rounded-lg border border-border bg-surface-elevated px-3 py-1.5 text-xs font-semibold text-text-primary shadow-subtle transition-all duration-150 hover:bg-surface-hover active:scale-95"
+                >
+                  <svg className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                  </svg>
+                  Añadir campo
+                </button>
+              </div>
+
+              {(account.customFields ?? []).length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-white/60 p-6 text-center">
+                  <p className="text-xs text-text-tertiary">Sin campos personalizados todavía.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {(account.customFields ?? []).map((field) => (
+                    <div key={field.id} className="rounded-2xl border border-black/[0.05] bg-white p-3 shadow-sm">
+                      <div className="flex items-start gap-2">
+                        <input
+                          value={field.key}
+                          onChange={(event) => updateCustomField(field.id, 'key', event.target.value)}
+                          placeholder="Clave"
+                          className="min-w-0 flex-1 border-b border-transparent bg-transparent pb-1 text-xs font-bold text-text-primary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
+                        />
+                        <button
+                          type="button"
+                          onClick={() => removeCustomField(field.id)}
+                          className="rounded-lg p-1.5 text-text-tertiary transition-colors hover:bg-red-50 hover:text-red-600"
+                          aria-label="Eliminar campo personalizado"
+                        >
+                          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                          </svg>
+                        </button>
+                      </div>
+                      <textarea
+                        value={field.value}
+                        onChange={(event) => updateCustomField(field.id, 'value', event.target.value)}
+                        placeholder="Valor"
+                        className="mt-2 min-h-20 w-full resize-y rounded-xl border border-black/5 bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-border"
+                        style={field.protected ? ({ WebkitTextSecurity: 'disc' } as CSSProperties) : undefined}
+                      />
+                      <label className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-text-secondary">
+                        <input
+                          type="checkbox"
+                          className={checkboxClassName}
+                          checked={Boolean(field.protected)}
+                          onChange={(event) => updateCustomField(field.id, 'protected', event.target.checked)}
+                        />
+                        Ocultar valor en lectura
+                      </label>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-2">
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-bold text-text-primary">Historial de contraseñas</h3>
+                  <p className="text-[10px] font-medium text-text-tertiary">Las contraseñas anteriores se archivan localmente al cambiar y guardar.</p>
+                </div>
+              </div>
+              {(account.passwordHistory ?? []).length === 0 ? (
+                <div className="rounded-2xl border border-dashed border-border bg-white/60 p-5 text-center text-xs text-text-tertiary">
+                  Todavía no hay historial para esta cuenta.
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  {[...(account.passwordHistory ?? [])].reverse().map((entry) => (
+                    <div key={entry.id} className="flex items-center justify-between gap-3 rounded-2xl border border-black/[0.05] bg-white p-3">
+                      <div className="min-w-0">
+                        <p className="truncate font-mono text-xs font-semibold text-text-primary">••••••••••••</p>
+                        <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">{new Date(entry.changedAt).toLocaleString()}</p>
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => void copyToClipboard(entry.password)}
+                        className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover"
+                      >
+                        Copiar antigua
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
             </div>
 
             <div className="space-y-3">

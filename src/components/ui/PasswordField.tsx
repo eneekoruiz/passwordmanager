@@ -81,6 +81,18 @@ function generateSecurePassword(
   return password
 }
 
+const PASSPHRASE_WORDS = [
+  'bruma', 'norte', 'cristal', 'mapa', 'luna', 'cedro', 'puente', 'nube',
+  'rio', 'faro', 'atlas', 'cobre', 'valle', 'piano', 'delta', 'bambu',
+  'sol', 'trazo', 'marea', 'verde', 'roble', 'ambar', 'cima', 'eco',
+]
+
+function generatePassphrase(wordCount: number, separator = '-'): string {
+  const bytes = new Uint8Array(wordCount)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => PASSPHRASE_WORDS[byte % PASSPHRASE_WORDS.length]).join(separator)
+}
+
 /**
  * Componente de campo de contraseña interactivo con soporte de visibilidad, copiado
  * rápido al portapapeles y generador integrado de contraseñas seguras (Apple-style).
@@ -103,6 +115,8 @@ export function PasswordField({
   const [useUppercase, setUseUppercase] = useState(true)
   const [useNumbers, setUseNumbers] = useState(true)
   const [useSymbols, setUseSymbols] = useState(true)
+  const [generatorMode, setGeneratorMode] = useState<'password' | 'passphrase'>('password')
+  const [wordCount, setWordCount] = useState(4)
 
   // Scrubbing: Asegurar la limpieza del menú de generación al desmontar
   useEffect(() => {
@@ -120,8 +134,7 @@ export function PasswordField({
   }
 
   const handleGenerate = (len: number, up: boolean, num: boolean, sym: boolean) => {
-    const pw = generateSecurePassword(len, up, num, sym)
-    onChange(pw)
+    onChange(generatorMode === 'passphrase' ? generatePassphrase(wordCount) : generateSecurePassword(len, up, num, sym))
   }
 
   const prClassName = showGenerator ? 'pr-36' : 'pr-24'
@@ -222,7 +235,7 @@ export function PasswordField({
           <div className="absolute right-0 top-full mt-2 z-50 w-64 rounded-2xl border border-black/5 bg-white/80 backdrop-blur-xl p-4 shadow-[0_10px_35px_rgba(0,0,0,0.06)] text-left space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-semibold text-text-primary">
-                Generar contraseña
+                Generador seguro
               </span>
               <button
                 type="button"
@@ -236,8 +249,26 @@ export function PasswordField({
               </button>
             </div>
 
+            <div className="grid grid-cols-2 gap-1 rounded-xl border border-black/[0.06] bg-surface p-1">
+              {(['password', 'passphrase'] as const).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setGeneratorMode(mode)
+                    onChange(mode === 'passphrase' ? generatePassphrase(wordCount) : generateSecurePassword(length, useUppercase, useNumbers, useSymbols))
+                  }}
+                  className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all ${
+                    generatorMode === mode ? 'bg-text-primary text-white shadow-sm' : 'text-text-secondary hover:bg-surface-hover'
+                  }`}
+                >
+                  {mode === 'password' ? 'Contraseña' : 'Frase'}
+                </button>
+              ))}
+            </div>
+
             {/* Deslizador de Longitud */}
-            <div className="space-y-1.5">
+            {generatorMode === 'password' ? <div className="space-y-1.5">
               <div className="flex justify-between text-[11px] font-medium text-text-secondary">
                 <span>Longitud</span>
                 <span className="font-mono text-text-primary font-semibold">{length}</span>
@@ -254,10 +285,30 @@ export function PasswordField({
                 }}
                 className="w-full h-1 bg-black/5 rounded-lg appearance-none cursor-pointer accent-text-primary focus:outline-none"
               />
-            </div>
+            </div> : (
+              <div className="space-y-1.5">
+                <div className="flex justify-between text-[11px] font-medium text-text-secondary">
+                  <span>Palabras</span>
+                  <span className="font-mono text-text-primary font-semibold">{wordCount}</span>
+                </div>
+                <input
+                  type="range"
+                  min="3"
+                  max="8"
+                  value={wordCount}
+                  onChange={(e) => {
+                    const count = parseInt(e.target.value)
+                    setWordCount(count)
+                    onChange(generatePassphrase(count))
+                  }}
+                  className="w-full h-1 bg-black/5 rounded-lg appearance-none cursor-pointer accent-text-primary focus:outline-none"
+                />
+                <p className="text-[10px] leading-relaxed text-text-tertiary">Frases memorables, largas y robustas para cuentas donde tengas que escribir a mano.</p>
+              </div>
+            )}
 
             {/* Opciones con interruptores premium (estilo iOS/macOS) */}
-            <div className="space-y-3 pt-1">
+            {generatorMode === 'password' && <div className="space-y-3 pt-1">
               <div className="flex items-center justify-between">
                 <span className="text-xs text-text-secondary">Mayúsculas (A-Z)</span>
                 <button
@@ -320,7 +371,7 @@ export function PasswordField({
                   />
                 </button>
               </div>
-            </div>
+            </div>}
           </div>
         </>
       )}

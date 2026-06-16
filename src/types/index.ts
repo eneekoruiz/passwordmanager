@@ -5,6 +5,19 @@ export interface ApiKeyEntry {
   valor: string
 }
 
+export interface CustomFieldEntry {
+  id: string
+  key: string
+  value: string
+  protected?: boolean
+}
+
+export interface PasswordHistoryEntry {
+  id: string
+  password: string
+  changedAt: string
+}
+
 export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE'
 export type LocalVaultItemType = Exclude<VaultItemType, 'ACCOUNT'>
 export type VaultGroupMode = 'identity' | 'platform'
@@ -84,6 +97,9 @@ export interface AccountVaultItem extends BaseVaultItem {
   notes?: string
   apiKeys?: ApiKeyEntry[]
   recoveryCodes?: string
+  customFields?: CustomFieldEntry[]
+  passwordHistory?: PasswordHistoryEntry[]
+  sensitive?: boolean
 }
 
 /** Plataforma concreta dentro de una identidad: Amazon, Netflix, GitHub, etc. */

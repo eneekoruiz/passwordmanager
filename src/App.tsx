@@ -104,6 +104,10 @@ function VaultApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
+  const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.sessionStorage.getItem('contras.travelMode') === '1'
+  })
   const [mobileSyncCheckVisible, setMobileSyncCheckVisible] = useState(false)
   const [unsavedDirty, setUnsavedDirty] = useState(false)
   const [unsavedActions, setUnsavedActions] = useState<UnsavedFormActions | null>(null)
@@ -114,9 +118,22 @@ function VaultApp() {
   const [pendingCloudDownload, setPendingCloudDownload] = useState<CloudSyncResult | null>(null)
   const [downloadingCloud, setDownloadingCloud] = useState(false)
 
+  const displayIdentities = useMemo(
+    () =>
+      travelModeEnabled
+        ? identities
+            .map((identity) => ({
+              ...identity,
+              platforms: identity.platforms.filter((platform) => !platform.sensitive),
+            }))
+            .filter((identity) => identity.platforms.length > 0)
+        : identities,
+    [identities, travelModeEnabled],
+  )
+
   const selectedIdentity = useMemo(
-    () => identities.find((identity) => identity.id === selectedId) ?? null,
-    [identities, selectedId],
+    () => displayIdentities.find((identity) => identity.id === selectedId) ?? null,
+    [displayIdentities, selectedId],
   )
 
   const [pageMessage, setPageMessage] = useState<string | null>(null)
@@ -294,12 +311,30 @@ function VaultApp() {
     }
   }
 
+  const enableTravelMode = () => {
+    setTravelModeEnabled(true)
+    window.sessionStorage.setItem('contras.travelMode', '1')
+    setSelectedId(null)
+    setSelectedPlatformName(null)
+    setSelectedLocalCategory(null)
+    setSearchQuery('')
+    setPageMessage('Modo Viaje activado. Las cuentas sensibles quedan ocultas hasta verificar la Contraseña Maestra.')
+  }
+
+  const disableTravelMode = async (masterPassword: string) => {
+    const verified = await verifyCurrentMasterPassword(masterPassword)
+    if (!verified) throw new Error('Contraseña Maestra incorrecta.')
+    setTravelModeEnabled(false)
+    window.sessionStorage.removeItem('contras.travelMode')
+    setPageMessage('Modo Viaje desactivado. La bóveda completa vuelve a estar visible.')
+  }
+
   const globalSearchResults = (() => {
     const query = searchQuery.trim()
     if (!query) return []
 
     const results: GlobalSearchResult[] = []
-    for (const identity of identities) {
+    for (const identity of displayIdentities) {
       if (fuzzyMatch(identity.email, query)) {
         results.push({
           id: `identity-${identity.id}`,
@@ -568,7 +603,7 @@ function VaultApp() {
         <div className="flex-1 overflow-y-auto pt-28">
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
-              identities={identities}
+              identities={displayIdentities}
               localItems={localItems}
               groupMode={groupMode}
               selectedId={selectedId}
@@ -601,7 +636,7 @@ function VaultApp() {
             />
           ) : (
             <MainArea
-              identities={identities}
+              identities={displayIdentities}
               identity={selectedIdentity}
               groupMode={groupMode}
               selectedPlatformName={selectedPlatformName}
@@ -684,6 +719,9 @@ function VaultApp() {
           localItems={localItems}
           onVerifyMasterPassword={verifyCurrentMasterPassword}
           onChangeMasterPassword={changeCurrentMasterPassword}
+          travelModeEnabled={travelModeEnabled}
+          onEnableTravelMode={enableTravelMode}
+          onDisableTravelMode={disableTravelMode}
           onImport={handleImportBackup}
           onOpenImportText={() => setImportTextOpen(true)}
         />
@@ -751,7 +789,7 @@ function VaultApp() {
     <div className="flex min-h-dvh bg-surface">
       {globalOverlays}
       <Sidebar
-        identities={identities}
+        identities={displayIdentities}
         localItems={localItems}
         groupMode={groupMode}
         selectedId={selectedId}
@@ -787,7 +825,7 @@ function VaultApp() {
         {pageBanner}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated pt-20 lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
-            identities={identities}
+            identities={displayIdentities}
             identity={selectedIdentity}
             groupMode={groupMode}
             selectedPlatformName={selectedPlatformName}
@@ -826,6 +864,9 @@ function VaultApp() {
         localItems={localItems}
         onVerifyMasterPassword={verifyCurrentMasterPassword}
         onChangeMasterPassword={changeCurrentMasterPassword}
+        travelModeEnabled={travelModeEnabled}
+        onEnableTravelMode={enableTravelMode}
+        onDisableTravelMode={disableTravelMode}
         onImport={handleImportBackup}
         onOpenImportText={() => setImportTextOpen(true)}
       />
