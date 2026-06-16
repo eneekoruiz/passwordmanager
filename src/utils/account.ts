@@ -15,7 +15,7 @@ export function createEmptyAccount(): Account {
     birthDate: null,
     accountCreatedAt: null,
     linkedPhone: null,
-    twoFactorAuth: { type: 'NONE', pin: null, secret: null },
+    twoFactorAuth: { type: 'NONE', pin: null, secret: null, authenticatorApp: null },
     notes: '',
     apiKeys: [],
     recoveryCodes: '',

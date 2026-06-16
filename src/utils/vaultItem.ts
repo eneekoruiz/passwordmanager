@@ -17,12 +17,13 @@ export const LOCAL_ITEM_LABELS: Record<LocalVaultItemType, string> = {
   SECURE_NOTE: 'Notas seguras',
 }
 
-export function createLocalVaultItem(type: LocalVaultItemType): LocalVaultItem {
+export function createLocalVaultItem(type: LocalVaultItemType, categoryId: string = type): LocalVaultItem {
   const now = nowIso()
   const base = {
     id: generateId(),
     type,
     title: '',
+    categoryId,
     createdAt: now,
     updatedAt: now,
   }

@@ -17,6 +17,7 @@ export interface TwoFactorConfig {
   type: TwoFactorType
   pin?: string | null
   secret?: string | null
+  authenticatorApp?: string | null
 }
 
 export interface PasswordAccessMethod {
@@ -53,8 +54,18 @@ export interface BaseVaultItem {
   id: string
   type: VaultItemType
   title: string
+  categoryId?: string | null
   createdAt: string
   updatedAt: string
+}
+
+export interface LocalCategory {
+  id: string
+  label: string
+  type: LocalVaultItemType
+  custom?: boolean
+  createdAt?: string
+  updatedAt?: string
 }
 
 export interface AccountVaultItem extends BaseVaultItem {

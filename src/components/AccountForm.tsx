@@ -196,8 +196,17 @@ const SSO_OPTIONS = [
   'Yahoo',
 ].map((label) => ({ label }))
 
+const AUTHENTICATOR_APP_OPTIONS = [
+  'Google Authenticator',
+  'Authy',
+  'Microsoft Authenticator',
+  '1Password',
+  'Bitwarden',
+  'Duo Mobile',
+].map((label) => ({ label }))
+
 const checkboxClassName =
-  'h-5 w-5 shrink-0 appearance-none rounded-[0.45rem] border border-black/15 bg-white shadow-[inset_0_1px_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06)] transition-all checked:border-text-primary checked:bg-text-primary checked:bg-[url("data:image/svg+xml,%3Csvg_viewBox=%270_0_16_16%27_fill=%27none%27_xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath_d=%27M3.5_8.3L6.6_11.3L12.8_4.8%27_stroke=%27white%27_stroke-width=%272.1%27_stroke-linecap=%27round%27_stroke-linejoin=%27round%27/%3E%3C/svg%3E")] checked:bg-center checked:bg-no-repeat focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
+  'h-5 w-5 shrink-0 cursor-pointer rounded-md border border-black/15 bg-white accent-slate-950 shadow-sm transition-transform duration-150 checked:scale-105 focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
 
 const TWO_FACTOR_LABELS: Record<TwoFactorType, string> = {
   NONE: 'Ninguno',
@@ -207,16 +216,21 @@ const TWO_FACTOR_LABELS: Record<TwoFactorType, string> = {
 }
 
 function getTwoFactorConfig(value: Account['twoFactorAuth']): TwoFactorConfig {
-  if (!value) return { type: 'NONE', pin: null, secret: null }
-  if (typeof value === 'string') return { type: 'TOTP', secret: value, pin: null }
-  return { type: value.type, pin: value.pin ?? null, secret: value.secret ?? null }
+  if (!value) return { type: 'NONE', pin: null, secret: null, authenticatorApp: null }
+  if (typeof value === 'string') return { type: 'TOTP', secret: value, pin: null, authenticatorApp: null }
+  return {
+    type: value.type,
+    pin: value.pin ?? null,
+    secret: value.secret ?? null,
+    authenticatorApp: value.authenticatorApp ?? null,
+  }
 }
 
 function twoFactorDisplay(value: Account['twoFactorAuth']): string | null {
   const config = getTwoFactorConfig(value)
   if (config.type === 'NONE') return null
   if (config.type === 'PIN') return config.pin ? `PIN: ${config.pin}` : 'PIN'
-  if (config.type === 'TOTP') return config.secret ? `TOTP: ${config.secret}` : 'App Authenticator'
+  if (config.type === 'TOTP') return config.authenticatorApp ? `${config.authenticatorApp} · Clave guardada` : 'App Authenticator'
   return 'SMS'
 }
 
@@ -235,6 +249,9 @@ export function AccountForm({
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(mode === 'create')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [passwordEnabled, setPasswordEnabled] = useState(() =>
+    Boolean((initialAccount ?? createEmptyAccount()).accessMethods.some((method) => method.type === 'PASSWORD')),
+  )
 
   const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
@@ -300,7 +317,7 @@ export function AccountForm({
         birthDate: null,
         accountCreatedAt: null,
         linkedPhone: null,
-        twoFactorAuth: { type: 'NONE', pin: null, secret: null },
+        twoFactorAuth: { type: 'NONE', pin: null, secret: null, authenticatorApp: null },
         notes: undefined,
         apiKeys: [],
         recoveryCodes: undefined,
@@ -342,10 +359,17 @@ export function AccountForm({
     }))
   }
 
+  const accountForPersistence = (value: Account): Account => ({
+    ...value,
+    accessMethods: passwordEnabled
+      ? value.accessMethods
+      : value.accessMethods.filter((method) => method.type !== 'PASSWORD'),
+  })
+
   const saveCurrentAccount = async () => {
     setError(null)
 
-    const normalized = normalizeAccount(account)
+    const normalized = normalizeAccount(accountForPersistence(account))
     if (!normalized.name) {
       setError('Indica el nombre de la plataforma.')
       return
@@ -377,7 +401,9 @@ export function AccountForm({
     }
   }
 
-  const isDirty = isEditing && JSON.stringify(normalizeAccount(account)) !== JSON.stringify(normalizeAccount(baselineAccount))
+  const isDirty =
+    isEditing &&
+    JSON.stringify(normalizeAccount(accountForPersistence(account))) !== JSON.stringify(normalizeAccount(baselineAccount))
 
   useEffect(() => {
     onUnsavedStateChange?.(isDirty, isDirty ? { save: saveCurrentAccount, discard: handleCancelEdit } : null)
@@ -396,11 +422,9 @@ export function AccountForm({
   }
 
   const togglePassword = (enabled: boolean) => {
-    setAccessMethods((methods) =>
-      enabled
-        ? [...methods, { id: crypto.randomUUID(), type: 'PASSWORD', password: '' }]
-        : methods.filter((method) => method.type !== 'PASSWORD'),
-    )
+    setPasswordEnabled(enabled)
+    if (!enabled || passwordMethod) return
+    setAccessMethods((methods) => [...methods, { id: crypto.randomUUID(), type: 'PASSWORD', password: '' }])
   }
 
   const updatePasswordMethod = (password: string) => {
@@ -426,10 +450,16 @@ export function AccountForm({
   }
 
   const updateTwoFactorType = (type: TwoFactorType) => {
-    updateField('twoFactorAuth', type === 'NONE' ? { type: 'NONE', pin: null, secret: null } : { type, pin: null, secret: null })
+    const current = getTwoFactorConfig(account.twoFactorAuth)
+    updateField(
+      'twoFactorAuth',
+      type === 'NONE'
+        ? { ...current, type: 'NONE' }
+        : { ...current, type },
+    )
   }
 
-  const updateTwoFactorDetail = (field: 'pin' | 'secret', value: string) => {
+  const updateTwoFactorDetail = (field: 'pin' | 'secret' | 'authenticatorApp', value: string) => {
     const next = { ...getTwoFactorConfig(account.twoFactorAuth), [field]: value }
     updateField('twoFactorAuth', next)
   }
@@ -546,14 +576,14 @@ export function AccountForm({
               <input
                 type="checkbox"
                 className={checkboxClassName}
-                checked={Boolean(passwordMethod)}
+                checked={passwordEnabled}
                 onChange={(event) => togglePassword(event.target.checked)}
               />
               Contraseña
             </label>
-            <div className={`grid transition-all duration-200 ${passwordMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className={`grid transition-all duration-200 ${passwordEnabled && passwordMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
               <div className="overflow-hidden">
-                {passwordMethod && (
+                {passwordEnabled && passwordMethod && (
                   <PasswordField
                     label="Contraseña"
                     value={passwordMethod.password}
@@ -704,13 +734,28 @@ export function AccountForm({
         <div className={`grid transition-all duration-200 ${twoFactorConfig.type === 'TOTP' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
           <div className="overflow-hidden">
             {twoFactorConfig.type === 'TOTP' && (
-              <FormField
-                label="Seed / Secret Key"
-                value={twoFactorConfig.secret ?? ''}
-                onChange={(e) => updateTwoFactorDetail('secret', e.target.value)}
-                placeholder="JBSWY3DPEHPK3PXP"
-                autoComplete="off"
-              />
+              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+                <Combobox
+                  label="¿Qué app de autenticación usas?"
+                  value={twoFactorConfig.authenticatorApp ?? ''}
+                  options={AUTHENTICATOR_APP_OPTIONS}
+                  onChange={(value) => updateTwoFactorDetail('authenticatorApp', value)}
+                  placeholder="Google Authenticator, Authy..."
+                  createLabel={(input) => `Usar "${input}"`}
+                />
+                <div>
+                  <FormField
+                    label="Clave de configuración"
+                    value={twoFactorConfig.secret ?? ''}
+                    onChange={(e) => updateTwoFactorDetail('secret', e.target.value)}
+                    placeholder="Texto largo proporcionado por la web"
+                    autoComplete="off"
+                  />
+                  <p className="mt-1.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-medium leading-relaxed text-blue-900">
+                    La web suele mostrarla al configurar 2FA, cerca del QR. Si solo ves un QR, busca la opción “introducir clave manualmente”.
+                  </p>
+                </div>
+              </div>
             )}
           </div>
         </div>

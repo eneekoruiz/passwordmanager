@@ -8,7 +8,7 @@ import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
 import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
-import type { LocalVaultItemType, VaultGroupMode } from './types'
+import type { LocalCategory, VaultGroupMode } from './types'
 import type { UnsavedFormActions } from './components/AccountForm'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -95,7 +95,7 @@ function VaultApp() {
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [groupMode, setGroupMode] = useState<VaultGroupMode>('identity')
   const [selectedPlatformName, setSelectedPlatformName] = useState<string | null>(null)
-  const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalVaultItemType | null>(null)
+  const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalCategory | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -254,9 +254,9 @@ function VaultApp() {
     })
   }
 
-  const handleSelectLocalCategory = (type: LocalVaultItemType) => {
+  const handleSelectLocalCategory = (category: LocalCategory) => {
     requestNavigation(() => {
-      setSelectedLocalCategory(type)
+      setSelectedLocalCategory(category)
       setSelectedId(null)
       setSelectedPlatformName(null)
       setSidebarOpen(false)
@@ -307,7 +307,12 @@ function VaultApp() {
           id: `local-${item.id}`,
           title: name,
           subtitle: label,
-          action: () => handleSelectLocalCategory(item.type),
+          action: () => handleSelectLocalCategory({
+            id: item.categoryId ?? item.type,
+            label: LOCAL_ITEM_LABELS[item.type],
+            type: item.type,
+            custom: Boolean(item.categoryId && item.categoryId !== item.type),
+          }),
         })
       }
     }
@@ -482,7 +487,7 @@ function VaultApp() {
         {mobileTopBar}
         {globalOverlays}
         {pageBanner}
-        <div className="flex-1 overflow-y-auto pt-14">
+        <div className="flex-1 overflow-y-auto pt-28">
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={identities}
@@ -698,7 +703,7 @@ function VaultApp() {
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         {pageBanner}
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated pt-20 lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
             identities={identities}
             identity={selectedIdentity}
