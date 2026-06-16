@@ -15,6 +15,7 @@ interface SettingsModalProps {
   identities: Identity[]
   localItems: LocalVaultItem[]
   onVerifyMasterPassword: (masterPassword: string) => Promise<boolean>
+  onChangeMasterPassword: (currentPassword: string, nextPassword: string, recoveryPhrase: string) => Promise<void>
   onImport: (backupJsonString: string, masterPassword: string) => Promise<void>
   onOpenImportText: () => void
 }
@@ -30,6 +31,7 @@ export function SettingsModal({
   identities,
   localItems,
   onVerifyMasterPassword,
+  onChangeMasterPassword,
   onImport,
   onOpenImportText,
 }: SettingsModalProps) {
@@ -40,6 +42,9 @@ export function SettingsModal({
   const [selectedIdentityIds, setSelectedIdentityIds] = useState<string[]>([])
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
   const [securityPassword, setSecurityPassword] = useState('')
+  const [currentMasterPassword, setCurrentMasterPassword] = useState('')
+  const [nextMasterPassword, setNextMasterPassword] = useState('')
+  const [recoveryPhrase, setRecoveryPhrase] = useState('')
   
   const [exportError, setExportError] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
@@ -47,10 +52,13 @@ export function SettingsModal({
   const [exportSuccess, setExportSuccess] = useState<string | null>(null)
   const [importSuccess, setImportSuccess] = useState<string | null>(null)
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
+  const [credentialsMessage, setCredentialsMessage] = useState<string | null>(null)
+  const [credentialsError, setCredentialsError] = useState<string | null>(null)
 
   const [loadingExport, setLoadingExport] = useState(false)
   const [loadingImport, setLoadingImport] = useState(false)
   const [loadingPlaintextExport, setLoadingPlaintextExport] = useState(false)
+  const [loadingPasswordChange, setLoadingPasswordChange] = useState(false)
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -58,6 +66,9 @@ export function SettingsModal({
       setExportPassword('')
       setImportPassword('')
       setSecurityPassword('')
+      setCurrentMasterPassword('')
+      setNextMasterPassword('')
+      setRecoveryPhrase('')
       setBackupFile(null)
     }
   }, [])
@@ -189,6 +200,33 @@ export function SettingsModal({
     }
   }
 
+  const handleChangeMasterPassword = async (event: FormEvent) => {
+    event.preventDefault()
+    setCredentialsError(null)
+    setCredentialsMessage(null)
+    if (nextMasterPassword.length < 8) {
+      setCredentialsError('La nueva Contraseña Maestra debe tener al menos 8 caracteres.')
+      return
+    }
+    if (!recoveryPhrase.trim()) {
+      setCredentialsError('Introduce tu frase de recuperación para regenerar el kit de emergencia.')
+      return
+    }
+
+    setLoadingPasswordChange(true)
+    try {
+      await onChangeMasterPassword(currentMasterPassword, nextMasterPassword, recoveryPhrase)
+      setCredentialsMessage('Contraseña Maestra actualizada y bóveda re-cifrada correctamente.')
+      setCurrentMasterPassword('')
+      setNextMasterPassword('')
+      setRecoveryPhrase('')
+    } catch (error) {
+      setCredentialsError(getFriendlyErrorMessage(error, 'No se pudo cambiar la Contraseña Maestra.'))
+    } finally {
+      setLoadingPasswordChange(false)
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-fade-in">
       <button
@@ -233,6 +271,61 @@ export function SettingsModal({
             >
               Importar desde Google Docs / TSV...
             </button>
+          </section>
+
+          <hr className="border-border-subtle" />
+
+          <section className="space-y-3">
+            <div>
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Credenciales y recuperación</h3>
+              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                Cambia la Contraseña Maestra local re-cifrando toda la bóveda. La contraseña de Google Cloud se gestiona en tu cuenta de Google.
+              </p>
+            </div>
+            <form onSubmit={handleChangeMasterPassword} className="space-y-2.5 rounded-2xl border border-black/[0.06] bg-white/70 p-3">
+              <input
+                type="password"
+                value={currentMasterPassword}
+                onChange={(event) => setCurrentMasterPassword(event.target.value)}
+                placeholder="Contraseña Maestra actual"
+                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                autoComplete="current-password"
+              />
+              <input
+                type="password"
+                value={nextMasterPassword}
+                onChange={(event) => setNextMasterPassword(event.target.value)}
+                placeholder="Nueva Contraseña Maestra"
+                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                autoComplete="new-password"
+              />
+              <textarea
+                value={recoveryPhrase}
+                onChange={(event) => setRecoveryPhrase(event.target.value)}
+                placeholder="Frase de recuperación de 12 palabras"
+                className="min-h-20 w-full resize-y rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+              />
+              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-[11px] font-medium leading-relaxed text-blue-900">
+                Salvavidas correcto: guarda la frase de recuperación creada en onboarding. Si olvidas la Contraseña Maestra y no tienes esa frase, la app no puede descifrar tus datos sin romper el modelo zero-knowledge.
+              </div>
+              {credentialsError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{credentialsError}</div>}
+              {credentialsMessage && <div className="rounded-lg border border-green-100 bg-green-50 p-2 text-[10px] font-medium text-green-700">{credentialsMessage}</div>}
+              <button
+                type="submit"
+                disabled={loadingPasswordChange || !currentMasterPassword || !nextMasterPassword}
+                className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40"
+              >
+                {loadingPasswordChange ? 'Re-cifrando bóveda...' : 'Cambiar Contraseña Maestra'}
+              </button>
+              <a
+                href="https://myaccount.google.com/security"
+                target="_blank"
+                rel="noreferrer"
+                className="block rounded-xl border border-black/5 bg-surface-elevated py-2.5 text-center text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover"
+              >
+                Cambiar contraseña de la Cuenta Cloud
+              </a>
+            </form>
           </section>
 
           <hr className="border-border-subtle" />

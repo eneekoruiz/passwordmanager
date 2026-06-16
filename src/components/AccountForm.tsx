@@ -287,6 +287,7 @@ export function AccountForm({
       onCancel()
     } else {
       setAccount(baselineAccount)
+      setPasswordEnabled(baselineAccount.accessMethods.some((method) => method.type === 'PASSWORD'))
       setIsEditing(false)
       setError(null)
     }
@@ -383,6 +384,7 @@ export function AccountForm({
     try {
       await onSave(normalized)
       setBaselineAccount(normalized)
+      setPasswordEnabled(normalized.accessMethods.some((method) => method.type === 'PASSWORD'))
       onUnsavedStateChange?.(false, null)
     } catch (error) {
       setError(getFriendlyErrorMessage(error, 'No se pudo guardar la cuenta.'))
@@ -687,13 +689,36 @@ export function AccountForm({
             onChange={(e) => updateField('birthDate', e.target.value || null)}
             autoComplete="off"
           />
-          <FormField
-            label="Fecha de creación de la cuenta"
-            type="date"
-            value={account.accountCreatedAt ?? ''}
-            onChange={(e) => updateField('accountCreatedAt', e.target.value || null)}
-            autoComplete="off"
-          />
+          {account.accountCreatedAt ? (
+            <div className="space-y-2">
+              <FormField
+                label="Fecha de creación de la cuenta"
+                type="date"
+                value={account.accountCreatedAt}
+                onChange={(e) => updateField('accountCreatedAt', e.target.value || null)}
+                autoComplete="off"
+              />
+              <button
+                type="button"
+                onClick={() => updateField('accountCreatedAt', null)}
+                className="text-xs font-semibold text-text-tertiary transition-colors hover:text-text-primary"
+              >
+                Quitar fecha
+              </button>
+            </div>
+          ) : (
+            <div className="rounded-2xl border border-dashed border-black/[0.08] bg-surface/60 p-4">
+              <p className="text-sm font-semibold text-text-primary">Fecha de creación de la cuenta</p>
+              <p className="mt-1 text-xs leading-relaxed text-text-tertiary">Opcional. Úsala solo si quieres registrar cuándo creaste esta cuenta en la vida real.</p>
+              <button
+                type="button"
+                onClick={() => updateField('accountCreatedAt', new Date().toISOString().slice(0, 10))}
+                className="mt-3 rounded-xl border border-black/5 bg-white px-3 py-2 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover"
+              >
+                Añadir fecha
+              </button>
+            </div>
+          )}
           <FormField
             label="Teléfono vinculado"
             type="tel"

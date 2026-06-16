@@ -114,12 +114,44 @@ function rowFromKeyValueBlock(block: string, index: number): ImportRow | null {
   )
 }
 
+function rowFromHeaderMap(headers: string[], columns: string[], index: number): ImportRow {
+  const values = headers.reduce<Record<string, string>>((acc, header, headerIndex) => {
+    acc[normalizeLabel(header)] = columns[headerIndex]?.trim() ?? ''
+    return acc
+  }, {})
+
+  return rowFromColumns(
+    [
+      values.username ?? values.usuario ?? values.user ?? '',
+      values.birthdate ?? values.fechanacimiento ?? values.nacimiento ?? '',
+      values.fullname ?? values.nombrecompleto ?? values.nameonaccount ?? '',
+      values.email ?? values.correo ?? values.identityemail ?? '',
+      values.phone ?? values.telefono ?? values.linkedphone ?? '',
+      values.twofactor ?? values['2fa'] ?? values.totp ?? values['2faapp'] ?? '',
+      values.password ?? values.contrasena ?? '',
+      values.platform ?? values.plataforma ?? values.name ?? values.service ?? '',
+    ],
+    index,
+  )
+}
+
 function parseImportRows(text: string): ImportRow[] {
   const rawLines = text.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
   const delimiter = detectDelimiter(rawLines)
 
   if (delimiter) {
-    return rawLines.map((line, index) => rowFromColumns(parseDelimitedLine(line, delimiter), index))
+    const parsedLines = rawLines.map((line) => parseDelimitedLine(line, delimiter))
+    const maybeHeaders = parsedLines[0] ?? []
+    const normalizedHeaders = maybeHeaders.map(normalizeLabel)
+    const hasHeader =
+      normalizedHeaders.includes('platform') ||
+      normalizedHeaders.includes('plataforma') ||
+      normalizedHeaders.includes('password') ||
+      normalizedHeaders.includes('contrasena')
+    if (hasHeader) {
+      return parsedLines.slice(1).map((columns, index) => rowFromHeaderMap(maybeHeaders, columns, index))
+    }
+    return parsedLines.map((columns, index) => rowFromColumns(columns, index))
   }
 
   const keyValueRows = text
@@ -138,6 +170,7 @@ function parseImportRows(text: string): ImportRow[] {
 
 export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalProps) {
   const [tsvText, setTsvText] = useState('')
+  const [selectedFileName, setSelectedFileName] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
@@ -222,6 +255,25 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
     }
   }
 
+  const handleFileUpload = async (file: File | undefined) => {
+    if (!file) return
+    setError(null)
+    setSuccess(null)
+    if (!/\.csv$/i.test(file.name)) {
+      setError('Selecciona un archivo .csv exportado desde Excel.')
+      return
+    }
+
+    try {
+      const text = await file.text()
+      setTsvText(text)
+      setSelectedFileName(file.name)
+      setSuccess(`Archivo "${file.name}" cargado. Revisa el contenido y pulsa Procesar.`)
+    } catch (error) {
+      setError(getFriendlyErrorMessage(error, 'No se pudo leer el archivo CSV.'))
+    }
+  }
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4">
       {/* Click Catcher */}
@@ -259,6 +311,16 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
               1. Usuario | 2. F. Nacimiento | 3. Nombre Completo | 4. Email | 5. Teléfono | 6. 2FA | 7. Contraseña | 8. Plataforma
             </code>
           </div>
+          <label className="mt-3 flex min-h-12 cursor-pointer items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-semibold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover">
+            <span className="truncate">{selectedFileName ?? 'Cargar archivo CSV desde Excel'}</span>
+            <span className="rounded-lg bg-surface px-2 py-1 text-[10px] font-bold text-text-secondary">.CSV</span>
+            <input
+              type="file"
+              accept=".csv,text/csv"
+              className="sr-only"
+              onChange={(event) => void handleFileUpload(event.target.files?.[0])}
+            />
+          </label>
         </div>
 
         <div className="flex-1 flex flex-col">

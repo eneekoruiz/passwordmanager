@@ -5,6 +5,7 @@ import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { LOCAL_ITEM_LABELS } from '../utils/vaultItem'
+import { PlatformLogo } from './ui/PlatformLogo'
 
 interface SidebarProps {
   identities: Identity[]
@@ -22,6 +23,7 @@ interface SidebarProps {
   onAddIdentity: (email: string) => Promise<void>
   onDeleteIdentity: (id: string) => Promise<void>
   onLock: () => void
+  onSync: () => void
   isOpen: boolean
   onClose: () => void
   onOpenSettings: () => void
@@ -49,6 +51,7 @@ export function Sidebar({
   onAddIdentity,
   onDeleteIdentity,
   onLock,
+  onSync,
   isOpen,
   onClose,
   profileName,
@@ -56,7 +59,7 @@ export function Sidebar({
   installPromptAvailable = false,
   onInstall,
 }: SidebarProps) {
-  const { cloudUserEmail, cloudSyncStatus, syncActiveProfileToCloud } = useVault()
+  const { cloudUserEmail, cloudSyncStatus } = useVault()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [sidebarError, setSidebarError] = useState<string | null>(null)
@@ -322,12 +325,15 @@ export function Sidebar({
                       <button
                         type="button"
                         onClick={() => onSelectPlatform(platform.name)}
-                        className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                        className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
                           selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
                         }`}
                       >
-                        <span className="truncate text-sm font-medium text-text-primary/90">
-                          {platform.name}
+                        <span className="flex min-w-0 items-center gap-3">
+                          <PlatformLogo name={platform.name} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
+                          <span className="truncate text-sm font-semibold text-text-primary/90">
+                            {platform.name}
+                          </span>
                         </span>
                         <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>
                       </button>
@@ -446,7 +452,7 @@ export function Sidebar({
               {cloudUserEmail && (
                 <button
                   type="button"
-                  onClick={() => void syncActiveProfileToCloud()}
+                  onClick={onSync}
                   disabled={cloudSyncStatus === 'syncing'}
                   className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-black/5 bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover disabled:opacity-60"
                 >

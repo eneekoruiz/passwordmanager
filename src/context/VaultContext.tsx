@@ -53,6 +53,7 @@ interface VaultContextValue {
   deleteLocalItem: (itemId: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   verifyCurrentMasterPassword: (masterPassword: string) => Promise<boolean>
+  changeCurrentMasterPassword: (currentPassword: string, nextPassword: string, recoveryPhrase: string) => Promise<void>
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
   importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<string | null>
   cloudUserEmail: string | null
@@ -61,13 +62,27 @@ interface VaultContextValue {
   cloudVaultExists: boolean | null
   loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
-  syncActiveProfileToCloud: () => Promise<void>
+  syncActiveProfileToCloud: () => Promise<CloudSyncResult>
+  downloadLatestCloudVault: () => Promise<CloudSyncResult>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
   restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
   initializeNewVault: (masterPassword: string, recoveryPhrase: string) => Promise<void>
   unlockOrRestoreVault: (masterPassword: string) => Promise<void>
   recoverVaultWithSeed: (recoveryPhrase: string, newMasterPassword: string) => Promise<void>
   nukeAccount: () => Promise<void>
+}
+
+export interface CloudSyncResult {
+  action: 'idle' | 'uploaded' | 'downloaded' | 'download_available'
+  message: string
+  cloudUpdatedAt?: string | null
+  localUpdatedAt?: string | null
+  cloudIdentityCount?: number
+  cloudPlatformCount?: number
+  cloudLocalItemCount?: number
+  localIdentityCount?: number
+  localPlatformCount?: number
+  localLocalItemCount?: number
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -227,6 +242,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }, 0)
   }, [identities, localItems])
 
+  const getLocalVaultCounts = useCallback(() => ({
+    identityCount: identities.length,
+    platformCount: identities.reduce((total, identity) => total + identity.platforms.length, 0),
+    localItemCount: localItems.length,
+  }), [identities, localItems])
+
   const uploadActiveProfileToCloud = useCallback(async () => {
     const user = firebaseUserRef.current
     if (!currentProfileId || !user) {
@@ -254,11 +275,51 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [currentProfileId, reportCloudError])
 
-  const syncActiveProfileToCloud = useCallback(async () => {
+  const downloadLatestCloudVault = useCallback(async (): Promise<CloudSyncResult> => {
     const user = firebaseUserRef.current
     if (!currentProfileId || !user) {
       setCloudSyncStatus('idle')
-      return
+      return { action: 'idle', message: 'No hay una sesión de nube activa para sincronizar.' }
+    }
+
+    setCloudSyncStatus('syncing')
+    setCloudError(null)
+
+    try {
+      const { dbClient } = getFirebaseClients()
+      const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+      const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
+      if (!snapshot.exists() || !cloudBlob) {
+        setCloudSyncStatus('idle')
+        return { action: 'idle', message: 'No se encontró una bóveda en la nube para descargar.' }
+      }
+
+      const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
+      await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+      await refreshVaultData()
+      setCloudVaultExists(true)
+      setCloudSyncStatus('synced')
+      return {
+        action: 'downloaded',
+        message: `Sincronización completada. Se descargaron ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''}.`,
+        cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
+        cloudIdentityCount: cloudSummary.identityCount,
+        cloudPlatformCount: cloudSummary.platformCount,
+        cloudLocalItemCount: cloudSummary.localItemCount,
+      }
+    } catch (error) {
+      logUnexpectedError('Error al descargar desde Firebase', error)
+      setCloudSyncStatus('error')
+      reportCloudError(error, 'No se pudo descargar la bóveda desde Firebase.')
+      throw error
+    }
+  }, [currentProfileId, refreshVaultData, reportCloudError])
+
+  const syncActiveProfileToCloud = useCallback(async (): Promise<CloudSyncResult> => {
+    const user = firebaseUserRef.current
+    if (!currentProfileId || !user) {
+      setCloudSyncStatus('idle')
+      return { action: 'idle', message: 'Conecta Google Cloud para sincronizar esta bóveda.' }
     }
 
     setCloudSyncStatus('syncing')
@@ -271,13 +332,24 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
       const cloudUpdatedAt = Date.parse(String(snapshot.data()?.updated_at ?? '')) || 0
       const localUpdatedAt = getLocalVaultUpdatedAt()
+      const localCounts = getLocalVaultCounts()
 
       if (snapshot.exists() && cloudBlob && cloudUpdatedAt > localUpdatedAt + 1000) {
-        await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
-        await refreshVaultData()
+        const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
         setCloudVaultExists(true)
-        setCloudSyncStatus('synced')
-        return
+        setCloudSyncStatus('idle')
+        return {
+          action: 'download_available',
+          message: `Detectadas ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} en la nube. Puedes descargarlas ahora sin perder visibilidad del origen.`,
+          cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
+          localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
+          cloudIdentityCount: cloudSummary.identityCount,
+          cloudPlatformCount: cloudSummary.platformCount,
+          cloudLocalItemCount: cloudSummary.localItemCount,
+          localIdentityCount: localCounts.identityCount,
+          localPlatformCount: localCounts.platformCount,
+          localLocalItemCount: localCounts.localItemCount,
+        }
       }
 
       const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
@@ -287,13 +359,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       })
       setCloudVaultExists(true)
       setCloudSyncStatus('synced')
+      return {
+        action: 'uploaded',
+        message: `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''} y ${localCounts.localItemCount} secreto${localCounts.localItemCount !== 1 ? 's' : ''} local${localCounts.localItemCount !== 1 ? 'es' : ''} protegidos.`,
+        localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
+        localIdentityCount: localCounts.identityCount,
+        localPlatformCount: localCounts.platformCount,
+        localLocalItemCount: localCounts.localItemCount,
+      }
     } catch (error) {
       logUnexpectedError('Error al sincronizar con Firebase', error)
       setCloudSyncStatus('error')
       reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
       throw error
     }
-  }, [currentProfileId, getLocalVaultUpdatedAt, refreshVaultData, reportCloudError])
+  }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, reportCloudError])
 
   const triggerCloudSync = useCallback(() => {
     void uploadActiveProfileToCloud().catch((error) => {
@@ -731,6 +811,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId],
   )
 
+  const changeCurrentMasterPassword = useCallback(
+    async (currentPassword: string, nextPassword: string, recoveryPhrase: string) => {
+      if (!currentProfileId) throw new Error('No hay un perfil activo para cambiar la contraseña.')
+      await storeRef.current.rotateProfilePassword(
+        currentProfileId,
+        currentPassword,
+        nextPassword,
+        recoveryPhrase,
+      )
+      await refreshVaultData()
+      triggerCloudSync()
+    },
+    [currentProfileId, refreshVaultData, triggerCloudSync],
+  )
+
   const importBackup = useCallback(
     async (backupJsonString: string, masterPassword: string) => {
       if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
@@ -769,6 +864,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       deleteLocalItem,
       exportBackup,
       verifyCurrentMasterPassword,
+      changeCurrentMasterPassword,
       importBackup,
       importMassiveAccounts,
       cloudUserEmail,
@@ -778,6 +874,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       loginWithGoogleCloud,
       logoutCloud,
       syncActiveProfileToCloud,
+      downloadLatestCloudVault,
       restoreProfileFromCloud,
       restoreProfileFromGoogleCloud,
       initializeNewVault,
@@ -801,8 +898,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       deleteIdentity,
       deleteLocalItem,
       deletePlatform,
+      downloadLatestCloudVault,
       exportBackup,
       verifyCurrentMasterPassword,
+      changeCurrentMasterPassword,
       identities,
       importBackup,
       importMassiveAccounts,

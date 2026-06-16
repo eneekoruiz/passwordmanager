@@ -9,6 +9,7 @@ import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
 import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
 import type { LocalCategory, VaultGroupMode } from './types'
+import type { CloudSyncResult } from './context/VaultContext'
 import type { UnsavedFormActions } from './components/AccountForm'
 
 interface BeforeInstallPromptEvent extends Event {
@@ -31,11 +32,13 @@ function VaultApp() {
     deleteLocalItem,
     exportBackup,
     verifyCurrentMasterPassword,
+    changeCurrentMasterPassword,
     importBackup,
     importMassiveAccounts,
     currentProfileName,
     cloudSyncStatus,
     syncActiveProfileToCloud,
+    downloadLatestCloudVault,
     logoutProfile,
     appError,
     clearAppError,
@@ -108,6 +111,8 @@ function VaultApp() {
   const [unsavedModalOpen, setUnsavedModalOpen] = useState(false)
   const [lockModalOpen, setLockModalOpen] = useState(false)
   const [savingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
+  const [pendingCloudDownload, setPendingCloudDownload] = useState<CloudSyncResult | null>(null)
+  const [downloadingCloud, setDownloadingCloud] = useState(false)
 
   const selectedIdentity = useMemo(
     () => identities.find((identity) => identity.id === selectedId) ?? null,
@@ -261,6 +266,32 @@ function VaultApp() {
       setSelectedPlatformName(null)
       setSidebarOpen(false)
     })
+  }
+
+  const handleManualSync = async () => {
+    try {
+      const result = await syncActiveProfileToCloud()
+      if (result.action === 'download_available') {
+        setPendingCloudDownload(result)
+        return
+      }
+      setPageMessage(result.message)
+    } catch (error) {
+      reportUiError(error, 'No se pudo sincronizar la bóveda.')
+    }
+  }
+
+  const handleConfirmCloudDownload = async () => {
+    setDownloadingCloud(true)
+    try {
+      const result = await downloadLatestCloudVault()
+      setPendingCloudDownload(null)
+      setPageMessage(result.message)
+    } catch (error) {
+      reportUiError(error, 'No se pudo descargar la bóveda desde la nube.')
+    } finally {
+      setDownloadingCloud(false)
+    }
   }
 
   const globalSearchResults = (() => {
@@ -417,14 +448,17 @@ function VaultApp() {
 
   const globalOverlays = (
     <>
-      <GlobalSearch
-        query={searchQuery}
-        onQueryChange={setSearchQuery}
-        results={globalSearchResults}
-        syncing={cloudSyncStatus === 'syncing'}
-      />
+      {!settingsOpen && !importTextOpen && !lockModalOpen && (
+        <GlobalSearch
+          query={searchQuery}
+          onQueryChange={setSearchQuery}
+          results={globalSearchResults}
+          syncing={cloudSyncStatus === 'syncing'}
+          hasSettingsButton={!isMobile}
+        />
+      )}
 
-      <div className="fixed right-4 top-16 z-[80] lg:top-4">
+      {!isMobile && <div className="fixed right-4 top-16 z-[80] lg:top-4">
         <button
           type="button"
           onClick={() => setSettingsMenuOpen((open) => !open)}
@@ -447,7 +481,7 @@ function VaultApp() {
               type="button"
               onClick={() => {
                 setSettingsMenuOpen(false)
-                void syncActiveProfileToCloud().catch((error) => reportUiError(error, 'No se pudo sincronizar la bóveda.'))
+                void handleManualSync()
               }}
               disabled={cloudSyncStatus === 'syncing'}
               className="flex min-h-12 w-full items-center justify-between rounded-2xl px-3 text-left text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-60"
@@ -477,9 +511,53 @@ function VaultApp() {
             </button>
           </div>
         )}
-      </div>
+      </div>}
     </>
   )
+
+  const cloudDownloadModal = pendingCloudDownload ? (
+    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold tracking-tight text-text-primary">Hay datos nuevos en la nube</h3>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">{pendingCloudDownload.message}</p>
+        <div className="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3">
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Este dispositivo</p>
+            <p className="mt-1 text-sm font-semibold text-text-primary">{pendingCloudDownload.localPlatformCount ?? 0} contraseñas</p>
+            <p className="text-xs text-text-tertiary">{pendingCloudDownload.localLocalItemCount ?? 0} secretos locales</p>
+          </div>
+          <div>
+            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Google Cloud</p>
+            <p className="mt-1 text-sm font-semibold text-text-primary">{pendingCloudDownload.cloudPlatformCount ?? 0} contraseñas</p>
+            <p className="text-xs text-text-tertiary">{pendingCloudDownload.cloudLocalItemCount ?? 0} secretos locales</p>
+          </div>
+        </div>
+        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <button
+            type="button"
+            onClick={() => setPendingCloudDownload(null)}
+            disabled={downloadingCloud}
+            className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-60"
+          >
+            Ahora no
+          </button>
+          <button
+            type="button"
+            onClick={() => void handleConfirmCloudDownload()}
+            disabled={downloadingCloud}
+            className="min-h-11 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 disabled:opacity-60"
+          >
+            {downloadingCloud ? 'Descargando...' : 'Descargar cambios'}
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
 
   if (isMobile) {
     return (
@@ -512,6 +590,7 @@ function VaultApp() {
               }}
               onDeleteIdentity={handleDeleteIdentity}
               onLock={handleLock}
+              onSync={() => void handleManualSync()}
               isOpen={false}
               onClose={() => {}}
               onOpenSettings={() => setSettingsOpen(true)}
@@ -604,6 +683,7 @@ function VaultApp() {
           identities={identities}
           localItems={localItems}
           onVerifyMasterPassword={verifyCurrentMasterPassword}
+          onChangeMasterPassword={changeCurrentMasterPassword}
           onImport={handleImportBackup}
           onOpenImportText={() => setImportTextOpen(true)}
         />
@@ -622,6 +702,7 @@ function VaultApp() {
         />
 
         <IOSInstallPrompt />
+        {cloudDownloadModal}
 
         {unsavedModalOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
@@ -692,6 +773,7 @@ function VaultApp() {
         }}
         onDeleteIdentity={handleDeleteIdentity}
         onLock={handleLock}
+        onSync={() => void handleManualSync()}
         isOpen={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
         onOpenSettings={() => setSettingsOpen(true)}
@@ -743,6 +825,7 @@ function VaultApp() {
         identities={identities}
         localItems={localItems}
         onVerifyMasterPassword={verifyCurrentMasterPassword}
+        onChangeMasterPassword={changeCurrentMasterPassword}
         onImport={handleImportBackup}
         onOpenImportText={() => setImportTextOpen(true)}
       />
@@ -761,6 +844,7 @@ function VaultApp() {
       />
 
       <IOSInstallPrompt />
+      {cloudDownloadModal}
 
       {unsavedModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
@@ -876,16 +960,18 @@ function GlobalSearch({
   onQueryChange,
   results,
   syncing,
+  hasSettingsButton,
 }: {
   query: string
   onQueryChange: (value: string) => void
   results: GlobalSearchResult[]
   syncing: boolean
+  hasSettingsButton: boolean
 }) {
   const visible = query.trim().length > 0
 
   return (
-    <div className="fixed left-4 right-20 top-16 z-[70] mx-auto max-w-2xl lg:left-[calc(20rem+2rem)] lg:right-28 lg:top-4">
+    <div className={`fixed left-4 top-16 z-[70] mx-auto max-w-2xl lg:left-[calc(20rem+2rem)] lg:top-4 ${hasSettingsButton ? 'right-20 lg:right-28' : 'right-4'}`}>
       <div className="relative">
         <svg className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />

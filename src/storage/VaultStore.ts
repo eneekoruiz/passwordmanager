@@ -672,6 +672,48 @@ export class VaultStore {
     await txWrite.done
   }
 
+  async inspectCloudPayloadWithActiveSession(payloadJson: string): Promise<{
+    identityCount: number
+    platformCount: number
+    localItemCount: number
+  }> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para inspeccionar la nube.')
+    }
+
+    const backup = JSON.parse(payloadJson)
+    if (!backup.iv || !backup.data) {
+      throw new Error('Formato de datos en la nube no válido.')
+    }
+
+    const decryptedString = await this.vault.decryptString({
+      v: backup.v || 1,
+      iv: backup.iv,
+      data: backup.data,
+    })
+    const databaseDump = JSON.parse(decryptedString)
+    const importedRecords = databaseDump.identities ?? databaseDump.platforms
+    if (!Array.isArray(importedRecords)) {
+      throw new Error('El contenido descargado de la nube no tiene registros válidos.')
+    }
+
+    let identityCount = 0
+    let platformCount = 0
+    let localItemCount = 0
+    for (const record of importedRecords) {
+      if (typeof record?.id === 'string' && record.id.startsWith(LOCAL_ITEM_KEY_SEGMENT.slice(1))) {
+        localItemCount += 1
+        continue
+      }
+
+      const identity = normalizeIdentityRecord(await this.vault.decryptJson<unknown>(record.payload))
+      identityCount += 1
+      platformCount += identity.platforms.length
+    }
+
+    return { identityCount, platformCount, localItemCount }
+  }
+
   async recoverMasterPasswordFromCloudPayload(payloadJson: string, recoveryPhrase: string): Promise<string> {
     const backup = JSON.parse(payloadJson)
     const recovery = backup.recovery as RecoveryBundle | undefined
