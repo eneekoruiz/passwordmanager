@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import type { Identity, LocalVaultItem, LocalVaultItemType, Platform, VaultGroupMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
-import { AccountForm } from './AccountForm'
+import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { VaultItemForm } from './VaultItemForm'
@@ -17,6 +17,8 @@ interface MainAreaProps {
   localCategory: LocalVaultItemType | null
   localItems: LocalVaultItem[]
   onOpenSidebar: () => void
+  onRequestNavigation: (action: () => void) => void
+  onUnsavedStateChange: (dirty: boolean, actions: UnsavedFormActions | null) => void
   onSelectIdentity: (id: string | null) => void
   onSelectLocalCategory: (type: LocalVaultItemType) => void
   onOpenImportText: () => void
@@ -48,6 +50,8 @@ export function MainArea({
   localCategory,
   localItems,
   onOpenSidebar,
+  onRequestNavigation,
+  onUnsavedStateChange,
   onSelectIdentity,
   onSelectLocalCategory,
   onOpenImportText,
@@ -146,7 +150,7 @@ export function MainArea({
         {isMobile ? (
           <button
             type="button"
-            onClick={() => onSelectIdentity(null)}
+            onClick={() => onRequestNavigation(() => onSelectIdentity(null))}
             className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover"
             aria-label="Volver a identidades"
           >
@@ -208,7 +212,7 @@ export function MainArea({
         {isFormView ? (
           <button
             type="button"
-            onClick={resetView}
+            onClick={() => onRequestNavigation(resetView)}
             className="rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover"
           >
             Volver
@@ -433,6 +437,7 @@ export function MainArea({
               resetView()
             }}
             onCancel={resetView}
+            onUnsavedStateChange={onUnsavedStateChange}
           />
         )}
 
@@ -446,6 +451,7 @@ export function MainArea({
               resetView()
             }}
             onCancel={resetView}
+            onUnsavedStateChange={onUnsavedStateChange}
             onDelete={async () => {
               await onDeletePlatform(editingPlatform.identityId, editingPlatform.platform.id)
               resetView()

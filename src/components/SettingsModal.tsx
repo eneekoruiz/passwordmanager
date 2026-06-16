@@ -5,6 +5,9 @@ import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '..
 
 type PlaintextExportFormat = 'csv' | 'json'
 
+const checkboxClassName =
+  'h-5 w-5 shrink-0 appearance-none rounded-[0.45rem] border border-black/15 bg-white shadow-[inset_0_1px_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06)] transition-all checked:border-text-primary checked:bg-text-primary checked:bg-[url("data:image/svg+xml,%3Csvg_viewBox=%270_0_16_16%27_fill=%27none%27_xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath_d=%27M3.5_8.3L6.6_11.3L12.8_4.8%27_stroke=%27white%27_stroke-width=%272.1%27_stroke-linecap=%27round%27_stroke-linejoin=%27round%27/%3E%3C/svg%3E")] checked:bg-center checked:bg-no-repeat focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
+
 interface SettingsModalProps {
   isOpen: boolean
   onClose: () => void
@@ -283,6 +286,7 @@ export function SettingsModal({
                         <span className="truncate">{identity.email}</span>
                         <input
                           type="checkbox"
+                          className={checkboxClassName}
                           checked={checked}
                           onChange={() => toggleIdentitySelection(identity.id)}
                         />

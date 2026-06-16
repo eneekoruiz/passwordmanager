@@ -620,6 +620,58 @@ export class VaultStore {
     await txWrite.done
   }
 
+  async restoreCloudPayloadWithActiveSession(profileId: string, payloadJson: string): Promise<void> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para restaurar desde la nube.')
+    }
+
+    const backup = JSON.parse(payloadJson)
+    if (!backup.iv || !backup.data) {
+      throw new Error('Formato de datos en la nube no válido.')
+    }
+
+    const decryptedString = await this.vault.decryptString({
+      v: backup.v || 1,
+      iv: backup.iv,
+      data: backup.data,
+    })
+    const databaseDump = JSON.parse(decryptedString)
+    const importedRecords = databaseDump.identities ?? databaseDump.platforms
+    if (!databaseDump.meta || !importedRecords) {
+      throw new Error('El contenido descargado de la nube no tiene el formato correcto.')
+    }
+
+    const db = await getVaultDb()
+    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    if (!profileRecord) throw new Error('Perfil no encontrado.')
+
+    const restoredProfile: ProfileRecord = {
+      ...profileRecord,
+      name: databaseDump.meta.name || profileRecord.name,
+      salt: databaseDump.meta.salt,
+      verification: databaseDump.meta.verification,
+      recovery: databaseDump.meta.recovery ?? backup.recovery,
+      createdAt: databaseDump.meta.createdAt || profileRecord.createdAt,
+    }
+    await db.put('meta', restoredProfile, `profile_${profileId}`)
+
+    const txDelete = db.transaction('platforms', 'readwrite')
+    const allKeys = await txDelete.store.getAllKeys()
+    const prefix = `${profileId}_`
+    for (const key of allKeys) {
+      if (key.startsWith(prefix)) {
+        await txDelete.store.delete(key)
+      }
+    }
+    await txDelete.done
+
+    const txWrite = db.transaction('platforms', 'readwrite')
+    for (const record of importedRecords) {
+      await txWrite.store.put(record.payload, `${profileId}_${record.id}`)
+    }
+    await txWrite.done
+  }
+
   async recoverMasterPasswordFromCloudPayload(payloadJson: string, recoveryPhrase: string): Promise<string> {
     const backup = JSON.parse(payloadJson)
     const recovery = backup.recovery as RecoveryBundle | undefined

@@ -18,6 +18,12 @@ interface AccountFormProps {
   onSave: (account: Account) => Promise<void>
   onCancel: () => void
   onDelete?: () => Promise<void>
+  onUnsavedStateChange?: (dirty: boolean, actions: UnsavedFormActions | null) => void
+}
+
+export interface UnsavedFormActions {
+  save: () => Promise<void>
+  discard: () => void
 }
 
 interface ApiKeyItemProps {
@@ -144,22 +150,33 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
     <div className="group relative flex flex-col gap-1.5 rounded-2xl border border-black/[0.03] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 hover:-translate-y-[1px]">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{label}</span>
-        {isSecret && (
-          <button type="button" onClick={() => setRevealed(!revealed)} className="text-[10px] font-bold text-text-tertiary hover:text-text-primary transition-colors focus:outline-none">
-            {revealed ? 'Ocultar' : 'Mostrar'}
+        <div className="flex min-h-12 shrink-0 items-center gap-3">
+          {isSecret && (
+            <button
+              type="button"
+              onClick={() => setRevealed(!revealed)}
+              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none"
+            >
+              {revealed ? 'Ocultar' : 'Mostrar'}
+            </button>
+          )}
+          <button
+            type="button"
+            onClick={handleCopy}
+            className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-90 ${copied ? 'border-green-100 bg-green-50 text-green-600 opacity-100' : 'border-black/5 bg-surface text-text-tertiary hover:bg-surface-hover hover:text-text-primary'}`}
+            title="Copiar al portapapeles"
+          >
+            {copied ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <CopyIcon />}
           </button>
-        )}
+        </div>
       </div>
       {isMultiline ? (
         <div className="mt-0.5 whitespace-pre-wrap font-mono text-xs leading-relaxed text-text-secondary">{value}</div>
       ) : (
-        <div className={`pr-10 text-sm font-semibold text-text-primary truncate transition-all duration-300 ${revealed ? '' : 'tracking-widest font-mono translate-y-[1px]'}`}>
+        <div className={`text-base font-semibold text-text-primary truncate transition-all duration-300 ${revealed ? '' : 'tracking-widest font-mono translate-y-[1px]'}`}>
           {revealed ? value : '••••••••••••'}
         </div>
       )}
-      <button type="button" onClick={handleCopy} className={`absolute right-3 top-1/2 -translate-y-1/2 rounded-xl border p-2 shadow-sm transition-all duration-200 active:scale-90 ${copied ? 'border-green-100 bg-green-50 text-green-600 opacity-100' : 'border-black/5 bg-surface text-text-tertiary opacity-0 hover:bg-surface-hover hover:text-text-primary group-hover:opacity-100'}`} title="Copiar al portapapeles">
-        {copied ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <CopyIcon />}
-      </button>
     </div>
   )
 }
@@ -178,6 +195,9 @@ const SSO_OPTIONS = [
   'Twitter',
   'Yahoo',
 ].map((label) => ({ label }))
+
+const checkboxClassName =
+  'h-5 w-5 shrink-0 appearance-none rounded-[0.45rem] border border-black/15 bg-white shadow-[inset_0_1px_1px_rgba(15,23,42,0.04),0_1px_2px_rgba(15,23,42,0.06)] transition-all checked:border-text-primary checked:bg-text-primary checked:bg-[url("data:image/svg+xml,%3Csvg_viewBox=%270_0_16_16%27_fill=%27none%27_xmlns=%27http://www.w3.org/2000/svg%27%3E%3Cpath_d=%27M3.5_8.3L6.6_11.3L12.8_4.8%27_stroke=%27white%27_stroke-width=%272.1%27_stroke-linecap=%27round%27_stroke-linejoin=%27round%27/%3E%3C/svg%3E")] checked:bg-center checked:bg-no-repeat focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
 
 const TWO_FACTOR_LABELS: Record<TwoFactorType, string> = {
   NONE: 'Ninguno',
@@ -207,10 +227,10 @@ export function AccountForm({
   onSave,
   onCancel,
   onDelete,
+  onUnsavedStateChange,
 }: AccountFormProps) {
-  const [account, setAccount] = useState<Account>(
-    initialAccount ?? createEmptyAccount(),
-  )
+  const [account, setAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
+  const [baselineAccount, setBaselineAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
   const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(mode === 'create')
@@ -245,10 +265,11 @@ export function AccountForm({
   }, [isEditing, showDeleteModal])
 
   const handleCancelEdit = () => {
+    onUnsavedStateChange?.(false, null)
     if (mode === 'create') {
       onCancel()
     } else {
-      setAccount(initialAccount ?? createEmptyAccount())
+      setAccount(baselineAccount)
       setIsEditing(false)
       setError(null)
     }
@@ -321,8 +342,7 @@ export function AccountForm({
     }))
   }
 
-  const handleSubmit = async (e: FormEvent) => {
-    e.preventDefault()
+  const saveCurrentAccount = async () => {
     setError(null)
 
     const normalized = normalizeAccount(account)
@@ -338,12 +358,31 @@ export function AccountForm({
     setSaving(true)
     try {
       await onSave(normalized)
+      setBaselineAccount(normalized)
+      onUnsavedStateChange?.(false, null)
     } catch (error) {
       setError(getFriendlyErrorMessage(error, 'No se pudo guardar la cuenta.'))
+      throw error
     } finally {
       setSaving(false)
     }
   }
+
+  const handleSubmit = async (e: FormEvent) => {
+    e.preventDefault()
+    try {
+      await saveCurrentAccount()
+    } catch {
+      // El mensaje visible ya se establece en saveCurrentAccount.
+    }
+  }
+
+  const isDirty = isEditing && JSON.stringify(normalizeAccount(account)) !== JSON.stringify(normalizeAccount(baselineAccount))
+
+  useEffect(() => {
+    onUnsavedStateChange?.(isDirty, isDirty ? { save: saveCurrentAccount, discard: handleCancelEdit } : null)
+    return () => onUnsavedStateChange?.(false, null)
+  }, [isDirty, account, baselineAccount])
 
   const apiKeys = account.apiKeys ?? []
   const twoFactorConfig = getTwoFactorConfig(account.twoFactorAuth)
@@ -477,7 +516,7 @@ export function AccountForm({
 
   // MODO EDICIÓN (EDIT MODE)
   return (
-    <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-28 select-none font-sans animate-vault-morph lg:pb-10">
+    <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-40 select-none font-sans animate-vault-morph lg:pb-36">
       <section className="space-y-5 rounded-2xl border border-black/[0.08] bg-gradient-to-b from-white to-slate-50/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] backdrop-blur">
         <div className="flex flex-col border-b border-border-subtle pb-3">
           <h3 className="text-sm font-bold text-text-primary">Credenciales Principales</h3>
@@ -506,6 +545,7 @@ export function AccountForm({
             <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
               <input
                 type="checkbox"
+                className={checkboxClassName}
                 checked={Boolean(passwordMethod)}
                 onChange={(event) => togglePassword(event.target.checked)}
               />
@@ -531,6 +571,7 @@ export function AccountForm({
             <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
               <input
                 type="checkbox"
+                className={checkboxClassName}
                 checked={Boolean(ssoMethod)}
                 onChange={(event) => toggleSso(event.target.checked)}
               />
@@ -567,6 +608,7 @@ export function AccountForm({
           <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
             <input
               type="checkbox"
+              className={checkboxClassName}
               checked={account.hardwareKey}
               onChange={(event) => updateField('hardwareKey', event.target.checked)}
             />
@@ -575,6 +617,7 @@ export function AccountForm({
           <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
             <input
               type="checkbox"
+              className={checkboxClassName}
               checked={passkeyEnabled}
               onChange={(event) => togglePasskey(event.target.checked)}
             />
@@ -583,6 +626,7 @@ export function AccountForm({
           <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
             <input
               type="checkbox"
+              className={checkboxClassName}
               checked={Boolean(magicLinkMethod)}
               onChange={(event) => toggleMagicLink(event.target.checked)}
             />
@@ -794,7 +838,7 @@ export function AccountForm({
         </div>
       )}
 
-      <div className="fixed bottom-4 left-4 right-4 z-40 flex items-center justify-between gap-3 rounded-2xl border border-black/[0.08] bg-white/90 px-4 py-3 shadow-[0_22px_70px_rgba(15,23,42,0.18)] backdrop-blur-xl lg:left-[calc(18rem+2rem)] lg:right-8">
+      <div className="fixed bottom-4 left-4 right-4 z-[60] flex items-center justify-between gap-3 rounded-2xl border border-black/[0.08] bg-white px-4 py-3 shadow-[0_22px_70px_rgba(15,23,42,0.18)] ring-1 ring-white/80 backdrop-blur-xl lg:left-[calc(20rem+2rem)] lg:right-8">
         <div>
           {mode === 'edit' && onDelete && (
             <button

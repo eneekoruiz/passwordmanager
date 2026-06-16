@@ -31,6 +31,15 @@ interface SidebarProps {
   onInstall?: () => void
 }
 
+interface LocalCategoryOption {
+  id: string
+  label: string
+  type: LocalVaultItemType
+  custom: boolean
+}
+
+const CUSTOM_CATEGORIES_STORAGE_KEY = 'contras.customLocalCategories.v1'
+
 export function Sidebar({
   identities,
   localItems,
@@ -63,6 +72,16 @@ export function Sidebar({
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
+  const [customLocalCategories, setCustomLocalCategories] = useState<LocalCategoryOption[]>(() => {
+    if (typeof window === 'undefined') return []
+    try {
+      const stored = window.localStorage.getItem(CUSTOM_CATEGORIES_STORAGE_KEY)
+      if (!stored) return []
+      return (JSON.parse(stored) as LocalCategoryOption[]).filter((item) => item.custom && item.label && item.type)
+    } catch {
+      return []
+    }
+  })
   const query = searchQuery.trim().toLowerCase()
   const cloudIdentities = identities.filter((identity) => identity.email !== LOCAL_IDENTITY_EMAIL)
   const visibleIdentities = query
@@ -91,6 +110,37 @@ export function Sidebar({
       window.removeEventListener('offline', handleOffline)
     }
   }, [])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(CUSTOM_CATEGORIES_STORAGE_KEY, JSON.stringify(customLocalCategories))
+  }, [customLocalCategories])
+
+  const localCategoryOptions: LocalCategoryOption[] = [
+    ...(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => ({
+      id: type,
+      label: LOCAL_ITEM_LABELS[type],
+      type,
+      custom: false,
+    })),
+    ...customLocalCategories,
+  ]
+
+  const handleAddLocalCategory = () => {
+    const label = window.prompt('Nombre de la nueva categoría local')
+    const cleanLabel = label?.trim()
+    if (!cleanLabel) return
+
+    setCustomLocalCategories((categories) => [
+      ...categories,
+      {
+        id: `custom-${crypto.randomUUID()}`,
+        label: cleanLabel,
+        type: 'SECURE_NOTE',
+        custom: true,
+      },
+    ])
+  }
 
   useEffect(() => {
     if (cloudSyncStatus === 'synced') {
@@ -337,29 +387,41 @@ export function Sidebar({
             </ul>
           )}
 
-          <div className="mt-5 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-            Secretos Locales
+          <div className="mt-5 flex items-center justify-between px-3 pb-2">
+            <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+              Categorías Locales
+            </span>
+            <button
+              type="button"
+              onClick={handleAddLocalCategory}
+              className="rounded-lg border border-black/5 bg-white px-2 py-1 text-[10px] font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
+            >
+              + Nueva Categoría
+            </button>
           </div>
           <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
-            Datos sin correo: Wi‑Fi, finanzas, licencias y notas.
+            Carpetas personalizables para datos sin correo. Las nuevas usan notas seguras como plantilla flexible.
           </p>
           <ul className="space-y-0.5">
-            {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => {
-              const selected = selectedLocalCategory === type
-              const count = localItems.filter((item) => item.type === type).length
+            {localCategoryOptions.map((category) => {
+              const selected = selectedLocalCategory === category.type
+              const count = localItems.filter((item) => item.type === category.type).length
               return (
-                <li key={type}>
+                <li key={category.id}>
                   <button
                     type="button"
-                    onClick={() => onSelectLocalCategory(type)}
+                    onClick={() => onSelectLocalCategory(category.type)}
                     className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
                       selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
                     }`}
                   >
                     <span className="truncate text-[15px] font-semibold text-text-primary/90">
-                      {LOCAL_ITEM_LABELS[type]}
+                      {category.label}
                     </span>
-                    <span className="text-xs tabular-nums text-text-tertiary">{count}</span>
+                    <span className="flex items-center gap-2 text-xs tabular-nums text-text-tertiary">
+                      {category.custom && <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold">Tag</span>}
+                      {count}
+                    </span>
                   </button>
                 </li>
               )
