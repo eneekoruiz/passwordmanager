@@ -139,7 +139,7 @@ export function MainArea({
         <div className="flex flex-1 items-center justify-center px-6">
           <div className="w-full max-w-5xl">
             <div className="rounded-[28px] border border-black/[0.06] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92)_46%,_rgba(241,245,249,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-8">
-              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+              <div className="grid gap-6">
                 <section className="space-y-5">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
@@ -196,27 +196,6 @@ export function MainArea({
                     </div>
                   )}
                 </section>
-
-                <aside className="rounded-[24px] border border-black/[0.06] bg-white/78 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
-                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">Secretos locales</p>
-                  <h3 className="mt-2 text-base font-semibold text-text-primary">Atajos privados y categorías flexibles</h3>
-                  <p className="mt-2 text-xs leading-relaxed text-text-secondary">
-                    Guarda información sensible que no depende de una plataforma concreta: notas seguras, tarjetas, Wi-Fi o tus propias categorías.
-                  </p>
-                  <div className="mt-4 space-y-2.5">
-                    {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => (
-                      <button
-                        key={type}
-                        type="button"
-                        onClick={() => onSelectLocalCategory({ id: type, label: LOCAL_ITEM_LABELS[type], type, custom: false })}
-                        className="flex w-full items-center justify-between rounded-2xl border border-black/[0.05] bg-slate-50/85 px-4 py-3 text-left transition-colors hover:bg-slate-100"
-                      >
-                        <span className="text-sm font-semibold text-text-primary">{LOCAL_ITEM_LABELS[type]}</span>
-                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Abrir</span>
-                      </button>
-                    ))}
-                  </div>
-                </aside>
               </div>
             </div>
           </div>
