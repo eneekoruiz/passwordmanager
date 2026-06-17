@@ -35,7 +35,6 @@ function VaultApp() {
     verifyCurrentMasterPassword,
     changeCurrentMasterPassword,
     importBackup,
-    importBackup,
     importMassiveAccounts,
     currentProfileName,
     cloudSyncStatus,
@@ -807,6 +806,8 @@ function VaultApp() {
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated pt-20 lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
             identities={displayIdentities}
+            identity={selectedIdentity}
+            groupMode={groupMode}
             selectedPlatformName={selectedPlatformName}
             localCategory={selectedLocalCategory}
             localItems={localItems}

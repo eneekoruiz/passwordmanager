@@ -18,26 +18,6 @@ import {
   type User,
 } from 'firebase/auth'
 import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
-import {
-  createContext,
-  useCallback,
-  useContext,
-  useEffect,
-  useMemo,
-  useRef,
-  useState,
-  type ReactNode,
-} from 'react'
-import {
-  GoogleAuthProvider,
-  deleteUser,
-  onAuthStateChanged,
-  signInWithPopup,
-  signOut,
-  type Auth,
-  type User,
-} from 'firebase/auth'
-import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
@@ -877,6 +857,56 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     },
     [currentProfileId, refreshVaultData, triggerCloudSync],
   )
+  const importBackup = useCallback(
+    async (backupJsonString: string, masterPassword: string) => {
+      if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
+      await storeRef.current.importBackup(currentProfileId, backupJsonString, masterPassword)
+      await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+      await refreshVaultData()
+      triggerCloudSync()
+    },
+    [currentProfileId, refreshVaultData, triggerCloudSync],
+  )
+
+  const value = useMemo<VaultContextValue>(
+    () => ({
+      isReady: isReady && isAuthReady,
+      isInitialized,
+      isUnlocked,
+      identities,
+      localItems,
+      localCategories,
+      profiles,
+      currentProfileId,
+      currentProfileName,
+      listProfiles,
+      createProfile,
+      selectProfile,
+      deleteCurrentProfile,
+      logoutProfile,
+      addIdentity,
+      saveIdentity,
+      deleteIdentity,
+      addPlatform,
+      updatePlatform,
+      deletePlatform,
+      saveLocalItem,
+      deleteLocalItem,
+      saveLocalCategory,
+      exportBackup,
+      verifyCurrentMasterPassword,
+      changeCurrentMasterPassword,
+      importBackup,
+      importMassiveAccounts,
+      cloudUserEmail,
+      cloudSyncStatus,
+      cloudVaultExists,
+      loginWithGoogleCloud,
+      logoutCloud,
+      syncActiveProfileToCloud,
+      downloadLatestCloudVault,
+      restoreProfileFromCloud,
+      restoreProfileFromGoogleCloud,
       initializeNewVault,
       unlockOrRestoreVault,
       recoverVaultWithSeed,
@@ -885,9 +915,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [
       addIdentity,
       addPlatform,
-      appError,
-      clearAppError,
-      cloudError,
       cloudSyncStatus,
       cloudUserEmail,
       cloudVaultExists,

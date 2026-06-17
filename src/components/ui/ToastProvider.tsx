@@ -51,7 +51,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
   const [isExiting, setIsExiting] = useState(false)
-  const timerRef = useRef<number>()
+  const timerRef = useRef<number | undefined>(undefined)
 
   useEffect(() => {
     timerRef.current = window.setTimeout(() => {
