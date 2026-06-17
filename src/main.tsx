@@ -4,6 +4,8 @@ import './index.css'
 import App from './App'
 import { logUnexpectedError } from './utils/errors'
 
+import { ToastProvider } from './components/ui/ToastProvider'
+
 const rootElement = document.getElementById('root')
 
 if (!rootElement) {
@@ -12,7 +14,9 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <App />
+    <ToastProvider>
+      <App />
+    </ToastProvider>
   </StrictMode>
 )
 

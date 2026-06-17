@@ -18,6 +18,26 @@ import {
   type User,
 } from 'firebase/auth'
 import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
+import {
+  createContext,
+  useCallback,
+  useContext,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
+import {
+  GoogleAuthProvider,
+  deleteUser,
+  onAuthStateChanged,
+  signInWithPopup,
+  signOut,
+  type Auth,
+  type User,
+} from 'firebase/auth'
+import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
@@ -26,6 +46,7 @@ import type { Identity, LocalCategory, LocalVaultItem, Platform } from '../types
 import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
+import { useToast } from '../components/ui/ToastProvider'
 
 interface VaultContextValue {
   isReady: boolean
@@ -37,8 +58,6 @@ interface VaultContextValue {
   profiles: { id: string; name: string; createdAt: string }[]
   currentProfileId: string | null
   currentProfileName: string | null
-  appError: string | null
-  clearAppError: () => void
   listProfiles: () => Promise<void>
   createProfile: (name: string, password: string) => Promise<string>
   selectProfile: (id: string, password: string) => Promise<boolean>
@@ -60,7 +79,6 @@ interface VaultContextValue {
   importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<string | null>
   cloudUserEmail: string | null
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
-  cloudError: string | null
   cloudVaultExists: boolean | null
   loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
@@ -117,32 +135,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [profiles, setProfiles] = useState<{ id: string; name: string; createdAt: string }[]>([])
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
-  const [appError, setAppError] = useState<string | null>(firebaseConfigError)
   const [cloudUserEmail, setCloudUserEmail] = useState<string | null>(null)
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
-  const [cloudError, setCloudError] = useState<string | null>(firebaseConfigError)
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
 
-  const clearAppError = useCallback(() => setAppError(null), [])
+  const { showToast } = useToast()
 
   const reportAppError = useCallback((error: unknown, fallback: string) => {
     const message = getFriendlyErrorMessage(error, fallback)
-    setAppError(message)
+    showToast(message, 'error')
     return message
-  }, [])
+  }, [showToast])
 
   const reportCloudError = useCallback((error: unknown, fallback: string) => {
     const message = getFriendlyErrorMessage(error, fallback)
-    setCloudError(message)
+    showToast(message, 'error')
     return message
-  }, [])
+  }, [showToast])
 
   const listProfiles = useCallback(async () => {
     try {
       const list = await storeRef.current.listProfiles()
       setProfiles(list)
       setIsInitialized(list.length > 0)
-      setAppError(null)
     } catch (error) {
       reportAppError(error, 'No se pudo leer la base de datos local.')
       setProfiles([])
@@ -162,7 +177,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
       setLocalItems(loadedLocalItems)
       setLocalCategories(loadedLocalCategories)
-      setAppError(null)
     } catch (error) {
       setIdentities([])
       setLocalItems([])
@@ -234,7 +248,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setIdentities([])
     setLocalItems([])
     setLocalCategories([])
-    setAppError(null)
   }, [])
 
   const getLocalVaultUpdatedAt = useCallback(() => {
@@ -269,7 +282,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     setCloudSyncStatus('syncing')
-    setCloudError(null)
 
     try {
       const { dbClient } = getFirebaseClients()
@@ -296,7 +308,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     setCloudSyncStatus('syncing')
-    setCloudError(null)
 
     try {
       const { dbClient } = getFirebaseClients()
@@ -337,7 +348,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     setCloudSyncStatus('syncing')
-    setCloudError(null)
 
     try {
       const { dbClient } = getFirebaseClients()
@@ -578,7 +588,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   )
 
   const loginWithGoogleCloud = useCallback(async () => {
-    setCloudError(null)
     setCloudSyncStatus('syncing')
     try {
       const { authClient } = getFirebaseClients()
@@ -594,7 +603,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [reportCloudError])
 
   const logoutCloud = useCallback(async () => {
-    setCloudError(null)
     try {
       const { authClient } = getFirebaseClients()
       await signOut(authClient)
@@ -630,7 +638,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const restoreProfileFromGoogleCloud = useCallback(
     async (masterPassword: string) => {
-      setCloudError(null)
       setCloudSyncStatus('syncing')
       try {
         const { authClient, dbClient } = getFirebaseClients()
@@ -651,7 +658,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const initializeNewVault = useCallback(
     async (masterPassword: string, recoveryPhrase: string) => {
-      setCloudError(null)
       setCloudSyncStatus('syncing')
       try {
         const { dbClient } = getFirebaseClients()
@@ -691,7 +697,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const unlockOrRestoreVault = useCallback(
     async (masterPassword: string) => {
-      setCloudError(null)
       setCloudSyncStatus('syncing')
       try {
         const { dbClient } = getFirebaseClients()
@@ -728,7 +733,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const recoverVaultWithSeed = useCallback(
     async (recoveryPhrase: string, newMasterPassword: string) => {
-      setCloudError(null)
       setCloudSyncStatus('syncing')
       let recoveredMasterPassword: string | null = null
       try {
@@ -775,7 +779,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   )
 
   const nukeAccount = useCallback(async () => {
-    setCloudError(null)
     setCloudSyncStatus('syncing')
     const user = firebaseUserRef.current
     if (!user) throw new Error('No hay una sesion valida en Firebase.')
@@ -798,20 +801,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setLocalCategories([])
       setProfiles([])
       setIsInitialized(false)
-      setAppError(null)
       await listProfiles()
     } catch (error) {
       setCloudSyncStatus('error')
       const code = typeof error === 'object' && error !== null && 'code' in error ? String((error as { code?: unknown }).code) : ''
       if (code === 'auth/requires-recent-login') {
         const message = 'Firebase requiere una re-autenticacion reciente antes de destruir la cuenta. Cierra sesion, vuelve a entrar con Google y repite la accion.'
-        setCloudError(message)
+        showToast(message, 'error')
         throw new Error(message)
       }
       reportCloudError(error, 'No se pudo destruir la boveda y la cuenta.')
       throw error
     }
-  }, [listProfiles, reportCloudError])
+  }, [listProfiles, reportCloudError, showToast])
 
   const createProfile = useCallback(
     async (name: string, password: string) => {
@@ -832,7 +834,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCurrentProfileName(profile?.name ?? 'Usuario')
       setIsUnlocked(true)
       await loadVaultDataForProfile(id)
-      setAppError(null)
       return true
     },
     [loadVaultDataForProfile],
@@ -876,60 +877,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     },
     [currentProfileId, refreshVaultData, triggerCloudSync],
   )
-
-  const importBackup = useCallback(
-    async (backupJsonString: string, masterPassword: string) => {
-      if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
-      await storeRef.current.importBackup(currentProfileId, backupJsonString, masterPassword)
-      await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-      await refreshVaultData()
-      triggerCloudSync()
-    },
-    [currentProfileId, refreshVaultData, triggerCloudSync],
-  )
-
-  const value = useMemo<VaultContextValue>(
-    () => ({
-      isReady: isReady && isAuthReady,
-      isInitialized,
-      isUnlocked,
-      identities,
-      localItems,
-      localCategories,
-      profiles,
-      currentProfileId,
-      currentProfileName,
-      appError,
-      clearAppError,
-      listProfiles,
-      createProfile,
-      selectProfile,
-      deleteCurrentProfile,
-      logoutProfile,
-      addIdentity,
-      saveIdentity,
-      deleteIdentity,
-      addPlatform,
-      updatePlatform,
-      deletePlatform,
-      saveLocalItem,
-      deleteLocalItem,
-      saveLocalCategory,
-      exportBackup,
-      verifyCurrentMasterPassword,
-      changeCurrentMasterPassword,
-      importBackup,
-      importMassiveAccounts,
-      cloudUserEmail,
-      cloudSyncStatus,
-      cloudError,
-      cloudVaultExists,
-      loginWithGoogleCloud,
-      logoutCloud,
-      syncActiveProfileToCloud,
-      downloadLatestCloudVault,
-      restoreProfileFromCloud,
-      restoreProfileFromGoogleCloud,
       initializeNewVault,
       unlockOrRestoreVault,
       recoverVaultWithSeed,

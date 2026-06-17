@@ -77,6 +77,7 @@ export function SettingsModal({
   const [loadingPlaintextExport, setLoadingPlaintextExport] = useState(false)
   const [loadingPasswordChange, setLoadingPasswordChange] = useState(false)
   const [loadingTravelMode, setLoadingTravelMode] = useState(false)
+  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup'>('main')
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -280,20 +281,58 @@ export function SettingsModal({
     }
   }
 
+  const MenuItem = ({ title, subtitle, onClick }: { title: string, subtitle: string, onClick: () => void }) => (
+    <button
+      type="button"
+      onClick={onClick}
+      className="flex w-full items-center justify-between rounded-xl border border-black/5 bg-white/70 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow"
+    >
+      <div>
+        <h3 className="text-xs font-bold text-text-primary">{title}</h3>
+        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">{subtitle}</p>
+      </div>
+      <svg className="h-5 w-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+      </svg>
+    </button>
+  )
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 backdrop-blur-sm p-4 animate-fade-in">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm animate-fade-in">
       <button
         type="button"
-        className="fixed inset-0 cursor-default outline-none bg-transparent"
+        className="fixed inset-0 cursor-default bg-transparent outline-none"
         onClick={onClose}
         aria-label="Cerrar modal"
       />
 
-      <div className="relative z-10 w-full max-w-lg rounded-2xl border border-black/5 bg-white/80 backdrop-blur-xl p-6 shadow-[0_15px_50px_rgba(0,0,0,0.12)] space-y-5 flex flex-col text-left font-sans">
+      <div className="relative z-10 flex w-full max-w-lg flex-col space-y-5 rounded-2xl border border-black/5 bg-white/80 p-6 font-sans text-left shadow-[0_15px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl">
         <header className="flex items-center justify-between border-b border-border-subtle pb-3">
-          <div className="flex flex-col">
-            <h2 className="text-base font-bold text-text-primary">Datos y Copias de Seguridad</h2>
-            <p className="text-[10px] text-text-tertiary font-medium">Bóveda Cifrada Localmente</p>
+          <div className="flex items-center gap-3">
+            {view !== 'main' && (
+              <button
+                type="button"
+                onClick={() => setView('main')}
+                className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+                aria-label="Volver"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+                </svg>
+              </button>
+            )}
+            <div className="flex flex-col">
+              <h2 className="text-base font-bold text-text-primary">
+                {view === 'main' && 'Ajustes de Bóveda'}
+                {view === 'health' && 'Dashboard de Salud'}
+                {view === 'travel' && 'Modo Viaje'}
+                {view === 'credentials' && 'Credenciales'}
+                {view === 'exportPlaintext' && 'Exportar Texto Plano'}
+                {view === 'exportBackup' && 'Crear Copia de Seguridad'}
+                {view === 'importBackup' && 'Restaurar Copia'}
+              </h2>
+              {view === 'main' && <p className="text-[10px] font-medium text-text-tertiary">Bóveda Cifrada Localmente</p>}
+            </div>
           </div>
           <button
             type="button"
@@ -307,19 +346,79 @@ export function SettingsModal({
           </button>
         </header>
 
-        <div className="space-y-5 overflow-y-auto max-h-[420px] pr-1 scrollbar-thin">
-          <section className="space-y-3">
-            <div className="rounded-3xl border border-black/[0.06] bg-gradient-to-b from-white to-slate-50 p-4 shadow-sm">
-              <div className="flex items-center justify-between gap-4">
+        <div className="max-h-[420px] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
+          {view === 'main' && (
+            <div className="space-y-3 animate-vault-morph">
+              <div className="flex items-center justify-between rounded-3xl border border-black/[0.06] bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
                 <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Dashboard de Salud</h3>
-                  <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">Auditoría local Zero-Knowledge. Nada sale de este dispositivo.</p>
+                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Puntuación de Seguridad</h3>
+                  <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">Basado en auditoría Zero-Knowledge</p>
                 </div>
-                <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-text-primary text-lg font-black text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)]">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-text-primary text-lg font-black text-white shadow-[0_8px_20px_rgba(15,23,42,0.16)]">
                   {healthScore}
                 </div>
               </div>
-              <div className="mt-4 grid grid-cols-3 gap-2">
+
+              <div className="space-y-2">
+                <MenuItem
+                  title="Auditoría de Contraseñas"
+                  subtitle="Revisar contraseñas débiles o reutilizadas."
+                  onClick={() => setView('health')}
+                />
+                <MenuItem
+                  title="Modo Viaje"
+                  subtitle="Oculta bóvedas sensibles al cruzar fronteras."
+                  onClick={() => setView('travel')}
+                />
+                <MenuItem
+                  title="Credenciales y Recuperación"
+                  subtitle="Cambia tu Contraseña Maestra local."
+                  onClick={() => setView('credentials')}
+                />
+                
+                <div className="pt-2">
+                  <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Importar y Exportar</h3>
+                  <div className="space-y-2">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        onClose()
+                        onOpenImportText()
+                      }}
+                      className="flex w-full items-center justify-between rounded-xl border border-black/5 bg-white/70 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow"
+                    >
+                      <div>
+                        <h3 className="text-xs font-bold text-text-primary">Importación Masiva (TSV)</h3>
+                        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">Pega filas de Google Docs u Hojas de cálculo.</p>
+                      </div>
+                      <svg className="h-5 w-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                      </svg>
+                    </button>
+                    <MenuItem
+                      title="Restaurar Copia Cifrada"
+                      subtitle="Cargar backup .json"
+                      onClick={() => setView('importBackup')}
+                    />
+                    <MenuItem
+                      title="Crear Copia Cifrada"
+                      subtitle="Descargar backup .json"
+                      onClick={() => setView('exportBackup')}
+                    />
+                    <MenuItem
+                      title="Exportar Texto Plano"
+                      subtitle="CSV o JSON sin cifrar."
+                      onClick={() => setView('exportPlaintext')}
+                    />
+                  </div>
+                </div>
+              </div>
+            </div>
+          )}
+
+          {view === 'health' && (
+            <div className="space-y-3 animate-vault-morph">
+              <div className="mt-2 grid grid-cols-3 gap-2">
                 <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
                   <p className="text-lg font-black text-red-700">{reusedPasswords.length}</p>
                   <p className="text-[10px] font-bold text-red-700">Reutilizadas</p>
@@ -333,349 +432,299 @@ export function SettingsModal({
                   <p className="text-[10px] font-bold text-blue-800">Antiguas</p>
                 </div>
               </div>
-              {(reusedPasswords.length || weakPasswords.length || oldPasswords.length) ? (
-                <div className="mt-3 max-h-28 overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2">
+              {reusedPasswords.length > 0 || weakPasswords.length > 0 || oldPasswords.length > 0 ? (
+                <div className="mt-3 overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2 max-h-64">
                   {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry.platform.name} · ${entry.identityEmail}`))]
-                    .slice(0, 8)
                     .map((label) => (
                       <div key={label} className="rounded-xl px-2 py-1.5 text-[11px] font-semibold text-text-secondary">{label}</div>
                     ))}
                 </div>
-              ) : null}
-            </div>
-          </section>
-
-          <hr className="border-border-subtle" />
-
-          {/* Sección de Importación Masiva */}
-          <section className="space-y-2.5">
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Importación Masiva TSV</h3>
-            <p className="text-[11px] text-text-secondary leading-relaxed">
-              Importa cuentas pegando filas copiadas de una tabla de Google Docs (formato TSV).
-            </p>
-            <button
-              type="button"
-              onClick={() => {
-                onClose()
-                onOpenImportText()
-              }}
-              className="w-full rounded-xl border border-border bg-surface-elevated hover:bg-surface-hover py-2.5 text-xs font-semibold text-text-primary transition-colors active:scale-[0.98] transition-transform"
-            >
-              Importar desde Google Docs / TSV...
-            </button>
-          </section>
-
-          <hr className="border-border-subtle" />
-
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Modo Viaje</h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-                Oculta visualmente plataformas marcadas como sensibles hasta verificar la Contraseña Maestra.
-              </p>
-            </div>
-            <div className={`rounded-2xl border p-4 ${travelModeEnabled ? 'border-blue-100 bg-blue-50' : 'border-black/[0.06] bg-white/70'}`}>
-              <div className="flex items-center justify-between gap-3">
-                <div>
-                  <p className="text-sm font-bold text-text-primary">{travelModeEnabled ? 'Modo Viaje activo' : 'Bóveda completa visible'}</p>
-                  <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
-                    Marca cuentas como sensibles desde el formulario de cuenta.
-                  </p>
+              ) : (
+                <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-center">
+                  <p className="text-xs font-bold text-green-800">¡Tu bóveda está en perfectas condiciones!</p>
                 </div>
-                {!travelModeEnabled && (
-                  <button
-                    type="button"
-                    onClick={onEnableTravelMode}
-                    className="min-h-10 rounded-xl bg-text-primary px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5"
-                  >
-                    Activar
-                  </button>
-                )}
-              </div>
-              {travelModeEnabled && (
-                <form onSubmit={handleDisableTravelMode} className="mt-4 space-y-2">
-                  <input
-                    type="password"
-                    value={travelPassword}
-                    onChange={(event) => setTravelPassword(event.target.value)}
-                    placeholder="Contraseña Maestra para desactivar"
-                    className="w-full rounded-lg border border-border-subtle bg-white px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
-                    autoComplete="current-password"
-                  />
-                  {travelError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{travelError}</div>}
-                  <button
-                    type="submit"
-                    disabled={loadingTravelMode || !travelPassword}
-                    className="min-h-10 w-full rounded-xl bg-text-primary px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40"
-                  >
-                    {loadingTravelMode ? 'Verificando...' : 'Desactivar Modo Viaje'}
-                  </button>
-                </form>
               )}
             </div>
-          </section>
+          )}
 
-          <hr className="border-border-subtle" />
+          {view === 'travel' && (
+            <div className="space-y-3 animate-vault-morph">
+              <p className="text-[11px] leading-relaxed text-text-secondary">
+                Oculta visualmente plataformas marcadas como sensibles hasta verificar la Contraseña Maestra. Útil en pasos fronterizos.
+              </p>
+              <div className={`rounded-2xl border p-4 ${travelModeEnabled ? 'border-blue-100 bg-blue-50' : 'border-black/[0.06] bg-white/70'}`}>
+                <div className="flex items-center justify-between gap-3">
+                  <div>
+                    <p className="text-sm font-bold text-text-primary">{travelModeEnabled ? 'Modo Viaje activo' : 'Bóveda completa visible'}</p>
+                    <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+                      Marca cuentas como sensibles desde el formulario de cuenta.
+                    </p>
+                  </div>
+                  {!travelModeEnabled && (
+                    <button
+                      type="button"
+                      onClick={onEnableTravelMode}
+                      className="min-h-10 rounded-xl bg-text-primary px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5"
+                    >
+                      Activar
+                    </button>
+                  )}
+                </div>
+                {travelModeEnabled && (
+                  <form onSubmit={handleDisableTravelMode} className="mt-4 space-y-2">
+                    <input
+                      type="password"
+                      value={travelPassword}
+                      onChange={(event) => setTravelPassword(event.target.value)}
+                      placeholder="Contraseña Maestra para desactivar"
+                      className="w-full rounded-lg border border-border-subtle bg-white px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                      autoComplete="current-password"
+                    />
+                    {travelError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{travelError}</div>}
+                    <button
+                      type="submit"
+                      disabled={loadingTravelMode || !travelPassword}
+                      className="min-h-10 w-full rounded-xl bg-text-primary px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40"
+                    >
+                      {loadingTravelMode ? 'Verificando...' : 'Desactivar Modo Viaje'}
+                    </button>
+                  </form>
+                )}
+              </div>
+            </div>
+          )}
 
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Credenciales y recuperación</h3>
-              <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">
+          {view === 'credentials' && (
+            <div className="space-y-3 animate-vault-morph">
+              <p className="text-[11px] leading-relaxed text-text-secondary">
                 Cambia la Contraseña Maestra local re-cifrando toda la bóveda. La contraseña de Google Cloud se gestiona en tu cuenta de Google.
               </p>
+              <form onSubmit={handleChangeMasterPassword} className="space-y-2.5 rounded-2xl border border-black/[0.06] bg-white/70 p-3">
+                <input
+                  type="password"
+                  value={currentMasterPassword}
+                  onChange={(event) => setCurrentMasterPassword(event.target.value)}
+                  placeholder="Contraseña Maestra actual"
+                  className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                  autoComplete="current-password"
+                />
+                <input
+                  type="password"
+                  value={nextMasterPassword}
+                  onChange={(event) => setNextMasterPassword(event.target.value)}
+                  placeholder="Nueva Contraseña Maestra"
+                  className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                  autoComplete="new-password"
+                />
+                <textarea
+                  value={recoveryPhrase}
+                  onChange={(event) => setRecoveryPhrase(event.target.value)}
+                  placeholder="Frase de recuperación de 12 palabras"
+                  className="min-h-20 w-full resize-y rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
+                />
+                <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-[11px] font-medium leading-relaxed text-blue-900">
+                  Salvavidas correcto: guarda la frase de recuperación creada en onboarding. Si olvidas la Contraseña Maestra y no tienes esa frase, la app no puede descifrar tus datos sin romper el modelo zero-knowledge.
+                </div>
+                {credentialsError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{credentialsError}</div>}
+                {credentialsMessage && <div className="rounded-lg border border-green-100 bg-green-50 p-2 text-[10px] font-medium text-green-700">{credentialsMessage}</div>}
+                <button
+                  type="submit"
+                  disabled={loadingPasswordChange || !currentMasterPassword || !nextMasterPassword}
+                  className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40"
+                >
+                  {loadingPasswordChange ? 'Re-cifrando bóveda...' : 'Cambiar Contraseña Maestra'}
+                </button>
+                <a
+                  href="https://myaccount.google.com/security"
+                  target="_blank"
+                  rel="noreferrer"
+                  className="block rounded-xl border border-black/5 bg-surface-elevated py-2.5 text-center text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover"
+                >
+                  Cambiar contraseña de la Cuenta Cloud
+                </a>
+              </form>
             </div>
-            <form onSubmit={handleChangeMasterPassword} className="space-y-2.5 rounded-2xl border border-black/[0.06] bg-white/70 p-3">
-              <input
-                type="password"
-                value={currentMasterPassword}
-                onChange={(event) => setCurrentMasterPassword(event.target.value)}
-                placeholder="Contraseña Maestra actual"
-                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
-                autoComplete="current-password"
-              />
-              <input
-                type="password"
-                value={nextMasterPassword}
-                onChange={(event) => setNextMasterPassword(event.target.value)}
-                placeholder="Nueva Contraseña Maestra"
-                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
-                autoComplete="new-password"
-              />
-              <textarea
-                value={recoveryPhrase}
-                onChange={(event) => setRecoveryPhrase(event.target.value)}
-                placeholder="Frase de recuperación de 12 palabras"
-                className="min-h-20 w-full resize-y rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
-              />
-              <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-[11px] font-medium leading-relaxed text-blue-900">
-                Salvavidas correcto: guarda la frase de recuperación creada en onboarding. Si olvidas la Contraseña Maestra y no tienes esa frase, la app no puede descifrar tus datos sin romper el modelo zero-knowledge.
-              </div>
-              {credentialsError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{credentialsError}</div>}
-              {credentialsMessage && <div className="rounded-lg border border-green-100 bg-green-50 p-2 text-[10px] font-medium text-green-700">{credentialsMessage}</div>}
-              <button
-                type="submit"
-                disabled={loadingPasswordChange || !currentMasterPassword || !nextMasterPassword}
-                className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary py-2.5 text-xs font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40"
-              >
-                {loadingPasswordChange ? 'Re-cifrando bóveda...' : 'Cambiar Contraseña Maestra'}
-              </button>
-              <a
-                href="https://myaccount.google.com/security"
-                target="_blank"
-                rel="noreferrer"
-                className="block rounded-xl border border-black/5 bg-surface-elevated py-2.5 text-center text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover"
-              >
-                Cambiar contraseña de la Cuenta Cloud
-              </a>
-            </form>
-          </section>
+          )}
 
-          <hr className="border-border-subtle" />
-
-          <section className="space-y-3">
-            <div>
-              <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Exportación Portable sin Cifrar</h3>
-              <p className="mt-1 text-[11px] text-text-secondary leading-relaxed">
+          {view === 'exportPlaintext' && (
+            <div className="space-y-3 animate-vault-morph">
+              <p className="text-[11px] leading-relaxed text-text-secondary">
                 Genera CSV compatible con gestores de contraseñas o JSON completo con todos los metadatos.
               </p>
+              <form onSubmit={handlePlaintextExport} className="space-y-3">
+                <div className="grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
+                  {(['csv', 'json'] as PlaintextExportFormat[]).map((format) => (
+                    <button
+                      key={format}
+                      type="button"
+                      onClick={() => setPlaintextFormat(format)}
+                      className={`rounded-lg px-3 py-2 text-xs font-bold transition-all ${
+                        plaintextFormat === format
+                          ? 'bg-text-primary text-white shadow-sm'
+                          : 'text-text-secondary hover:bg-surface-hover'
+                      }`}
+                    >
+                      {format.toUpperCase()}
+                    </button>
+                  ))}
+                </div>
+
+                <div className="rounded-xl border border-border-subtle bg-white/70 p-3">
+                  <div className="mb-2 flex items-center justify-between gap-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">
+                      Alcance
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => setSelectedIdentityIds([])}
+                      className="rounded-lg px-2 py-1 text-[10px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
+                    >
+                      Toda la bóveda
+                    </button>
+                  </div>
+                  <div className="max-h-32 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
+                    {identities.map((identity) => {
+                      const checked = selectedIdentityIds.length === 0 || selectedIdentityIds.includes(identity.id)
+                      return (
+                        <label
+                          key={identity.id}
+                          className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover"
+                        >
+                          <span className="truncate">{identity.email}</span>
+                          <input
+                            type="checkbox"
+                            className={checkboxClassName}
+                            checked={checked}
+                            onChange={() => toggleIdentitySelection(identity.id)}
+                          />
+                        </label>
+                      )
+                    })}
+                  </div>
+                  <p className="mt-2 text-[10px] text-text-tertiary">
+                    {selectedIdentityIds.length === 0
+                      ? 'Se exportará toda la bóveda, incluidos secretos locales en JSON.'
+                      : `Se exportarán ${selectedIdentities.length} identidad(es).`}
+                  </p>
+                </div>
+
+                {plaintextExportError && (
+                  <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">
+                    {plaintextExportError}
+                  </div>
+                )}
+                {plaintextExportSuccess && (
+                  <div className="rounded-lg border border-amber-100 bg-amber-50 p-2 text-[10px] font-medium text-amber-800">
+                    {plaintextExportSuccess}
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loadingPlaintextExport || identities.length === 0}
+                  className="flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-900 transition-all hover:bg-amber-100 disabled:opacity-40 active:scale-[0.98]"
+                >
+                  Exportar con re-autenticación
+                </button>
+              </form>
             </div>
-            <form onSubmit={handlePlaintextExport} className="space-y-3">
-              <div className="grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
-                {(['csv', 'json'] as PlaintextExportFormat[]).map((format) => (
-                  <button
-                    key={format}
-                    type="button"
-                    onClick={() => setPlaintextFormat(format)}
-                    className={`rounded-lg px-3 py-2 text-xs font-bold transition-all ${
-                      plaintextFormat === format
-                        ? 'bg-text-primary text-white shadow-sm'
-                        : 'text-text-secondary hover:bg-surface-hover'
-                    }`}
-                  >
-                    {format.toUpperCase()}
-                  </button>
-                ))}
-              </div>
+          )}
 
-              <div className="rounded-xl border border-border-subtle bg-white/70 p-3">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">
-                    Alcance
-                  </span>
-                  <button
-                    type="button"
-                    onClick={() => setSelectedIdentityIds([])}
-                    className="rounded-lg px-2 py-1 text-[10px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
-                  >
-                    Toda la bóveda
-                  </button>
-                </div>
-                <div className="max-h-32 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
-                  {identities.map((identity) => {
-                    const checked = selectedIdentityIds.length === 0 || selectedIdentityIds.includes(identity.id)
-                    return (
-                      <label
-                        key={identity.id}
-                        className="flex min-h-11 items-center justify-between gap-3 rounded-lg px-2 py-2 text-xs font-semibold text-text-primary transition-colors hover:bg-surface-hover"
-                      >
-                        <span className="truncate">{identity.email}</span>
-                        <input
-                          type="checkbox"
-                          className={checkboxClassName}
-                          checked={checked}
-                          onChange={() => toggleIdentitySelection(identity.id)}
-                        />
-                      </label>
-                    )
-                  })}
-                </div>
-                <p className="mt-2 text-[10px] text-text-tertiary">
-                  {selectedIdentityIds.length === 0
-                    ? 'Se exportará toda la bóveda, incluidos secretos locales en JSON.'
-                    : `Se exportarán ${selectedIdentities.length} identidad(es).`}
-                </p>
-              </div>
-
-              {plaintextExportError && (
-                <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">
-                  {plaintextExportError}
-                </div>
-              )}
-              {plaintextExportSuccess && (
-                <div className="rounded-lg border border-amber-100 bg-amber-50 p-2 text-[10px] font-medium text-amber-800">
-                  {plaintextExportSuccess}
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loadingPlaintextExport || identities.length === 0}
-                className="flex min-h-11 w-full items-center justify-center rounded-xl border border-amber-200 bg-amber-50 py-2.5 text-xs font-bold text-amber-900 transition-all hover:bg-amber-100 disabled:opacity-40 active:scale-[0.98]"
-              >
-                Exportar con re-autenticación
-              </button>
-            </form>
-          </section>
-
-          <hr className="border-border-subtle" />
-
-          {/* Sección de Exportación */}
-          <section className="space-y-2.5">
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Exportación Cifrada (Backup)</h3>
-            <p className="text-[11px] text-text-secondary leading-relaxed">
-              Descarga un archivo JSON cifrado localmente con AES-256-GCM que contiene todas tus credenciales.
-            </p>
-            <form onSubmit={handleExport} className="space-y-2.5">
-              <input
-                type="password"
-                placeholder="Contraseña Maestra del perfil"
-                value={exportPassword}
-                onChange={(e) => setExportPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:border-border transition-colors font-medium"
-              />
-              
-              {exportError && (
-                <div className="p-2 bg-red-50 border border-red-100 text-red-700 text-[10px] rounded-lg flex items-center gap-1.5 font-medium">
-                  <svg className="h-3.5 w-3.5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>{exportError}</span>
-                </div>
-              )}
-              {exportSuccess && (
-                <div className="p-2 bg-green-50 border border-green-100 text-green-700 text-[10px] rounded-lg flex items-center gap-1.5 font-medium">
-                  <svg className="h-3.5 w-3.5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{exportSuccess}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loadingExport || !exportPassword}
-                className="w-full rounded-xl bg-text-primary py-2.5 text-xs font-semibold text-white hover:opacity-90 transition-opacity disabled:opacity-40 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-              >
-                {loadingExport ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5 text-white" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Generando backup cifrado...
-                  </>
-                ) : (
-                  'Exportar JSON cifrado'
-                )}
-              </button>
-            </form>
-          </section>
-
-          <hr className="border-border-subtle" />
-
-          {/* Sección de Importación */}
-          <section className="space-y-2.5">
-            <h3 className="text-xs font-bold text-text-primary uppercase tracking-wider">Importación / Restauración</h3>
-            <p className="text-[11px] text-text-secondary leading-relaxed">
-              Sube un archivo de backup JSON y proporciona la contraseña maestra original del backup para restaurar.
-              <span className="text-red-600 font-semibold block mt-1">¡Sobrescribirá todos tus datos locales actuales!</span>
-            </p>
-            <form onSubmit={handleImport} className="space-y-3">
-              <div className="space-y-1">
-                <label className="block text-[9px] font-bold text-text-secondary uppercase">
-                  Archivo de backup (.json)
-                </label>
+          {view === 'exportBackup' && (
+            <div className="space-y-3 animate-vault-morph">
+              <p className="text-[11px] leading-relaxed text-text-secondary">
+                Descarga un archivo JSON cifrado localmente con AES-256-GCM que contiene todas tus credenciales.
+              </p>
+              <form onSubmit={handleExport} className="space-y-2.5">
                 <input
-                  type="file"
-                  accept=".json"
-                  onChange={(e) => setBackupFile(e.target.files?.[0] || null)}
-                  className="w-full text-xs text-text-secondary file:mr-3 file:py-2 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-surface-hover file:text-text-primary hover:file:bg-surface-active file:cursor-pointer transition-colors"
+                  type="password"
+                  placeholder="Contraseña Maestra del perfil"
+                  value={exportPassword}
+                  onChange={(e) => setExportPassword(e.target.value)}
+                  className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary placeholder:text-text-tertiary outline-none transition-colors focus:border-border"
                 />
-              </div>
-              <input
-                type="password"
-                placeholder="Contraseña Maestra del backup"
-                value={importPassword}
-                onChange={(e) => setImportPassword(e.target.value)}
-                className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs text-text-primary placeholder:text-text-tertiary outline-none focus:border-border transition-colors font-medium"
-              />
-              
-              {importError && (
-                <div className="p-2 bg-red-50 border border-red-100 text-red-700 text-[10px] rounded-lg flex items-center gap-1.5 font-medium">
-                  <svg className="h-3.5 w-3.5 text-red-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                  <span>{importError}</span>
-                </div>
-              )}
-              {importSuccess && (
-                <div className="p-2 bg-green-50 border border-green-100 text-green-700 text-[10px] rounded-lg flex items-center gap-1.5 font-medium">
-                  <svg className="h-3.5 w-3.5 text-green-500 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                  </svg>
-                  <span>{importSuccess}</span>
-                </div>
-              )}
-
-              <button
-                type="submit"
-                disabled={loadingImport || !backupFile || !importPassword}
-                className="w-full rounded-xl border border-border bg-surface-elevated hover:bg-surface-hover py-2.5 text-xs font-semibold text-text-primary transition-colors disabled:opacity-50 active:scale-[0.98] transition-transform flex items-center justify-center gap-2"
-              >
-                {loadingImport ? (
-                  <>
-                    <svg className="animate-spin h-3.5 w-3.5 text-text-primary" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                
+                {exportError && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                     </svg>
-                    Descifrando e importando...
-                  </>
-                ) : (
-                  'Importar y Restaurar'
+                    <span>{exportError}</span>
+                  </div>
                 )}
-              </button>
-            </form>
-          </section>
+                {exportSuccess && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-green-100 bg-green-50 p-2 text-[10px] font-medium text-green-700">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{exportSuccess}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loadingExport || !exportPassword}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl bg-text-primary py-2.5 text-xs font-semibold text-white transition-transform transition-opacity hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+                >
+                  {loadingExport ? 'Generando backup cifrado...' : 'Exportar JSON cifrado'}
+                </button>
+              </form>
+            </div>
+          )}
+
+          {view === 'importBackup' && (
+            <div className="space-y-3 animate-vault-morph">
+              <p className="text-[11px] leading-relaxed text-text-secondary">
+                Sube un archivo de backup JSON y proporciona la contraseña maestra original del backup para restaurar.
+                <span className="mt-1 block font-semibold text-red-600">¡Sobrescribirá todos tus datos locales actuales!</span>
+              </p>
+              <form onSubmit={handleImport} className="space-y-3">
+                <div className="space-y-1">
+                  <label className="block text-[9px] font-bold uppercase text-text-secondary">
+                    Archivo de backup (.json)
+                  </label>
+                  <input
+                    type="file"
+                    accept=".json"
+                    onChange={(e) => setBackupFile(e.target.files?.[0] || null)}
+                    className="w-full text-xs text-text-secondary transition-colors file:mr-3 file:cursor-pointer file:rounded-lg file:border-0 file:bg-surface-hover file:px-3 file:py-2 file:text-xs file:font-semibold file:text-text-primary hover:file:bg-surface-active"
+                  />
+                </div>
+                <input
+                  type="password"
+                  placeholder="Contraseña Maestra del backup"
+                  value={importPassword}
+                  onChange={(e) => setImportPassword(e.target.value)}
+                  className="w-full rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary placeholder:text-text-tertiary outline-none transition-colors focus:border-border"
+                />
+                
+                {importError && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                    <span>{importError}</span>
+                  </div>
+                )}
+                {importSuccess && (
+                  <div className="flex items-center gap-1.5 rounded-lg border border-green-100 bg-green-50 p-2 text-[10px] font-medium text-green-700">
+                    <svg className="h-3.5 w-3.5 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span>{importSuccess}</span>
+                  </div>
+                )}
+
+                <button
+                  type="submit"
+                  disabled={loadingImport || !backupFile || !importPassword}
+                  className="flex w-full items-center justify-center gap-2 rounded-xl border border-border bg-surface-elevated py-2.5 text-xs font-semibold text-text-primary transition-colors transition-transform hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
+                >
+                  {loadingImport ? 'Descifrando e importando...' : 'Importar y Restaurar'}
+                </button>
+              </form>
+            </div>
+          )}
         </div>
       </div>
       {securityModalOpen && (

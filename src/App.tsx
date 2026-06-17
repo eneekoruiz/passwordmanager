@@ -11,6 +11,7 @@ import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
 import type { LocalCategory, VaultGroupMode } from './types'
 import type { CloudSyncResult } from './context/VaultContext'
 import type { UnsavedFormActions } from './components/AccountForm'
+import { useToast } from './components/ui/ToastProvider'
 
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
@@ -34,15 +35,16 @@ function VaultApp() {
     verifyCurrentMasterPassword,
     changeCurrentMasterPassword,
     importBackup,
+    importBackup,
     importMassiveAccounts,
     currentProfileName,
     cloudSyncStatus,
     syncActiveProfileToCloud,
     downloadLatestCloudVault,
     logoutProfile,
-    appError,
-    clearAppError,
   } = useVault()
+
+  const { showToast } = useToast()
 
   const [isMobile, setIsMobile] = useState(false)
 
@@ -136,12 +138,6 @@ function VaultApp() {
     [displayIdentities, selectedId],
   )
 
-  const [pageMessage, setPageMessage] = useState<string | null>(null)
-
-  useEffect(() => {
-    setPageMessage(appError)
-  }, [appError])
-
   useEffect(() => {
     if (cloudSyncStatus !== 'synced') return
     setMobileSyncCheckVisible(true)
@@ -162,7 +158,7 @@ function VaultApp() {
         setSelectedPlatformName(null)
         setSelectedLocalCategory(null)
         setSearchQuery('')
-        setPageMessage('Sesión bloqueada automáticamente por inactividad.')
+        showToast('Sesión bloqueada automáticamente por inactividad.', 'info')
       }, 5 * 60 * 1000)
     }
 
@@ -199,14 +195,9 @@ function VaultApp() {
     return <UnlockScreen />
   }
 
-  const dismissMessage = () => {
-    setPageMessage(null)
-    clearAppError()
-  }
-
   const reportUiError = (error: unknown, fallback: string) => {
     const message = getFriendlyErrorMessage(error, fallback)
-    setPageMessage(message)
+    showToast(message, 'error')
   }
 
   const requestNavigation = (action: () => void) => {
@@ -292,7 +283,7 @@ function VaultApp() {
         setPendingCloudDownload(result)
         return
       }
-      setPageMessage(result.message)
+      showToast(result.message, 'info')
     } catch (error) {
       reportUiError(error, 'No se pudo sincronizar la bóveda.')
     }
@@ -303,7 +294,7 @@ function VaultApp() {
     try {
       const result = await downloadLatestCloudVault()
       setPendingCloudDownload(null)
-      setPageMessage(result.message)
+      showToast(result.message, 'success')
     } catch (error) {
       reportUiError(error, 'No se pudo descargar la bóveda desde la nube.')
     } finally {
@@ -318,7 +309,7 @@ function VaultApp() {
     setSelectedPlatformName(null)
     setSelectedLocalCategory(null)
     setSearchQuery('')
-    setPageMessage('Modo Viaje activado. Las cuentas sensibles quedan ocultas hasta verificar la Contraseña Maestra.')
+    showToast('Modo Viaje activado. Las cuentas sensibles quedan ocultas hasta verificar la Contraseña Maestra.', 'info')
   }
 
   const disableTravelMode = async (masterPassword: string) => {
@@ -326,7 +317,7 @@ function VaultApp() {
     if (!verified) throw new Error('Contraseña Maestra incorrecta.')
     setTravelModeEnabled(false)
     window.sessionStorage.removeItem('contras.travelMode')
-    setPageMessage('Modo Viaje desactivado. La bóveda completa vuelve a estar visible.')
+    showToast('Modo Viaje desactivado. La bóveda completa vuelve a estar visible.', 'success')
   }
 
   const globalSearchResults = (() => {
@@ -397,7 +388,6 @@ function VaultApp() {
     setSelectedPlatformName(null)
     setSelectedLocalCategory(null)
     setSearchQuery('')
-    setPageMessage(null)
   }
 
   const handleDeleteIdentity = async (id: string) => {
@@ -406,7 +396,6 @@ function VaultApp() {
       if (selectedId === id) {
         setSelectedId(null)
       }
-      dismissMessage()
     } catch (error) {
       reportUiError(error, 'No se pudo eliminar la identidad.')
     }
@@ -430,21 +419,6 @@ function VaultApp() {
     setSelectedId(null)
     setSelectedPlatformName(null)
   }
-
-  const pageBanner = pageMessage ? (
-    <div className="border-b border-red-100 bg-red-50/85 px-4 py-3 text-xs text-red-700 backdrop-blur">
-      <div className="mx-auto flex max-w-5xl items-start justify-between gap-3">
-        <span className="leading-relaxed">{pageMessage}</span>
-        <button
-          type="button"
-          onClick={dismissMessage}
-          className="shrink-0 rounded-md px-2 py-1 font-semibold text-red-700 transition-colors hover:bg-red-100"
-        >
-          Cerrar
-        </button>
-      </div>
-    </div>
-  ) : null
 
   const mobileTopBar = isMobile ? (
     <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b border-black/5 bg-white/85 px-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
@@ -601,7 +575,6 @@ function VaultApp() {
       <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16">
         {mobileTopBar}
         {globalOverlays}
-        {pageBanner}
         <div className="flex-1 overflow-y-auto pt-28">
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
@@ -810,8 +783,8 @@ function VaultApp() {
         onSelect={handleSelect}
         onSelectPlatform={handleSelectPlatform}
         onSelectLocalCategory={handleSelectLocalCategory}
-          onAddIdentity={async (email) => {
-            const identity = await addIdentity(email)
+        onAddIdentity={async (email) => {
+          const identity = await addIdentity(email)
           requestNavigation(() => {
             setSelectedId(identity.id)
             setSelectedPlatformName(null)
@@ -831,12 +804,9 @@ function VaultApp() {
       />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        {pageBanner}
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated pt-20 lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
           <MainArea
             identities={displayIdentities}
-            identity={selectedIdentity}
-            groupMode={groupMode}
             selectedPlatformName={selectedPlatformName}
             localCategory={selectedLocalCategory}
             localItems={localItems}

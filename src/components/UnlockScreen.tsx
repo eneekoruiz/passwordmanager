@@ -59,7 +59,6 @@ export function UnlockScreen() {
   const {
     cloudUserEmail,
     cloudSyncStatus,
-    cloudError,
     cloudVaultExists,
     loginWithGoogleCloud,
     logoutCloud,
@@ -89,10 +88,6 @@ export function UnlockScreen() {
   const [nukeConfirmation, setNukeConfirmation] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-
-  useEffect(() => {
-    if (cloudError) setError(cloudError)
-  }, [cloudError])
 
   useEffect(() => {
     return () => {
