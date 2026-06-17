@@ -208,14 +208,18 @@ export function Sidebar({
       >
         <header className="flex items-start justify-between px-4 pb-3 pt-4 lg:px-5 lg:pt-5">
           <div className="min-w-0 text-left">
-            <div className="flex items-center gap-2">
-              <h1 className="text-xl font-bold tracking-tight text-text-primary">Contras</h1>
-              {syncIndicator}
-            </div>
-            {profileName && (
-              <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
-                {profileName}
-              </p>
+            {!isMobile && (
+              <>
+                <div className="flex items-center gap-2">
+                  <h1 className="text-xl font-bold tracking-tight text-text-primary">Contras</h1>
+                  {syncIndicator}
+                </div>
+                {profileName && (
+                  <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                    {profileName}
+                  </p>
+                )}
+              </>
             )}
           </div>
           <div className="flex items-center gap-1">
