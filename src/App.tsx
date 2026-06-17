@@ -312,13 +312,14 @@ function VaultApp() {
   }
 
   const handleManualSync = async () => {
+    showToast('Sincronizando con Google Cloud...', 'info')
     try {
       const result = await syncActiveProfileToCloud()
       if (result.action === 'download_available') {
         setPendingCloudDownload(result)
         return
       }
-      showToast(result.message, 'info')
+      showToast(result.message, result.action === 'idle' ? 'info' : 'success')
     } catch (error) {
       reportUiError(error, 'No se pudo sincronizar la bóveda.')
     }

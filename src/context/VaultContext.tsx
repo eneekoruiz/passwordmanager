@@ -115,10 +115,20 @@ function getFirebaseClients(): { authClient: Auth; dbClient: Firestore } {
   return { authClient: auth, dbClient: db }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ])
+}
+
 export function VaultProvider({ children }: { children: ReactNode }) {
   const vaultRef = useRef(new CryptoVault())
   const storeRef = useRef(new VaultStore(vaultRef.current))
   const firebaseUserRef = useRef<User | null>(null)
+  const syncInProgressRef = useRef(false)
 
   const [isReady, setIsReady] = useState(false)
   const [isAuthReady, setIsAuthReady] = useState(false)
@@ -280,17 +290,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
 
   const downloadLatestCloudVault = useCallback(async (): Promise<CloudSyncResult> => {
+    if (syncInProgressRef.current) {
+      return { action: 'idle', message: 'Sincronización en curso. Espera un momento.' }
+    }
+
     const user = firebaseUserRef.current
     if (!currentProfileId || !user) {
       setCloudSyncStatus('idle')
       return { action: 'idle', message: 'No hay una sesión de nube activa para sincronizar.' }
     }
 
+    syncInProgressRef.current = true
     setCloudSyncStatus('syncing')
 
     try {
       const { dbClient } = getFirebaseClients()
-      const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+      const vaultRefDoc = doc(dbClient, 'vaults', user.uid)
+      const snapshot = await withTimeout(
+        getDoc(vaultRefDoc),
+        10000,
+        'La conexión con Google Cloud excedió el tiempo límite (10s) al descargar. Revisa tu conexión a internet.'
+      )
+      
       const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
       if (!snapshot.exists() || !cloudBlob) {
         setCloudSyncStatus('idle')
@@ -316,22 +337,34 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCloudSyncStatus('error')
       reportCloudError(error, 'No se pudo descargar la bóveda desde Firebase.')
       throw error
+    } finally {
+      syncInProgressRef.current = false
     }
   }, [currentProfileId, refreshVaultData, reportCloudError])
 
   const syncActiveProfileToCloud = useCallback(async (): Promise<CloudSyncResult> => {
+    if (syncInProgressRef.current) {
+      return { action: 'idle', message: 'Sincronización en curso. Espera un momento.' }
+    }
+
     const user = firebaseUserRef.current
     if (!currentProfileId || !user) {
       setCloudSyncStatus('idle')
       return { action: 'idle', message: 'Conecta Google Cloud para sincronizar esta bóveda.' }
     }
 
+    syncInProgressRef.current = true
     setCloudSyncStatus('syncing')
 
     try {
       const { dbClient } = getFirebaseClients()
       const vaultRefDoc = doc(dbClient, 'vaults', user.uid)
-      const snapshot = await getDoc(vaultRefDoc)
+      const snapshot = await withTimeout(
+        getDoc(vaultRefDoc),
+        10000,
+        'La conexión con Google Cloud excedió el tiempo límite (10s) al comprobar la bóveda. Revisa tu conexión a internet.'
+      )
+      
       const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
       const cloudUpdatedAt = Date.parse(String(snapshot.data()?.updated_at ?? '')) || 0
       const localUpdatedAt = getLocalVaultUpdatedAt()
@@ -397,10 +430,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
 
       const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
-      await setDoc(vaultRefDoc, {
-        encrypted_vault_blob: encryptedBlob,
-        updated_at: new Date().toISOString(),
-      })
+      await withTimeout(
+        setDoc(vaultRefDoc, {
+          encrypted_vault_blob: encryptedBlob,
+          updated_at: new Date().toISOString(),
+        }),
+        10000,
+        'La subida a Google Cloud excedió el tiempo límite (10s). Revisa tu conexión a internet.'
+      )
+      
       setCloudVaultExists(true)
       setCloudSyncStatus('synced')
       return {
@@ -417,6 +455,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCloudSyncStatus('error')
       reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
       throw error
+    } finally {
+      syncInProgressRef.current = false
     }
   }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, reportCloudError])
 
