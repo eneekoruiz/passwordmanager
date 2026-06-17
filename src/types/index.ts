@@ -71,6 +71,27 @@ export interface BaseVaultItem {
   categoryLabel?: string | null
   createdAt: string
   updatedAt: string
+  isLocalOnly?: boolean
+}
+
+export type VaultDiffStatus = 'added' | 'modified' | 'deleted' | 'conflict'
+
+export interface VaultDiffItem {
+  id: string
+  title: string
+  type: VaultItemType
+  status: VaultDiffStatus
+  localUpdatedAt?: string
+  cloudUpdatedAt?: string
+  localData?: any
+  cloudData?: any
+}
+
+export interface SyncDiffResult {
+  hasChanges: boolean
+  diffs: VaultDiffItem[]
+  cloudIdentities: any[]
+  cloudLocalItems: any[]
 }
 
 export interface LocalCategory {

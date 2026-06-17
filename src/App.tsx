@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from 'react'
 import { VaultProvider, useVault } from './context/VaultContext'
+import { SyncDiffViewer } from './components/SyncDiffViewer'
 import { Sidebar } from './components/Sidebar'
 import { MainArea } from './components/MainArea'
 import { UnlockScreen } from './components/UnlockScreen'
@@ -41,6 +42,7 @@ function VaultApp() {
     syncActiveProfileToCloud,
     downloadLatestCloudVault,
     logoutProfile,
+    hasUnsyncedChanges,
   } = useVault()
 
   const { showToast } = useToast()
@@ -171,7 +173,7 @@ function VaultApp() {
   }, [isUnlocked, logoutProfile])
 
   useEffect(() => {
-    if (!unsavedDirty) return
+    if (!unsavedDirty && !hasUnsyncedChanges) return
 
     const handleBeforeUnload = (event: BeforeUnloadEvent) => {
       event.preventDefault()
@@ -180,7 +182,7 @@ function VaultApp() {
 
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [unsavedDirty])
+  }, [unsavedDirty, hasUnsyncedChanges])
 
   if (!isReady) {
     return (
@@ -526,49 +528,58 @@ function VaultApp() {
   )
 
   const cloudDownloadModal = pendingCloudDownload ? (
-    <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-bold tracking-tight text-text-primary">Hay datos nuevos en la nube</h3>
-        <p className="mt-2 text-sm leading-6 text-text-secondary">{pendingCloudDownload.message}</p>
-        <div className="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3">
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Este dispositivo</p>
-            <p className="mt-1 text-sm font-semibold text-text-primary">{pendingCloudDownload.localPlatformCount ?? 0} contraseñas</p>
-            <p className="text-xs text-text-tertiary">{pendingCloudDownload.localLocalItemCount ?? 0} secretos locales</p>
-            <p className="text-xs text-text-tertiary">{pendingCloudDownload.localLocalCategoryCount ?? 0} secciones</p>
+    pendingCloudDownload.diffResult ? (
+      <SyncDiffViewer
+        diffResult={pendingCloudDownload.diffResult}
+        onConfirm={handleConfirmCloudDownload}
+        onCancel={() => setPendingCloudDownload(null)}
+        isDownloading={downloadingCloud}
+      />
+    ) : (
+      <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
+        <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+          <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
+            </svg>
           </div>
-          <div>
-            <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Google Cloud</p>
-            <p className="mt-1 text-sm font-semibold text-text-primary">{pendingCloudDownload.cloudPlatformCount ?? 0} contraseñas</p>
-            <p className="text-xs text-text-tertiary">{pendingCloudDownload.cloudLocalItemCount ?? 0} secretos locales</p>
-            <p className="text-xs text-text-tertiary">{pendingCloudDownload.cloudLocalCategoryCount ?? 0} secciones</p>
+          <h3 className="text-xl font-bold tracking-tight text-text-primary">Hay datos nuevos en la nube</h3>
+          <p className="mt-2 text-sm leading-6 text-text-secondary">{pendingCloudDownload.message}</p>
+          <div className="mt-5 grid grid-cols-2 gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3">
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Este dispositivo</p>
+              <p className="mt-1 text-sm font-semibold text-text-primary">{pendingCloudDownload.localPlatformCount ?? 0} contraseñas</p>
+              <p className="text-xs text-text-tertiary">{pendingCloudDownload.localLocalItemCount ?? 0} secretos locales</p>
+              <p className="text-xs text-text-tertiary">{pendingCloudDownload.localLocalCategoryCount ?? 0} secciones</p>
+            </div>
+            <div>
+              <p className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Google Cloud</p>
+              <p className="mt-1 text-sm font-semibold text-text-primary">{pendingCloudDownload.cloudPlatformCount ?? 0} contraseñas</p>
+              <p className="text-xs text-text-tertiary">{pendingCloudDownload.cloudLocalItemCount ?? 0} secretos locales</p>
+              <p className="text-xs text-text-tertiary">{pendingCloudDownload.cloudLocalCategoryCount ?? 0} secciones</p>
+            </div>
           </div>
-        </div>
-        <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-          <button
-            type="button"
-            onClick={() => setPendingCloudDownload(null)}
-            disabled={downloadingCloud}
-            className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-60"
-          >
-            Ahora no
-          </button>
-          <button
-            type="button"
-            onClick={() => void handleConfirmCloudDownload()}
-            disabled={downloadingCloud}
-            className="min-h-11 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 disabled:opacity-60"
-          >
-            {downloadingCloud ? 'Descargando...' : 'Descargar cambios'}
-          </button>
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+            <button
+              type="button"
+              onClick={() => setPendingCloudDownload(null)}
+              disabled={downloadingCloud}
+              className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-60"
+            >
+              Ahora no
+            </button>
+            <button
+              type="button"
+              onClick={handleConfirmCloudDownload}
+              disabled={downloadingCloud}
+              className="min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 disabled:opacity-60"
+            >
+              {downloadingCloud ? 'Descargando...' : 'Descargar de la nube'}
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    )
   ) : null
 
   if (isMobile) {
@@ -748,16 +759,36 @@ function VaultApp() {
         {lockModalOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
             <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-              <h3 className="text-xl font-bold tracking-tight text-text-primary">Vas a bloquear tu bóveda</h3>
-              <p className="mt-2 text-sm leading-6 text-text-secondary">Necesitarás tu Contraseña Maestra para volver a entrar. ¿Estás seguro de que la recuerdas?</p>
+              {hasUnsyncedChanges ? (
+                <>
+                  <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">
+                    <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                  </div>
+                  <h3 className="text-xl font-bold tracking-tight text-red-600">Alerta Crítica de Sincronización</h3>
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">Tienes cambios recientes que no se han podido subir a la nube. Si sales ahora, perderás estos datos en tus otros dispositivos.</p>
+                </>
+              ) : (
+                <>
+                  <h3 className="text-xl font-bold tracking-tight text-text-primary">Vas a bloquear tu bóveda</h3>
+                  <p className="mt-2 text-sm leading-6 text-text-secondary">Necesitarás tu Contraseña Maestra para volver a entrar. ¿Estás seguro de que la recuerdas?</p>
+                </>
+              )}
               <div className="mt-6 flex flex-col gap-2">
-                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800">
-                  Descargar copia de seguridad (CSV) por si acaso
-                </button>
+                {hasUnsyncedChanges ? (
+                  <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800">
+                    Descargar copia local (Cifrada/CSV) para no perder datos
+                  </button>
+                ) : (
+                  <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800">
+                    Descargar copia de seguridad (CSV) por si acaso
+                  </button>
+                )}
                 <button type="button" onClick={() => setLockModalOpen(false)} className="min-h-12 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary">
                   Cancelar
                 </button>
-                <button type="button" onClick={confirmLock} className="min-h-12 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white">
+                <button type="button" onClick={confirmLock} className={`min-h-12 rounded-xl px-4 text-sm font-semibold text-white ${hasUnsyncedChanges ? 'bg-red-600 hover:bg-red-700' : 'bg-text-primary'}`}>
                   Sí, bloquear
                 </button>
               </div>
@@ -922,38 +953,41 @@ function VaultApp() {
       {lockModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
           <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-text-primary ring-1 ring-black/5">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold tracking-tight text-text-primary">Vas a bloquear tu bóveda</h3>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Necesitarás tu Contraseña Maestra para volver a entrar. Confirma que la recuerdas antes de cerrar la sesión segura.
-            </p>
+            {hasUnsyncedChanges ? (
+              <>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold tracking-tight text-red-600">Alerta Crítica de Sincronización</h3>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">Tienes cambios recientes que no se han podido subir a la nube. Si sales ahora, perderás estos datos en tus otros dispositivos.</p>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-text-primary ring-1 ring-black/5">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold tracking-tight text-text-primary">Vas a bloquear tu bóveda</h3>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">Necesitarás tu Contraseña Maestra para volver a entrar. Confirma que la recuerdas antes de cerrar la sesión segura.</p>
+              </>
+            )}
             <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              <button
-                type="button"
-                onClick={() => {
-                  setLockModalOpen(false)
-                  setSettingsOpen(true)
-                }}
-                className="min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100"
-              >
-                Descargar copia de seguridad (CSV) por si acaso
-              </button>
-              <button
-                type="button"
-                onClick={() => setLockModalOpen(false)}
-                className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
-              >
+              {hasUnsyncedChanges ? (
+                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 transition-colors hover:bg-red-100">
+                  Descargar copia local (Cifrada/CSV) para no perder datos
+                </button>
+              ) : (
+                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100">
+                  Descargar copia de seguridad (CSV) por si acaso
+                </button>
+              )}
+              <button type="button" onClick={() => setLockModalOpen(false)} className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover">
                 Cancelar
               </button>
-              <button
-                type="button"
-                onClick={confirmLock}
-                className="min-h-11 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5"
-              >
+              <button type="button" onClick={confirmLock} className={`min-h-11 rounded-xl px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 ${hasUnsyncedChanges ? 'bg-red-600 hover:bg-red-700' : 'bg-text-primary'}`}>
                 Sí, bloquear
               </button>
             </div>

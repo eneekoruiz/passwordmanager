@@ -27,6 +27,7 @@ import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
 import { useToast } from '../components/ui/ToastProvider'
+import { payloadsAreIdentical } from '../utils/hash'
 
 interface VaultContextValue {
   isReady: boolean
@@ -60,6 +61,7 @@ interface VaultContextValue {
   cloudUserEmail: string | null
   cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
   cloudVaultExists: boolean | null
+  hasUnsyncedChanges: boolean
   loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: () => Promise<CloudSyncResult>
@@ -85,6 +87,7 @@ export interface CloudSyncResult {
   localPlatformCount?: number
   localLocalItemCount?: number
   localLocalCategoryCount?: number
+  diffResult?: import('../types').SyncDiffResult
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -118,6 +121,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [cloudUserEmail, setCloudUserEmail] = useState<string | null>(null)
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
+  const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false)
 
   const { showToast } = useToast()
 
@@ -254,31 +258,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     localCategoryCount: localCategories.length,
   }), [identities, localCategories, localItems])
 
-  const uploadActiveProfileToCloud = useCallback(async () => {
-    const user = firebaseUserRef.current
-    if (!currentProfileId || !user) {
-      setCloudSyncStatus('idle')
-      return
-    }
 
-    setCloudSyncStatus('syncing')
-
-    try {
-      const { dbClient } = getFirebaseClients()
-      const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
-      await setDoc(doc(dbClient, 'vaults', user.uid), {
-        encrypted_vault_blob: encryptedBlob,
-        updated_at: new Date().toISOString(),
-      })
-      setCloudVaultExists(true)
-      setCloudSyncStatus('synced')
-    } catch (error) {
-      logUnexpectedError('Error al sincronizar con Firebase', error)
-      setCloudSyncStatus('error')
-      reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
-      throw error
-    }
-  }, [currentProfileId, reportCloudError])
 
   const downloadLatestCloudVault = useCallback(async (): Promise<CloudSyncResult> => {
     const user = firebaseUserRef.current
@@ -340,6 +320,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       if (snapshot.exists() && cloudBlob) {
         const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
+        const localPayload = await storeRef.current.getUnencryptedCloudPayload(currentProfileId)
+        
+        const isIdentical = await payloadsAreIdentical(localPayload, cloudSummary.rawDump)
+        
+        if (isIdentical) {
+          setCloudVaultExists(true)
+          setHasUnsyncedChanges(false)
+          setCloudSyncStatus('synced')
+          return { action: 'idle', message: 'La bóveda ya está sincronizada y es idéntica a la nube.' }
+        }
+
         const localHasVaultData =
           localCounts.platformCount > 0 ||
           localCounts.localItemCount > 0 ||
@@ -355,7 +346,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           cloudSummary.localItemCount > localCounts.localItemCount ||
           cloudSummary.localCategoryCount > localCounts.localCategoryCount
 
-        if (cloudLooksNewer || localLooksEmpty || cloudHasMoreData) {
+        if (cloudLooksNewer || localLooksEmpty || cloudHasMoreData || !isIdentical) {
+          const decryptedCloud = await storeRef.current.inspectAndDecryptCloudPayload(cloudBlob)
+          const localIdns = await storeRef.current.loadAllIdentities(currentProfileId)
+          const localIts = await storeRef.current.loadLocalItems(currentProfileId)
+          const localCats = await storeRef.current.loadLocalCategories(currentProfileId)
+          const { computeSyncDiff } = await import('../utils/syncDiff')
+          const diffResult = computeSyncDiff(
+            localIdns, localIts, localCats,
+            decryptedCloud.identities, decryptedCloud.localItems, decryptedCloud.localCategories
+          )
+
           setCloudVaultExists(true)
           setCloudSyncStatus('idle')
           return {
@@ -371,6 +372,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             localPlatformCount: localCounts.platformCount,
             localLocalItemCount: localCounts.localItemCount,
             localLocalCategoryCount: localCounts.localCategoryCount,
+            diffResult,
           }
         }
       }
@@ -400,10 +402,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, reportCloudError])
 
   const triggerCloudSync = useCallback(() => {
-    void uploadActiveProfileToCloud().catch((error) => {
+    void syncActiveProfileToCloud().then(result => {
+      // Si hay un download_available y estamos en triggerCloudSync (auto-push), 
+      // no sobreescribimos y en su lugar notificamos de conflicto en la UI mediante un return
+      if (result.action === 'download_available') {
+        setHasUnsyncedChanges(true)
+      } else if (result.action === 'uploaded' || result.action === 'idle') {
+        setHasUnsyncedChanges(false)
+      }
+    }).catch((error) => {
       logUnexpectedError('Fallo silencioso en background sync', error)
+      setHasUnsyncedChanges(true)
     })
-  }, [uploadActiveProfileToCloud])
+  }, [syncActiveProfileToCloud])
 
   const saveIdentity = useCallback(
     async (identity: Identity) => {
@@ -413,6 +424,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const updated = { ...identity, updatedAt: new Date().toISOString() }
         await storeRef.current.saveIdentity(currentProfileId, updated)
         await refreshVaultData()
+        setHasUnsyncedChanges(true)
         triggerCloudSync()
       } catch (error) {
         reportAppError(error, 'No se pudo guardar la identidad.')
@@ -431,6 +443,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const identity = createIdentity(email)
       await storeRef.current.saveIdentity(currentProfileId, identity)
       await refreshVaultData()
+      setHasUnsyncedChanges(true)
       triggerCloudSync()
       return identity
     },
@@ -442,6 +455,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!currentProfileId) return
       await storeRef.current.deleteIdentity(currentProfileId, identityId)
       await refreshVaultData()
+      setHasUnsyncedChanges(true)
       triggerCloudSync()
     },
     [currentProfileId, refreshVaultData, triggerCloudSync],
@@ -455,6 +469,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         ...identity,
         platforms: [...identity.platforms, { ...platform, updatedAt: new Date().toISOString() }],
       })
+      setHasUnsyncedChanges(true)
+      triggerCloudSync()
     },
     [identities, saveIdentity],
   )
@@ -469,6 +485,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           item.id === platformId ? { ...platform, updatedAt: new Date().toISOString() } : item,
         ),
       })
+      setHasUnsyncedChanges(true)
+      triggerCloudSync()
     },
     [identities, saveIdentity],
   )
@@ -481,6 +499,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         ...identity,
         platforms: identity.platforms.filter((item) => item.id !== platformId),
       })
+      setHasUnsyncedChanges(true)
+      triggerCloudSync()
     },
     [identities, saveIdentity],
   )
@@ -528,6 +548,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       try {
         await storeRef.current.saveLocalItem(currentProfileId, normalizeLocalVaultItem(item))
         await refreshVaultData()
+        setHasUnsyncedChanges(true)
         triggerCloudSync()
       } catch (error) {
         reportAppError(error, 'No se pudo guardar el secreto local.')
@@ -543,6 +564,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       try {
         await storeRef.current.deleteLocalItem(currentProfileId, itemId)
         await refreshVaultData()
+        setHasUnsyncedChanges(true)
         triggerCloudSync()
       } catch (error) {
         reportAppError(error, 'No se pudo eliminar el secreto local.')
@@ -901,6 +923,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudUserEmail,
       cloudSyncStatus,
       cloudVaultExists,
+      hasUnsyncedChanges,
       loginWithGoogleCloud,
       logoutCloud,
       syncActiveProfileToCloud,
