@@ -4,7 +4,7 @@ import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
-import { LOCAL_ITEM_LABELS } from '../utils/vaultItem'
+import { LOCAL_ITEM_LABELS, PRESET_LOCAL_CATEGORIES, normalizeLocalCategory } from '../utils/vaultItem'
 import { PlatformLogo } from './ui/PlatformLogo'
 
 interface SidebarProps {
@@ -33,8 +33,6 @@ interface SidebarProps {
   onInstall?: () => void
 }
 
-const CUSTOM_CATEGORIES_STORAGE_KEY = 'contras.customLocalCategories.v1'
-
 export function Sidebar({
   identities,
   localItems,
@@ -59,7 +57,7 @@ export function Sidebar({
   installPromptAvailable = false,
   onInstall,
 }: SidebarProps) {
-  const { cloudUserEmail, cloudSyncStatus } = useVault()
+  const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
   const [showAddForm, setShowAddForm] = useState(false)
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [sidebarError, setSidebarError] = useState<string | null>(null)
@@ -67,16 +65,6 @@ export function Sidebar({
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
-  const [customLocalCategories, setCustomLocalCategories] = useState<LocalCategory[]>(() => {
-    if (typeof window === 'undefined') return []
-    try {
-      const stored = window.localStorage.getItem(CUSTOM_CATEGORIES_STORAGE_KEY)
-      if (!stored) return []
-      return (JSON.parse(stored) as LocalCategory[]).filter((item) => item.custom && item.id && item.label && item.type)
-    } catch {
-      return []
-    }
-  })
   const query = searchQuery.trim().toLowerCase()
   const cloudIdentities = identities.filter((identity) => identity.email !== LOCAL_IDENTITY_EMAIL)
   const visibleIdentities = query
@@ -106,11 +94,6 @@ export function Sidebar({
     }
   }, [])
 
-  useEffect(() => {
-    if (typeof window === 'undefined') return
-    window.localStorage.setItem(CUSTOM_CATEGORIES_STORAGE_KEY, JSON.stringify(customLocalCategories))
-  }, [customLocalCategories])
-
   const categoriesFromItems = localItems.reduce<LocalCategory[]>((categories, item) => {
     const id = item.categoryId ?? item.type
     if (id === item.type || categories.some((category) => category.id === id)) return categories
@@ -132,28 +115,34 @@ export function Sidebar({
       type,
       custom: false,
     })),
-    ...customLocalCategories,
+    ...PRESET_LOCAL_CATEGORIES,
+    ...localCategories,
     ...categoriesFromItems.filter(
-      (fromItem) => !customLocalCategories.some((custom) => custom.id === fromItem.id),
+      (fromItem) =>
+        !localCategories.some((custom) => custom.id === fromItem.id) &&
+        !PRESET_LOCAL_CATEGORIES.some((preset) => preset.id === fromItem.id),
     ),
   ]
 
-  const handleAddLocalCategory = () => {
+  const handleAddLocalCategory = async () => {
     const label = window.prompt('Nombre de la nueva categoría local')
     const cleanLabel = label?.trim()
     if (!cleanLabel) return
 
-    setCustomLocalCategories((categories) => [
-      ...categories,
-      {
+    try {
+      const category = normalizeLocalCategory({
         id: `custom-${crypto.randomUUID()}`,
         label: cleanLabel,
         type: 'SECURE_NOTE',
         custom: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-      },
-    ])
+      })
+      await saveLocalCategory(category)
+      onSelectLocalCategory(category)
+    } catch (error) {
+      setSidebarError(getFriendlyErrorMessage(error, 'No se pudo crear la sección local.'))
+    }
   }
 
   useEffect(() => {
@@ -434,7 +423,7 @@ export function Sidebar({
             </span>
             <button
               type="button"
-              onClick={handleAddLocalCategory}
+              onClick={() => void handleAddLocalCategory()}
               className="rounded-lg border border-black/5 bg-white px-2 py-1 text-[10px] font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
             >
               + Nueva Categoría

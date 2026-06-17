@@ -1,15 +1,16 @@
 import { CryptoVault } from '../crypto/CryptoVault'
 import { base64ToBytes, bytesToBase64, stringToBytes, bytesToString } from '../crypto/encoding'
 import type { EncryptedPayload, RecoveryBundle } from '../crypto/types'
-import type { Identity, LocalVaultItem } from '../types'
+import type { Identity, LocalCategory, LocalVaultItem } from '../types'
 import { getVaultDb } from './vaultDb'
 import { generateId } from '../utils/id'
 import { identityMatchesEmail, normalizeIdentityRecord } from '../utils/identity'
-import { normalizeUnknownLocalVaultItem } from '../utils/vaultItem'
+import { normalizeLocalCategory, normalizeUnknownLocalVaultItem } from '../utils/vaultItem'
 
 const VAULT_META_KEY = 'vault' as const
 const VAULT_VERIFICATION_MARKER = { marker: 'contras-vault-v1' } as const
 const LOCAL_ITEM_KEY_SEGMENT = '_item_'
+const LOCAL_CATEGORY_KEY_SEGMENT = '_category_'
 
 /**
  * @interface ProfileRecord
@@ -178,9 +179,10 @@ export class VaultStore {
     const unlocked = await this.unlockProfile(profileId, currentPassword)
     if (!unlocked) throw new Error('No se pudo validar la clave actual recuperada.')
 
-    const [identities, localItems] = await Promise.all([
+    const [identities, localItems, localCategories] = await Promise.all([
       this.loadAllIdentities(profileId),
       this.loadLocalItems(profileId),
+      this.loadLocalCategories(profileId),
     ])
     const { metadata, encryptedPayload } = await CryptoVault.createEncryptedVault(
       nextPassword,
@@ -202,6 +204,9 @@ export class VaultStore {
     await this.saveMultipleIdentities(profileId, identities)
     for (const item of localItems) {
       await this.saveLocalItem(profileId, item)
+    }
+    for (const category of localCategories) {
+      await this.saveLocalCategory(profileId, category)
     }
   }
 
@@ -247,7 +252,11 @@ export class VaultStore {
 
     const payloads: EncryptedPayload[] = []
     for (const key of allKeys) {
-      if (key.startsWith(prefix) && !key.includes(LOCAL_ITEM_KEY_SEGMENT)) {
+      if (
+        key.startsWith(prefix) &&
+        !key.includes(LOCAL_ITEM_KEY_SEGMENT) &&
+        !key.includes(LOCAL_CATEGORY_KEY_SEGMENT)
+      ) {
         const payload = await tx.store.get(key)
         if (payload) {
           payloads.push(payload)
@@ -297,6 +306,41 @@ export class VaultStore {
     }
 
     return items.sort((a, b) => a.title.localeCompare(b.title))
+  }
+
+  async loadLocalCategories(profileId: string): Promise<LocalCategory[]> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para leer secciones locales.')
+    }
+
+    const db = await getVaultDb()
+    const tx = db.transaction('platforms', 'readonly')
+    const allKeys = await tx.store.getAllKeys()
+    const prefix = `${profileId}${LOCAL_CATEGORY_KEY_SEGMENT}`
+
+    const payloads: EncryptedPayload[] = []
+    for (const key of allKeys) {
+      if (key.startsWith(prefix)) {
+        const payload = await tx.store.get(key)
+        if (payload) payloads.push(payload)
+      }
+    }
+    await tx.done
+
+    const categories: LocalCategory[] = []
+    for (const payload of payloads) {
+      const value = await this.vault.decryptJson<unknown>(payload)
+      if (
+        typeof value === 'object' &&
+        value !== null &&
+        typeof (value as LocalCategory).id === 'string' &&
+        typeof (value as LocalCategory).label === 'string'
+      ) {
+        categories.push(normalizeLocalCategory(value as LocalCategory))
+      }
+    }
+
+    return categories.sort((a, b) => a.label.localeCompare(b.label))
   }
 
   /**
@@ -358,6 +402,17 @@ export class VaultStore {
   async deleteLocalItem(profileId: string, itemId: string): Promise<void> {
     const db = await getVaultDb()
     await db.delete('platforms', `${profileId}${LOCAL_ITEM_KEY_SEGMENT}${itemId}`)
+  }
+
+  async saveLocalCategory(profileId: string, category: LocalCategory): Promise<void> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para guardar secciones.')
+    }
+
+    const normalized = normalizeLocalCategory(category)
+    const encrypted: EncryptedPayload = await this.vault.encryptJson(normalized)
+    const db = await getVaultDb()
+    await db.put('platforms', encrypted, `${profileId}${LOCAL_CATEGORY_KEY_SEGMENT}${normalized.id}`)
   }
 
   /**
@@ -676,6 +731,7 @@ export class VaultStore {
     identityCount: number
     platformCount: number
     localItemCount: number
+    localCategoryCount: number
   }> {
     if (!this.vault.isUnlocked()) {
       throw new Error('La bóveda debe estar desbloqueada para inspeccionar la nube.')
@@ -700,9 +756,14 @@ export class VaultStore {
     let identityCount = 0
     let platformCount = 0
     let localItemCount = 0
+    let localCategoryCount = 0
     for (const record of importedRecords) {
       if (typeof record?.id === 'string' && record.id.startsWith(LOCAL_ITEM_KEY_SEGMENT.slice(1))) {
         localItemCount += 1
+        continue
+      }
+      if (typeof record?.id === 'string' && record.id.startsWith(LOCAL_CATEGORY_KEY_SEGMENT.slice(1))) {
+        localCategoryCount += 1
         continue
       }
 
@@ -711,7 +772,7 @@ export class VaultStore {
       platformCount += identity.platforms.length
     }
 
-    return { identityCount, platformCount, localItemCount }
+    return { identityCount, platformCount, localItemCount, localCategoryCount }
   }
 
   async recoverMasterPasswordFromCloudPayload(payloadJson: string, recoveryPhrase: string): Promise<string> {

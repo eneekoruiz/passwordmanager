@@ -1,4 +1,5 @@
 import type {
+  LocalCategory,
   LocalVaultItem,
   LocalVaultItemType,
   VaultItem,
@@ -15,6 +16,26 @@ export const LOCAL_ITEM_LABELS: Record<LocalVaultItemType, string> = {
   SOFTWARE_LICENSE: 'Licencias',
   FINANCE: 'Finanzas',
   SECURE_NOTE: 'Notas seguras',
+}
+
+export const PRESET_LOCAL_CATEGORIES: LocalCategory[] = [
+  { id: 'preset-academic', label: 'Académico', type: 'SECURE_NOTE', custom: true },
+  { id: 'preset-work', label: 'Trabajo', type: 'SECURE_NOTE', custom: true },
+  { id: 'preset-personal', label: 'Personal', type: 'SECURE_NOTE', custom: true },
+  { id: 'preset-health', label: 'Salud', type: 'SECURE_NOTE', custom: true },
+  { id: 'preset-travel', label: 'Viajes', type: 'SECURE_NOTE', custom: true },
+]
+
+export function normalizeLocalCategory(category: LocalCategory): LocalCategory {
+  const now = nowIso()
+  return {
+    id: category.id,
+    label: category.label.trim(),
+    type: category.type || 'SECURE_NOTE',
+    custom: Boolean(category.custom),
+    createdAt: category.createdAt ?? now,
+    updatedAt: category.updatedAt ?? now,
+  }
 }
 
 export function createLocalVaultItem(

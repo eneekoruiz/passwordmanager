@@ -22,10 +22,10 @@ import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
 import { deleteVaultDb } from '../storage/vaultDb'
-import type { Identity, LocalVaultItem, Platform } from '../types'
+import type { Identity, LocalCategory, LocalVaultItem, Platform } from '../types'
 import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
-import { normalizeLocalVaultItem } from '../utils/vaultItem'
+import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
 
 interface VaultContextValue {
   isReady: boolean
@@ -33,6 +33,7 @@ interface VaultContextValue {
   isUnlocked: boolean
   identities: Identity[]
   localItems: LocalVaultItem[]
+  localCategories: LocalCategory[]
   profiles: { id: string; name: string; createdAt: string }[]
   currentProfileId: string | null
   currentProfileName: string | null
@@ -51,6 +52,7 @@ interface VaultContextValue {
   deletePlatform: (identityId: string, platformId: string) => Promise<void>
   saveLocalItem: (item: LocalVaultItem) => Promise<void>
   deleteLocalItem: (itemId: string) => Promise<void>
+  saveLocalCategory: (category: LocalCategory) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   verifyCurrentMasterPassword: (masterPassword: string) => Promise<boolean>
   changeCurrentMasterPassword: (currentPassword: string, nextPassword: string, recoveryPhrase: string) => Promise<void>
@@ -80,9 +82,11 @@ export interface CloudSyncResult {
   cloudIdentityCount?: number
   cloudPlatformCount?: number
   cloudLocalItemCount?: number
+  cloudLocalCategoryCount?: number
   localIdentityCount?: number
   localPlatformCount?: number
   localLocalItemCount?: number
+  localLocalCategoryCount?: number
 }
 
 const VaultContext = createContext<VaultContextValue | null>(null)
@@ -109,6 +113,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [isUnlocked, setIsUnlocked] = useState(false)
   const [identities, setIdentities] = useState<Identity[]>([])
   const [localItems, setLocalItems] = useState<LocalVaultItem[]>([])
+  const [localCategories, setLocalCategories] = useState<LocalCategory[]>([])
   const [profiles, setProfiles] = useState<{ id: string; name: string; createdAt: string }[]>([])
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
@@ -149,28 +154,33 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (!currentProfileId) return
 
     try {
-      const [loadedIdentities, loadedLocalItems] = await Promise.all([
+      const [loadedIdentities, loadedLocalItems, loadedLocalCategories] = await Promise.all([
         storeRef.current.loadAllIdentities(currentProfileId),
         storeRef.current.loadLocalItems(currentProfileId),
+        storeRef.current.loadLocalCategories(currentProfileId),
       ])
       setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
       setLocalItems(loadedLocalItems)
+      setLocalCategories(loadedLocalCategories)
       setAppError(null)
     } catch (error) {
       setIdentities([])
       setLocalItems([])
+      setLocalCategories([])
       reportAppError(error, 'No se pudieron cargar los secretos guardados.')
       throw error
     }
   }, [currentProfileId, reportAppError])
 
   const loadVaultDataForProfile = useCallback(async (profileId: string) => {
-    const [loadedIdentities, loadedLocalItems] = await Promise.all([
+    const [loadedIdentities, loadedLocalItems, loadedLocalCategories] = await Promise.all([
       storeRef.current.loadAllIdentities(profileId),
       storeRef.current.loadLocalItems(profileId),
+      storeRef.current.loadLocalCategories(profileId),
     ])
     setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
     setLocalItems(loadedLocalItems)
+    setLocalCategories(loadedLocalCategories)
   }, [])
 
   useEffect(() => {
@@ -223,6 +233,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setCurrentProfileName(null)
     setIdentities([])
     setLocalItems([])
+    setLocalCategories([])
     setAppError(null)
   }, [])
 
@@ -234,19 +245,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         ...identity.platforms.flatMap((platform) => [platform.updatedAt, platform.createdAt]),
       ]),
       ...localItems.flatMap((item) => [item.updatedAt, item.createdAt]),
+      ...localCategories.flatMap((category) => [category.updatedAt ?? '', category.createdAt ?? '']),
     ].filter(Boolean)
 
     return timestamps.reduce((latest, value) => {
       const time = Date.parse(value)
       return Number.isFinite(time) ? Math.max(latest, time) : latest
     }, 0)
-  }, [identities, localItems])
+  }, [identities, localCategories, localItems])
 
   const getLocalVaultCounts = useCallback(() => ({
     identityCount: identities.length,
     platformCount: identities.reduce((total, identity) => total + identity.platforms.length, 0),
     localItemCount: localItems.length,
-  }), [identities, localItems])
+    localCategoryCount: localCategories.length,
+  }), [identities, localCategories, localItems])
 
   const uploadActiveProfileToCloud = useCallback(async () => {
     const user = firebaseUserRef.current
@@ -306,6 +319,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         cloudIdentityCount: cloudSummary.identityCount,
         cloudPlatformCount: cloudSummary.platformCount,
         cloudLocalItemCount: cloudSummary.localItemCount,
+        cloudLocalCategoryCount: cloudSummary.localCategoryCount,
       }
     } catch (error) {
       logUnexpectedError('Error al descargar desde Firebase', error)
@@ -334,21 +348,40 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const localUpdatedAt = getLocalVaultUpdatedAt()
       const localCounts = getLocalVaultCounts()
 
-      if (snapshot.exists() && cloudBlob && cloudUpdatedAt > localUpdatedAt + 1000) {
+      if (snapshot.exists() && cloudBlob) {
         const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
-        setCloudVaultExists(true)
-        setCloudSyncStatus('idle')
-        return {
-          action: 'download_available',
-          message: `Detectadas ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} en la nube. Puedes descargarlas ahora sin perder visibilidad del origen.`,
-          cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
-          localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
-          cloudIdentityCount: cloudSummary.identityCount,
-          cloudPlatformCount: cloudSummary.platformCount,
-          cloudLocalItemCount: cloudSummary.localItemCount,
-          localIdentityCount: localCounts.identityCount,
-          localPlatformCount: localCounts.platformCount,
-          localLocalItemCount: localCounts.localItemCount,
+        const localHasVaultData =
+          localCounts.platformCount > 0 ||
+          localCounts.localItemCount > 0 ||
+          localCounts.localCategoryCount > 0
+        const cloudHasVaultData =
+          cloudSummary.platformCount > 0 ||
+          cloudSummary.localItemCount > 0 ||
+          cloudSummary.localCategoryCount > 0
+        const cloudLooksNewer = cloudUpdatedAt > localUpdatedAt + 1000
+        const localLooksEmpty = !localHasVaultData && cloudHasVaultData
+        const cloudHasMoreData =
+          cloudSummary.platformCount > localCounts.platformCount ||
+          cloudSummary.localItemCount > localCounts.localItemCount ||
+          cloudSummary.localCategoryCount > localCounts.localCategoryCount
+
+        if (cloudLooksNewer || localLooksEmpty || cloudHasMoreData) {
+          setCloudVaultExists(true)
+          setCloudSyncStatus('idle')
+          return {
+            action: 'download_available',
+            message: `Detectadas ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''}, ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} y ${cloudSummary.localCategoryCount} sección${cloudSummary.localCategoryCount !== 1 ? 'es' : ''} en la nube. Descárgalas para traer al dispositivo lo que guardaste en otro sitio.`,
+            cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
+            localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
+            cloudIdentityCount: cloudSummary.identityCount,
+            cloudPlatformCount: cloudSummary.platformCount,
+            cloudLocalItemCount: cloudSummary.localItemCount,
+            cloudLocalCategoryCount: cloudSummary.localCategoryCount,
+            localIdentityCount: localCounts.identityCount,
+            localPlatformCount: localCounts.platformCount,
+            localLocalItemCount: localCounts.localItemCount,
+            localLocalCategoryCount: localCounts.localCategoryCount,
+          }
         }
       }
 
@@ -361,11 +394,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCloudSyncStatus('synced')
       return {
         action: 'uploaded',
-        message: `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''} y ${localCounts.localItemCount} secreto${localCounts.localItemCount !== 1 ? 's' : ''} local${localCounts.localItemCount !== 1 ? 'es' : ''} protegidos.`,
+        message: `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''}, ${localCounts.localItemCount} secreto${localCounts.localItemCount !== 1 ? 's' : ''} local${localCounts.localItemCount !== 1 ? 'es' : ''} y ${localCounts.localCategoryCount} sección${localCounts.localCategoryCount !== 1 ? 'es' : ''} protegidos.`,
         localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
         localIdentityCount: localCounts.identityCount,
         localPlatformCount: localCounts.platformCount,
         localLocalItemCount: localCounts.localItemCount,
+        localLocalCategoryCount: localCounts.localCategoryCount,
       }
     } catch (error) {
       logUnexpectedError('Error al sincronizar con Firebase', error)
@@ -528,6 +562,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
   )
 
+  const saveLocalCategory = useCallback(
+    async (category: LocalCategory) => {
+      if (!currentProfileId) return
+      try {
+        await storeRef.current.saveLocalCategory(currentProfileId, normalizeLocalCategory(category))
+        await refreshVaultData()
+        triggerCloudSync()
+      } catch (error) {
+        reportAppError(error, 'No se pudo guardar la sección local.')
+        throw error
+      }
+    },
+    [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
+  )
+
   const loginWithGoogleCloud = useCallback(async () => {
     setCloudError(null)
     setCloudSyncStatus('syncing')
@@ -621,6 +670,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setIsUnlocked(true)
         setIdentities([localIdentity])
         setLocalItems([])
+        setLocalCategories([])
 
         const encryptedBlob = await storeRef.current.exportCloudPayload(profileId)
         await setDoc(doc(dbClient, 'vaults', user.uid), {
@@ -745,6 +795,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCurrentProfileName(null)
       setIdentities([])
       setLocalItems([])
+      setLocalCategories([])
       setProfiles([])
       setIsInitialized(false)
       setAppError(null)
@@ -844,6 +895,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isUnlocked,
       identities,
       localItems,
+      localCategories,
       profiles,
       currentProfileId,
       currentProfileName,
@@ -862,6 +914,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       deletePlatform,
       saveLocalItem,
       deleteLocalItem,
+      saveLocalCategory,
       exportBackup,
       verifyCurrentMasterPassword,
       changeCurrentMasterPassword,
@@ -911,6 +964,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isReady,
       isUnlocked,
       localItems,
+      localCategories,
       listProfiles,
       loginWithGoogleCloud,
       logoutCloud,
@@ -922,6 +976,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       nukeAccount,
       saveIdentity,
       saveLocalItem,
+      saveLocalCategory,
       selectProfile,
       syncActiveProfileToCloud,
       unlockOrRestoreVault,
