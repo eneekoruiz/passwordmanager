@@ -45,27 +45,27 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
   }
 
   return (
-    <div className="rounded-2xl border border-black/5 bg-white p-4 shadow-[0_2px_12px_rgba(0,0,0,0.01)] hover:shadow-md transition-all duration-200 flex flex-col gap-3">
+    <div className="flex flex-col gap-3 rounded-[24px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/90 p-4 shadow-[0_18px_44px_rgba(15,23,42,0.05)] transition-all duration-200 hover:-translate-y-0.5 hover:shadow-[0_24px_60px_rgba(15,23,42,0.08)]">
       <div className="flex items-start justify-between gap-3">
         <div className="flex-1 space-y-1">
-          {/* Input para Nombre (Negrita) */}
+          <span className="inline-flex rounded-full border border-black/5 bg-white px-2 py-1 text-[10px] font-bold uppercase tracking-[0.16em] text-text-tertiary">
+            API Key
+          </span>
           <input
             type="text"
             value={keyEntry.nombre}
             onChange={(e) => updateApiKey(keyEntry.id, 'nombre', e.target.value)}
-            placeholder="Nombre de la API Key"
-            className="w-full bg-transparent font-bold text-xs text-text-primary placeholder:text-text-tertiary outline-none border-b border-transparent focus:border-border-subtle pb-0.5"
+            placeholder="Nombre visible"
+            className="w-full border-b border-transparent bg-transparent pb-0.5 text-sm font-bold text-text-primary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
           />
-          {/* Input para Descripción (Gris sutil) */}
           <input
             type="text"
             value={keyEntry.descripcion}
             onChange={(e) => updateApiKey(keyEntry.id, 'descripcion', e.target.value)}
-            placeholder="Añade una descripción breve..."
-            className="w-full bg-transparent text-[10px] text-text-secondary placeholder:text-text-tertiary outline-none border-b border-transparent focus:border-border-subtle pb-0.5"
+            placeholder="Entorno, alcance o proyecto"
+            className="w-full border-b border-transparent bg-transparent pb-0.5 text-[11px] text-text-secondary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
           />
         </div>
-        {/* Botón Eliminar Key */}
         <button
           type="button"
           onClick={() => removeApiKey(keyEntry.id)}
@@ -78,46 +78,34 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
         </button>
       </div>
 
-      {/* Input para Valor (Oculto por defecto con botones rápidos) */}
-      <div className="relative rounded-xl border border-black/[0.03] bg-surface/85 px-3 py-2 flex items-center gap-2">
+      <div className="relative flex items-center gap-2 rounded-2xl border border-black/[0.05] bg-white/90 px-3 py-3">
         <input
           type={visible ? 'text' : 'password'}
           value={keyEntry.valor}
           onChange={(e) => updateApiKey(keyEntry.id, 'valor', e.target.value)}
-          placeholder="Clave API (ej. sk-...)"
-          className="w-full bg-transparent text-[11px] font-mono text-text-primary outline-none pr-16"
+          placeholder="Clave secreta (ej. sk-...)"
+          className="w-full bg-transparent pr-24 text-xs font-mono text-text-primary outline-none"
         />
-        <div className="absolute right-1.5 top-1/2 -translate-y-1/2 flex items-center gap-0.5">
+        <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           <button
             type="button"
             onClick={() => setVisible(!visible)}
-            className="rounded-md p-1 text-text-tertiary transition-colors hover:text-text-secondary active:scale-95"
+            className="rounded-lg border border-black/5 bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary active:scale-95"
             aria-label={visible ? 'Ocultar' : 'Mostrar'}
           >
-            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              {visible ? (
-                <path strokeLinecap="round" strokeLinejoin="round" d="M3.98 8.223A10.477 10.477 0 001.934 12C3.226 16.338 7.244 19.5 12 19.5c.993 0 1.953-.138 2.863-.395M6.228 6.228A10.45 10.45 0 0112 4.5c4.756 0 8.773 3.162 10.065 7.498a10.523 10.523 0 01-4.293 5.774M6.228 6.228L3 3m3.228 3.228l3.65 3.65m7.894 7.894L21 21m-3.228-3.228l-3.65-3.65m0 0a3 3 0 10-4.243-4.243m4.242 4.242L9.88 9.88" />
-              ) : (
-                <>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-                </>
-              )}
-            </svg>
+            {visible ? 'Ocultar' : 'Mostrar'}
           </button>
           <button
             type="button"
             onClick={handleCopy}
             disabled={!keyEntry.valor}
-            className="rounded-md p-1 text-text-tertiary transition-colors hover:text-text-secondary active:scale-95 disabled:opacity-45"
+            className="rounded-lg border border-black/5 bg-surface px-2.5 py-1.5 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary active:scale-95 disabled:opacity-45"
             aria-label="Copiar"
           >
             {copied ? (
-              <span className="text-[9px] text-green-600 font-bold px-1 select-none animate-fade-in">Copied</span>
+              <span className="select-none px-1 text-[10px] font-bold text-green-600 animate-fade-in">Copiado</span>
             ) : (
-              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M8 5H6a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2v-1M8 5a2 2 0 002 2h2a2 2 0 002-2M8 5a2 2 0 002-2M8 5a2 2 0 012-2h2a2 2 0 012 2m0 0h2a2 2 0 012 2v3m2 4H10m0 0l3-3m-3 3l3 3" />
-              </svg>
+              'Copiar'
             )}
           </button>
         </div>
@@ -177,6 +165,72 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
           {revealed ? value : '••••••••••••'}
         </div>
       )}
+    </div>
+  )
+}
+
+function SecuritySummaryCard({
+  eyebrow,
+  title,
+  description,
+  secret,
+  actionLabel,
+}: {
+  eyebrow: string
+  title: string
+  description: string
+  secret?: string | null
+  actionLabel: string
+}) {
+  const [revealed, setRevealed] = useState(false)
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = async () => {
+    if (!secret) return
+    const ok = await copyToClipboard(secret)
+    if (ok) {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    }
+  }
+
+  return (
+    <div className="rounded-[22px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/90 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">{eyebrow}</p>
+          <h4 className="mt-1 truncate text-sm font-semibold text-text-primary">{title}</h4>
+          <p className="mt-1 text-xs leading-relaxed text-text-secondary">{description}</p>
+        </div>
+        <span className="rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">
+          {actionLabel}
+        </span>
+      </div>
+      {secret ? (
+        <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/90 p-3">
+          <div className="flex items-center justify-between gap-3">
+            <div className="min-w-0 flex-1">
+              <p className="truncate font-mono text-xs text-text-primary">{revealed ? secret : '••••••••••••••••'}</p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={() => setRevealed((value) => !value)}
+                className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+              >
+                {revealed ? 'Ocultar' : 'Mostrar'}
+              </button>
+              <button
+                type="button"
+                onClick={handleCopy}
+                className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
+              >
+                {copied ? 'Copiado' : 'Copiar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -574,17 +628,57 @@ export function AccountForm({
           {ssoMethod && <ReadOnlyField label={`Login con ${ssoMethod.provider}`} value={ssoMethod.email || identityEmail} />}
           {passkeyEnabled && <ReadOnlyField label="Biometría / Passkey" value="Activado" />}
           {magicLinkMethod && <ReadOnlyField label="Magic Link" value={magicLinkMethod.email || identityEmail} />}
-          {twoFactorDisplay(account.twoFactorAuth) && (
-            <ReadOnlyField label="2FA / Segundo Factor" value={twoFactorDisplay(account.twoFactorAuth)} isSecret={twoFactorConfig.type !== 'SMS'} />
-          )}
           {account.hardwareKey && <ReadOnlyField label="Llave Física (YubiKey)" value="Activada" />}
         </div>
 
-        {apiKeys.length > 0 && (
+        {(twoFactorDisplay(account.twoFactorAuth) || apiKeys.length > 0) && (
           <div className="space-y-3 pt-2">
-            <h3 className="text-xs font-bold text-text-tertiary px-1 uppercase tracking-wider">API Keys</h3>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              {apiKeys.map(key => <ReadOnlyField key={key.id} label={`API Key: ${key.nombre}`} value={key.valor} isSecret />)}
+            <div className="px-1">
+              <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary">Seguridad avanzada</h3>
+              <p className="mt-1 text-xs text-text-secondary">Los factores extra y secretos técnicos se presentan como activos protegidos, más claros y más fáciles de revisar.</p>
+            </div>
+            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+              {twoFactorDisplay(account.twoFactorAuth) && (
+                <SecuritySummaryCard
+                  eyebrow="2FA"
+                  title={twoFactorConfig.type === 'TOTP' ? (twoFactorConfig.authenticatorApp || 'Authenticator configurado') : twoFactorDisplay(account.twoFactorAuth) || 'Segundo factor'}
+                  description={
+                    twoFactorConfig.type === 'TOTP'
+                      ? 'La app de autenticación y su clave manual quedan agrupadas en una ficha segura y legible.'
+                      : twoFactorConfig.type === 'SMS'
+                        ? 'El segundo factor depende del teléfono vinculado a esta cuenta.'
+                        : 'Protección adicional guardada junto a la plataforma.'
+                  }
+                  secret={twoFactorConfig.type === 'TOTP' ? twoFactorConfig.secret : twoFactorConfig.type === 'PIN' ? twoFactorConfig.pin : null}
+                  actionLabel={twoFactorConfig.type === 'TOTP' ? 'Authenticator' : 'Protegido'}
+                />
+              )}
+              {apiKeys.length > 0 && (
+                <div className="space-y-3 rounded-[24px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/90 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">API Keys</p>
+                      <h4 className="mt-1 text-sm font-semibold text-text-primary">Credenciales técnicas cifradas</h4>
+                      <p className="mt-1 text-xs leading-relaxed text-text-secondary">Cada clave queda descrita y protegida como un secreto independiente para no perder contexto.</p>
+                    </div>
+                    <span className="rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">
+                      {apiKeys.length} activas
+                    </span>
+                  </div>
+                  <div className="space-y-3">
+                    {apiKeys.map((key) => (
+                      <SecuritySummaryCard
+                        key={key.id}
+                        eyebrow="API"
+                        title={key.nombre || 'Clave sin nombre'}
+                        description={key.descripcion || 'Sin descripción añadida todavía.'}
+                        secret={key.valor}
+                        actionLabel="Secreta"
+                      />
+                    ))}
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
@@ -800,18 +894,26 @@ export function AccountForm({
             placeholder="+34 600 000 000"
             autoComplete="off"
           />
-          <label className="block">
-            <span className="mb-1.5 block text-sm font-semibold text-text-secondary">2FA / Segundo factor</span>
+          <div className="rounded-[22px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/85 p-4 sm:col-span-2">
+            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
+              <div>
+                <span className="block text-sm font-semibold text-text-secondary">2FA / Segundo factor</span>
+                <p className="mt-1 text-xs leading-relaxed text-text-tertiary">Agrupa aquí tu app de autenticación, PIN o SMS de respaldo con una presentación más limpia y profesional.</p>
+              </div>
+              <span className="inline-flex w-fit rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">
+                {TWO_FACTOR_LABELS[twoFactorConfig.type]}
+              </span>
+            </div>
             <select
               value={twoFactorConfig.type}
               onChange={(event) => updateTwoFactorType(event.target.value as TwoFactorType)}
-              className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-base text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.025)] outline-none transition-all duration-150 focus:border-black/15 focus:bg-white focus:ring-2 focus:ring-black/[0.035]"
+              className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-white/90 px-3 py-2.5 text-base text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.025)] outline-none transition-all duration-150 focus:border-black/15 focus:bg-white focus:ring-2 focus:ring-black/[0.035]"
             >
               {(['NONE', 'PIN', 'TOTP', 'SMS'] as TwoFactorType[]).map((type) => (
                 <option key={type} value={type}>{TWO_FACTOR_LABELS[type]}</option>
               ))}
             </select>
-          </label>
+          </div>
         </div>
 
         <div className={`grid transition-all duration-200 ${twoFactorConfig.type === 'PIN' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
@@ -832,7 +934,19 @@ export function AccountForm({
         <div className={`grid transition-all duration-200 ${twoFactorConfig.type === 'TOTP' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
           <div className="overflow-hidden">
             {twoFactorConfig.type === 'TOTP' && (
-              <div className="mt-4 grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="mt-4 rounded-[22px] border border-emerald-100 bg-emerald-50/70 p-4">
+                <div className="mb-4 flex items-start gap-3">
+                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm">
+                    <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-text-primary">Authenticator configurado con respaldo manual</p>
+                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">Guarda la app que usas y la clave larga que entrega la web para poder restaurar el 2FA sin depender solo del QR.</p>
+                  </div>
+                </div>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <Combobox
                   label="¿Qué app de autenticación usas?"
                   value={twoFactorConfig.authenticatorApp ?? ''}
@@ -854,6 +968,7 @@ export function AccountForm({
                   </p>
                 </div>
               </div>
+              </div>
             )}
           </div>
         </div>
@@ -868,7 +983,7 @@ export function AccountForm({
       </section>
 
       <section className="rounded-2xl border border-black/[0.08] bg-slate-50/80 p-5 shadow-[0_12px_38px_rgba(15,23,42,0.04)]">
-        <Accordion title="Opciones Avanzadas / Desarrollador">
+        <Accordion title="Datos técnicos y seguridad">
           <div className="space-y-6 pt-3 pb-1">
             <div className="space-y-3">
               <div className="flex flex-col border-b border-border-subtle pb-2">

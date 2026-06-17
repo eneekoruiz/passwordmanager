@@ -20,6 +20,7 @@ interface MainAreaProps {
   onRequestNavigation: (action: () => void) => void
   onUnsavedStateChange: (dirty: boolean, actions: UnsavedFormActions | null) => void
   onSelectIdentity: (id: string | null) => void
+  onSelectPlatformName: (platformName: string) => void
   onSelectLocalCategory: (category: LocalCategory) => void
   onOpenImportText: () => void
   onAddPlatform: (identityId: string, platform: Platform) => Promise<void>
@@ -42,6 +43,11 @@ interface EditingPlatformContext {
   platform: Platform
 }
 
+interface PlatformQuickPick {
+  name: string
+  count: number
+}
+
 export function MainArea({
   identities,
   identity,
@@ -53,6 +59,7 @@ export function MainArea({
   onRequestNavigation,
   onUnsavedStateChange,
   onSelectIdentity,
+  onSelectPlatformName,
   onSelectLocalCategory,
   onOpenImportText,
   onAddPlatform,
@@ -94,6 +101,22 @@ export function MainArea({
 
   const selectedPlatformDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName
   const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
+  const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
+    const counts = new Map<string, number>()
+    identities.forEach((item) => {
+      item.platforms.forEach((platform) => {
+        const name = platform.name.trim()
+        if (!name) return
+        const existing = [...counts.keys()].find((key) => key.toLowerCase() === name.toLowerCase())
+        if (existing) counts.set(existing, (counts.get(existing) ?? 0) + 1)
+        else counts.set(name, 1)
+      })
+    })
+    return [...counts.entries()]
+      .map(([name, count]) => ({ name, count }))
+      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
+      .slice(0, 8)
+  }, [identities])
 
   if (!hasVaultSelection) {
     return (
@@ -114,24 +137,87 @@ export function MainArea({
           </header>
         )}
         <div className="flex flex-1 items-center justify-center px-6">
-          <div className="w-full max-w-2xl text-center">
-            <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">Tipo de Secreto</p>
-            <h2 className="mt-2 text-xl font-bold text-text-primary">Elige qué quieres guardar</h2>
-            <p className="mx-auto mt-2 max-w-md text-xs leading-relaxed text-text-secondary">
-              Las cuentas online se organizan por identidad. El resto vive en categorías locales cifradas.
-            </p>
-            <div className="mt-6 grid grid-cols-1 gap-3 sm:grid-cols-2">
-              {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => (
-                <button
-                  key={type}
-                  type="button"
-                  onClick={() => onSelectLocalCategory({ id: type, label: LOCAL_ITEM_LABELS[type], type, custom: false })}
-                  className="rounded-2xl border border-border-subtle bg-white p-5 text-left shadow-subtle transition-colors hover:bg-surface-hover"
-                >
-                  <span className="block text-sm font-bold text-text-primary">{LOCAL_ITEM_LABELS[type]}</span>
-                  <span className="mt-1 block text-xs text-text-secondary">Formulario dinámico con solo los campos necesarios.</span>
-                </button>
-              ))}
+          <div className="w-full max-w-5xl">
+            <div className="rounded-[28px] border border-black/[0.06] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92)_46%,_rgba(241,245,249,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-8">
+              <div className="grid gap-6 xl:grid-cols-[minmax(0,1.2fr)_minmax(320px,0.8fr)]">
+                <section className="space-y-5">
+                  <div>
+                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
+                      {groupMode === 'platform' ? 'Vista por plataforma' : 'Centro de bóveda'}
+                    </p>
+                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-text-primary">
+                      {groupMode === 'platform' ? 'Explora tus accesos con una vista visual' : 'Organiza cada secreto con una estructura clara'}
+                    </h2>
+                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
+                      {groupMode === 'platform'
+                        ? 'Selecciona una plataforma para ver todas las cuentas relacionadas, comparar accesos y entrar a editar sin perder contexto.'
+                        : 'Tus cuentas online viven por identidad y tus secretos locales en espacios privados pensados para notas, documentos y datos sensibles.'}
+                    </p>
+                  </div>
+
+                  {groupMode === 'platform' && featuredPlatforms.length > 0 ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {featuredPlatforms.map((platform, index) => (
+                        <button
+                          key={platform.name}
+                          type="button"
+                          onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
+                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
+                          style={{ animationDelay: `${index * 40}ms` }}
+                        >
+                          <PlatformLogo name={platform.name} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
+                          <span className="min-w-0 flex-1">
+                            <span className="block truncate text-sm font-semibold text-text-primary">{platform.name}</span>
+                            <span className="mt-1 block text-xs text-text-secondary">
+                              {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registradas
+                            </span>
+                          </span>
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary">
+                            Abrir
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  ) : (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => (
+                        <button
+                          key={type}
+                          type="button"
+                          onClick={() => onSelectLocalCategory({ id: type, label: LOCAL_ITEM_LABELS[type], type, custom: false })}
+                          className="rounded-2xl border border-black/[0.06] bg-white/80 p-5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
+                        >
+                          <span className="block text-sm font-bold text-text-primary">{LOCAL_ITEM_LABELS[type]}</span>
+                          <span className="mt-1 block text-xs leading-relaxed text-text-secondary">
+                            Espacio privado con una estructura optimizada para ese tipo de contenido.
+                          </span>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </section>
+
+                <aside className="rounded-[24px] border border-black/[0.06] bg-white/78 p-5 shadow-[0_16px_40px_rgba(15,23,42,0.05)]">
+                  <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">Secretos locales</p>
+                  <h3 className="mt-2 text-base font-semibold text-text-primary">Atajos privados y categorías flexibles</h3>
+                  <p className="mt-2 text-xs leading-relaxed text-text-secondary">
+                    Guarda información sensible que no depende de una plataforma concreta: notas seguras, tarjetas, Wi-Fi o tus propias categorías.
+                  </p>
+                  <div className="mt-4 space-y-2.5">
+                    {(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => (
+                      <button
+                        key={type}
+                        type="button"
+                        onClick={() => onSelectLocalCategory({ id: type, label: LOCAL_ITEM_LABELS[type], type, custom: false })}
+                        className="flex w-full items-center justify-between rounded-2xl border border-black/[0.05] bg-slate-50/85 px-4 py-3 text-left transition-colors hover:bg-slate-100"
+                      >
+                        <span className="text-sm font-semibold text-text-primary">{LOCAL_ITEM_LABELS[type]}</span>
+                        <span className="text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">Abrir</span>
+                      </button>
+                    ))}
+                  </div>
+                </aside>
+              </div>
             </div>
           </div>
         </div>

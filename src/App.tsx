@@ -655,6 +655,13 @@ function VaultApp() {
                   setSelectedLocalCategory(null)
                 })
               }}
+              onSelectPlatformName={(platformName) => {
+                requestNavigation(() => {
+                  setSelectedPlatformName(platformName)
+                  setSelectedId(null)
+                  setSelectedLocalCategory(null)
+                })
+              }}
               onSelectLocalCategory={handleSelectLocalCategory}
               onOpenImportText={() => setImportTextOpen(true)}
               onAddPlatform={addPlatform}
@@ -841,6 +848,13 @@ function VaultApp() {
               requestNavigation(() => {
                 setSelectedId(id)
                 setSelectedPlatformName(null)
+                setSelectedLocalCategory(null)
+              })
+            }}
+            onSelectPlatformName={(platformName) => {
+              requestNavigation(() => {
+                setSelectedPlatformName(platformName)
+                setSelectedId(null)
                 setSelectedLocalCategory(null)
               })
             }}

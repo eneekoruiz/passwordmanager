@@ -363,6 +363,30 @@ export function Sidebar({
                         <span className="block truncate text-[15px] font-semibold text-text-primary/95">
                           {identity.email}
                         </span>
+                        {identity.platforms.length > 0 ? (
+                          <span className="mt-2 flex items-center gap-2">
+                            <span className="flex -space-x-2">
+                              {identity.platforms.slice(0, 3).map((platform) => (
+                                <PlatformLogo
+                                  key={`${identity.id}-${platform.id}`}
+                                  name={platform.name}
+                                  className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
+                                />
+                              ))}
+                            </span>
+                            <span className="truncate text-[11px] font-medium text-text-tertiary">
+                              {identity.platforms
+                                .slice(0, 2)
+                                .map((platform) => platform.name)
+                                .join(' · ')}
+                              {identity.platforms.length > 2 ? ` +${identity.platforms.length - 2}` : ''}
+                            </span>
+                          </span>
+                        ) : (
+                          <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
+                            Aún no hay plataformas vinculadas
+                          </span>
+                        )}
                       </button>
                       <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
                         {identity.platforms.length}
@@ -417,7 +441,7 @@ export function Sidebar({
             </button>
           </div>
           <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
-            Carpetas personalizables para datos sin correo. Las nuevas usan notas seguras como plantilla flexible.
+            Espacios privados personalizables para notas, documentos, tarjetas o cualquier dato sensible que no dependa de una plataforma.
           </p>
           <ul className="space-y-0.5">
             {localCategoryOptions.map((category) => {
