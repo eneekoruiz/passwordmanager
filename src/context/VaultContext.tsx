@@ -28,6 +28,12 @@ import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../u
 import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
 import { useToast } from '../components/ui/ToastProvider'
 import { payloadsAreIdentical } from '../utils/hash'
+import {
+  isBiometricAvailable,
+  registerBiometricCredential,
+  unlockWithBiometrics,
+  type BiometricBundle,
+} from '../crypto/biometric'
 
 interface VaultContextValue {
   isReady: boolean
@@ -72,6 +78,12 @@ interface VaultContextValue {
   unlockOrRestoreVault: (masterPassword: string) => Promise<void>
   recoverVaultWithSeed: (recoveryPhrase: string, newMasterPassword: string) => Promise<void>
   nukeAccount: () => Promise<void>
+  // Biometric unlock
+  biometricAvailable: boolean
+  biometricRegistered: boolean
+  registerBiometricUnlock: () => Promise<void>
+  unlockWithBiometricSensor: () => Promise<void>
+  disableBiometricUnlock: () => Promise<void>
 }
 
 export interface CloudSyncResult {
@@ -122,8 +134,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false)
+  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricRegistered, setBiometricRegistered] = useState(false)
 
   const { showToast } = useToast()
+
+  // Check biometric availability on mount
+  useEffect(() => {
+    void isBiometricAvailable().then(setBiometricAvailable)
+  }, [])
 
   const reportAppError = useCallback((error: unknown, fallback: string) => {
     const message = getFriendlyErrorMessage(error, fallback)
@@ -717,6 +736,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setIsUnlocked(true)
           await loadVaultDataForProfile(profileId)
           setCloudSyncStatus('synced')
+          // Check if biometric is registered for this profile
+          void storeRef.current.hasBiometricBundle(profileId).then(setBiometricRegistered)
           return
         }
 
@@ -779,6 +800,37 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     },
     [listProfiles, loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile, triggerCloudSync],
   )
+
+  const registerBiometricUnlock = useCallback(async () => {
+    if (!currentProfileId || !cloudUserEmail) throw new Error('No hay un perfil activo.')
+    const bundle = await registerBiometricCredential(
+      // We need the master password - we get it from the vault by verifying again
+      // Actually, we need to keep it in a secure ephemeral ref during the session
+      // For now, we expose a simpler flow: user must re-type password once to register biometric
+      // This is handled in the UI: SettingsModal asks for password before calling this
+      (window as any).__contras_ephemeral_pw__ ?? '',
+      currentProfileId,
+      cloudUserEmail,
+    )
+    await storeRef.current.saveBiometricBundle(bundle)
+    setBiometricRegistered(true)
+    // Clean ephemeral password immediately
+    delete (window as any).__contras_ephemeral_pw__
+  }, [currentProfileId, cloudUserEmail])
+
+  const unlockWithBiometricSensor = useCallback(async () => {
+    const profileId = 'default'
+    const bundle = await storeRef.current.loadBiometricBundle(profileId)
+    if (!bundle) throw new Error('No hay credencial biométrica registrada.')
+    const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+    await unlockOrRestoreVault(masterPassword)
+  }, [unlockOrRestoreVault])
+
+  const disableBiometricUnlock = useCallback(async () => {
+    if (!currentProfileId) return
+    await storeRef.current.deleteBiometricBundle(currentProfileId)
+    setBiometricRegistered(false)
+  }, [currentProfileId])
 
   const nukeAccount = useCallback(async () => {
     setCloudSyncStatus('syncing')
@@ -934,6 +986,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       unlockOrRestoreVault,
       recoverVaultWithSeed,
       nukeAccount,
+      biometricAvailable,
+      biometricRegistered,
+      registerBiometricUnlock,
+      unlockWithBiometricSensor,
+      disableBiometricUnlock,
     }),
     [
       addIdentity,

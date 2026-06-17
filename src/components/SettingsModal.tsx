@@ -30,6 +30,10 @@ interface SettingsModalProps {
   onDisableTravelMode: (masterPassword: string) => Promise<void>
   onImport: (backupJsonString: string, masterPassword: string) => Promise<void>
   onOpenImportText: () => void
+  biometricAvailable?: boolean
+  biometricRegistered?: boolean
+  onRegisterBiometric?: (masterPassword: string) => Promise<void>
+  onDisableBiometric?: () => Promise<void>
 }
 
 /**
@@ -49,6 +53,10 @@ export function SettingsModal({
   onDisableTravelMode,
   onImport,
   onOpenImportText,
+  biometricAvailable = false,
+  biometricRegistered = false,
+  onRegisterBiometric,
+  onDisableBiometric,
 }: SettingsModalProps) {
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
@@ -77,7 +85,11 @@ export function SettingsModal({
   const [loadingPlaintextExport, setLoadingPlaintextExport] = useState(false)
   const [loadingPasswordChange, setLoadingPasswordChange] = useState(false)
   const [loadingTravelMode, setLoadingTravelMode] = useState(false)
-  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup'>('main')
+  const [loadingBiometric, setLoadingBiometric] = useState(false)
+  const [biometricPassword, setBiometricPassword] = useState('')
+  const [biometricMessage, setBiometricMessage] = useState<string | null>(null)
+  const [biometricError, setBiometricError] = useState<string | null>(null)
+  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric'>('main')
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -89,6 +101,7 @@ export function SettingsModal({
       setNextMasterPassword('')
       setRecoveryPhrase('')
       setTravelPassword('')
+      setBiometricPassword('')
       setBackupFile(null)
     }
   }, [])
@@ -274,6 +287,7 @@ export function SettingsModal({
     try {
       await onDisableTravelMode(travelPassword)
       setTravelPassword('')
+      setBiometricPassword('')
     } catch (error) {
       setTravelError(getFriendlyErrorMessage(error, 'No se pudo desactivar el Modo Viaje.'))
     } finally {
@@ -330,6 +344,7 @@ export function SettingsModal({
                 {view === 'exportPlaintext' && 'Exportar Texto Plano'}
                 {view === 'exportBackup' && 'Crear Copia de Seguridad'}
                 {view === 'importBackup' && 'Restaurar Copia'}
+                {view === 'biometric' && 'Biometría'}
               </h2>
               {view === 'main' && <p className="text-[10px] font-medium text-text-tertiary">Bóveda Cifrada Localmente</p>}
             </div>
@@ -375,6 +390,13 @@ export function SettingsModal({
                   subtitle="Cambia tu Contraseña Maestra local."
                   onClick={() => setView('credentials')}
                 />
+                {biometricAvailable && (
+                  <MenuItem
+                    title={biometricRegistered ? '🔒 Biometría Activada' : '🔓 Activar Biometría'}
+                    subtitle={biometricRegistered ? 'Face ID · Huella · Windows Hello activos.' : 'Desbloquea sin contraseña con tu sensor biométrico.'}
+                    onClick={() => { setBiometricMessage(null); setBiometricError(null); setBiometricPassword(''); setView('biometric') }}
+                  />
+                )}
                 
                 <div className="pt-2">
                   <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Importar y Exportar</h3>
@@ -413,6 +435,98 @@ export function SettingsModal({
                   </div>
                 </div>
               </div>
+            </div>
+          )}
+
+          {view === 'biometric' && (
+            <div className="space-y-4 animate-vault-morph">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                <p className="text-xs font-bold text-blue-900">¿Cómo funciona?</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-blue-800">
+                  Tu Contraseña Maestra se cifra con una clave derivada de tu sensor biométrico (Face ID, huella o Windows Hello) y se guarda <strong>solo en este dispositivo</strong>. Nunca sale de él.
+                </p>
+              </div>
+              {biometricRegistered ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-900">Biometría activa</p>
+                      <p className="text-[11px] text-emerald-700">Puedes desbloquear con tu sensor en este dispositivo.</p>
+                    </div>
+                  </div>
+                  {biometricMessage && <p className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800">{biometricMessage}</p>}
+                  {biometricError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{biometricError}</p>}
+                  <button
+                    type="button"
+                    disabled={loadingBiometric}
+                    onClick={async () => {
+                      setLoadingBiometric(true)
+                      setBiometricError(null)
+                      setBiometricMessage(null)
+                      try {
+                        await onDisableBiometric?.()
+                        setBiometricMessage('Biometría desactivada. Elimina el acceso biométrico de los ajustes del dispositivo si lo deseas.')
+                        setView('main')
+                      } catch (err) {
+                        setBiometricError(err instanceof Error ? err.message : 'Error al desactivar la biometría.')
+                      } finally {
+                        setLoadingBiometric(false)
+                      }
+                    }}
+                    className="flex w-full items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {loadingBiometric ? 'Desactivando...' : 'Desactivar biometría'}
+                  </button>
+                </div>
+              ) : (
+                <form
+                  className="space-y-3"
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    if (!biometricPassword) { setBiometricError('Introduce tu Contraseña Maestra para continuar.'); return }
+                    setLoadingBiometric(true)
+                    setBiometricError(null)
+                    setBiometricMessage(null)
+                    try {
+                      await onRegisterBiometric?.(biometricPassword)
+                      setBiometricPassword('')
+                      setBiometricMessage('¡Biometría activada! La próxima vez que abras la app, podrás desbloquear con tu sensor.')
+                      setView('main')
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : 'Error al activar la biometría.'
+                      setBiometricError(msg)
+                    } finally {
+                      setLoadingBiometric(false)
+                    }
+                  }}
+                >
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-text-tertiary">
+                      Confirma tu Contraseña Maestra
+                    </label>
+                    <input
+                      type="password"
+                      value={biometricPassword}
+                      onChange={(e) => setBiometricPassword(e.target.value)}
+                      placeholder="Contraseña Maestra"
+                      className="w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 focus:ring-2 focus:ring-black/[0.035]"
+                      autoComplete="current-password"
+                    />
+                    <p className="mt-1.5 text-[11px] text-text-tertiary">Solo se usa para cifrar tu clave en este dispositivo. No se guarda en ningún servidor.</p>
+                  </div>
+                  {biometricError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{biometricError}</p>}
+                  <button
+                    type="submit"
+                    disabled={loadingBiometric || !biometricPassword}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {loadingBiometric ? 'Registrando sensor...' : 'Activar con mi sensor biométrico'}
+                  </button>
+                </form>
+              )}
             </div>
           )}
 

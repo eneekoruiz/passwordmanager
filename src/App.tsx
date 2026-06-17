@@ -43,6 +43,10 @@ function VaultApp() {
     downloadLatestCloudVault,
     logoutProfile,
     hasUnsyncedChanges,
+    biometricAvailable,
+    biometricRegistered,
+    registerBiometricUnlock,
+    disableBiometricUnlock,
   } = useVault()
 
   const { showToast } = useToast()
@@ -275,6 +279,17 @@ function VaultApp() {
       setSelectedPlatformName(null)
       setSidebarOpen(false)
     })
+  }
+
+  const handleRegisterBiometric = async (masterPassword: string) => {
+    // Store ephemerally so the biometric module can access it
+    ;(window as any).__contras_ephemeral_pw__ = masterPassword
+    try {
+      await registerBiometricUnlock()
+      showToast('Biometría activada correctamente. Ya puedes desbloquear con tu sensor.', 'info')
+    } finally {
+      delete (window as any).__contras_ephemeral_pw__
+    }
   }
 
   const handleManualSync = async () => {
@@ -718,6 +733,10 @@ function VaultApp() {
           onDisableTravelMode={disableTravelMode}
           onImport={handleImportBackup}
           onOpenImportText={() => setImportTextOpen(true)}
+          biometricAvailable={biometricAvailable}
+          biometricRegistered={biometricRegistered}
+          onRegisterBiometric={handleRegisterBiometric}
+          onDisableBiometric={disableBiometricUnlock}
         />
 
         <ImportTextModal

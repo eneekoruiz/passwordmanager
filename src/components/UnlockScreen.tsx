@@ -1,6 +1,7 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
 import { PasswordField } from './ui/PasswordField'
+import { BiometricUnlockButton } from './ui/BiometricUnlockButton'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
 
@@ -66,6 +67,9 @@ export function UnlockScreen() {
     unlockOrRestoreVault,
     recoverVaultWithSeed,
     nukeAccount,
+    biometricAvailable,
+    biometricRegistered,
+    unlockWithBiometricSensor,
   } = useVault()
 
   const [masterPassword, setMasterPassword] = useState('')
@@ -366,6 +370,20 @@ export function UnlockScreen() {
                     Introduce tu <strong>Contraseña Maestra</strong> para abrirla. Nunca se envía a nuestros servidores.
                   </p>
                 </div>
+
+                {cloudVaultExists !== false && biometricAvailable && biometricRegistered && (
+                  <div className="space-y-3">
+                    <BiometricUnlockButton
+                      onUnlock={unlockWithBiometricSensor}
+                      onError={(msg) => setError(msg)}
+                    />
+                    <div className="flex items-center gap-2">
+                      <div className="h-px flex-1 bg-border" />
+                      <span className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">o continúa con contraseña</span>
+                      <div className="h-px flex-1 bg-border" />
+                    </div>
+                  </div>
+                )}
 
                 <div className="space-y-3.5 text-left">
                   <PasswordField
