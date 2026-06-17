@@ -9,6 +9,7 @@ import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
 import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
+import { isInMemoryFallbackActive } from './storage/vaultDb'
 import type { LocalCategory, VaultGroupMode } from './types'
 import type { CloudSyncResult } from './context/VaultContext'
 import type { UnsavedFormActions } from './components/AccountForm'
@@ -50,6 +51,17 @@ function VaultApp() {
   } = useVault()
 
   const { showToast } = useToast()
+
+  const isInMemory = isInMemoryFallbackActive()
+
+  const warningBanner = isInMemory ? (
+    <div className="bg-amber-600 text-white px-4 py-2.5 text-[11px] sm:text-xs font-semibold text-center z-[9999] relative flex items-center justify-center gap-2 shadow-md shrink-0">
+      <svg className="h-4 w-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      </svg>
+      <span>Modo de persistencia degradado: Los cambios locales no se guardarán al cerrar la aplicación. Por favor, asegúrate de sincronizar con la nube o exportar tus datos antes de salir.</span>
+    </div>
+  ) : null
 
   const [isMobile, setIsMobile] = useState(false)
 
@@ -197,7 +209,14 @@ function VaultApp() {
   }
 
   if (!isUnlocked) {
-    return <UnlockScreen />
+    return (
+      <div className="flex min-h-dvh flex-col bg-surface">
+        {warningBanner}
+        <div className="flex-1 flex items-center justify-center">
+          <UnlockScreen />
+        </div>
+      </div>
+    )
   }
 
   const reportUiError = (error: unknown, fallback: string) => {
@@ -437,38 +456,41 @@ function VaultApp() {
   }
 
   const mobileTopBar = isMobile ? (
-    <header className="fixed left-0 right-0 top-0 z-50 flex h-14 items-center justify-between border-b border-black/5 bg-white/85 px-4 shadow-[0_10px_30px_rgba(15,23,42,0.08)] backdrop-blur-xl">
-      <div className="min-w-0">
-        <p className="truncate text-sm font-bold text-text-primary">Contras</p>
-        <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-          {currentProfileName ?? 'Bóveda segura'}
-        </p>
-      </div>
-      <button
-        type="button"
-        onClick={() => setSettingsMenuOpen((open) => !open)}
-        className="flex h-11 w-11 items-center justify-center rounded-2xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96] disabled:opacity-70"
-        aria-label="Abrir ajustes"
-      >
-        {mobileSyncCheckVisible ? (
-          <svg className="h-5 w-5 text-emerald-600 animate-vault-morph" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-          </svg>
-        ) : cloudSyncStatus === 'error' ? (
-          <span className="relative flex h-5 w-5 items-center justify-center">
-            <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+    <div className="fixed left-0 right-0 top-0 z-50 flex flex-col shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
+      {warningBanner}
+      <header className="flex h-14 items-center justify-between border-b border-black/5 bg-white/85 px-4 backdrop-blur-xl">
+        <div className="min-w-0">
+          <p className="truncate text-sm font-bold text-text-primary">Contras</p>
+          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+            {currentProfileName ?? 'Bóveda segura'}
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={() => setSettingsMenuOpen((open) => !open)}
+          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96] disabled:opacity-70"
+          aria-label="Abrir ajustes"
+        >
+          {mobileSyncCheckVisible ? (
+            <svg className="h-5 w-5 text-emerald-600 animate-vault-morph" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
             </svg>
-            <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-600" />
-          </span>
-        ) : (
-          <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-            <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        )}
-      </button>
-    </header>
+          ) : cloudSyncStatus === 'error' ? (
+            <span className="relative flex h-5 w-5 items-center justify-center">
+              <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-600" />
+            </span>
+          ) : (
+            <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          )}
+        </button>
+      </header>
+    </div>
   ) : null
 
   const globalOverlays = (
@@ -819,9 +841,11 @@ function VaultApp() {
   }
 
   return (
-    <div className="flex min-h-dvh bg-surface">
-      {globalOverlays}
-      <Sidebar
+    <div className="flex min-h-dvh flex-col bg-surface">
+      {warningBanner}
+      <div className="flex flex-1 min-h-0">
+        {globalOverlays}
+        <Sidebar
         identities={displayIdentities}
         localItems={localItems}
         groupMode={groupMode}
@@ -1013,6 +1037,7 @@ function VaultApp() {
           </div>
         </div>
       )}
+      </div>
     </div>
   )
 }

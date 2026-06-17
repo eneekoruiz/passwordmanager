@@ -25,8 +25,16 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    const id = Math.random().toString(36).substring(2, 9)
-    setToasts((prev) => [...prev, { id, type, message }])
+    // Generar un ID unico basado en el mensaje y tipo para evitar duplicados simultaneos
+    const cleanMsg = message.replace(/[^a-zA-Z0-9]/g, '_')
+    const id = `${type}_${cleanMsg}`.substring(0, 100)
+    
+    setToasts((prev) => {
+      if (prev.some((t) => t.id === id)) {
+        return prev
+      }
+      return [...prev, { id, type, message }]
+    })
   }, [])
 
   const removeToast = useCallback((id: string) => {
