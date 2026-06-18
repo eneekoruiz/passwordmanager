@@ -10,7 +10,7 @@ import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
 import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
 import { isInMemoryFallbackActive } from './storage/vaultDb'
-import type { LocalCategory, VaultGroupMode } from './types'
+import type { LocalCategory, VaultGroupMode, SortMode } from './types'
 import type { CloudSyncResult } from './context/VaultContext'
 import type { UnsavedFormActions } from './components/AccountForm'
 import { useToast } from './components/ui/ToastProvider'
@@ -18,6 +18,13 @@ import { useToast } from './components/ui/ToastProvider'
 interface BeforeInstallPromptEvent extends Event {
   prompt: () => Promise<void>
   userChoice: Promise<{ outcome: 'accepted' | 'dismissed'; platform: string }>
+}
+
+const SORT_LABELS: Record<SortMode, string> = {
+  'alpha-asc': 'Alfabéticamente (A-Z)',
+  'alpha-desc': 'Alfabéticamente (Z-A)',
+  'date-desc': 'Más recientes primero',
+  'date-asc': 'Más antiguos primero',
 }
 
 function VaultApp() {
@@ -137,7 +144,9 @@ function VaultApp() {
   const [selectedPlatformName, setSelectedPlatformName] = useState<string | null>(null)
   const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalCategory | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [sortMode, setSortMode] = useState<SortMode>('alpha-asc')
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showMobileSortMenu, setShowMobileSortMenu] = useState(false)
   const [createTrigger, setCreateTrigger] = useState(0)
 
   const handleAddClick = () => {
@@ -307,18 +316,55 @@ function VaultApp() {
     </div>
   )
 
-  const displayIdentities = useMemo(
-    () =>
-      travelModeEnabled
-        ? identities
-            .map((identity) => ({
-              ...identity,
-              platforms: identity.platforms.filter((platform) => !platform.sensitive),
-            }))
-            .filter((identity) => identity.platforms.length > 0)
-        : identities,
-    [identities, travelModeEnabled],
-  )
+  const displayIdentities = useMemo(() => {
+    let list = travelModeEnabled
+      ? identities
+          .map((identity) => ({
+            ...identity,
+            platforms: identity.platforms.filter((platform) => !platform.sensitive),
+          }))
+          .filter((identity) => identity.platforms.length > 0)
+      : identities
+
+    // Sort identities
+    list = [...list].sort((a, b) => {
+      if (sortMode === 'alpha-asc') {
+        return a.email.localeCompare(b.email)
+      } else if (sortMode === 'alpha-desc') {
+        return b.email.localeCompare(a.email)
+      } else if (sortMode === 'date-desc') {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return dateB - dateA
+      } else if (sortMode === 'date-asc') {
+        const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+        const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+        return dateA - dateB
+      }
+      return 0
+    })
+
+    // Sort platforms within each identity
+    return list.map((identity) => {
+      const sortedPlatforms = [...identity.platforms].sort((a, b) => {
+        if (sortMode === 'alpha-asc') {
+          return a.name.localeCompare(b.name)
+        } else if (sortMode === 'alpha-desc') {
+          return b.name.localeCompare(a.name)
+        } else if (sortMode === 'date-desc') {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dateB - dateA
+        } else if (sortMode === 'date-asc') {
+          const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
+          const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
+          return dateA - dateB
+        }
+        return 0
+      })
+      return { ...identity, platforms: sortedPlatforms }
+    })
+  }, [identities, travelModeEnabled, sortMode])
 
   const selectedIdentity = useMemo(
     () => displayIdentities.find((identity) => identity.id === selectedId) ?? null,
@@ -664,40 +710,93 @@ function VaultApp() {
 
       {/* Row 2: Search input (only on list view) */}
       {showExtraHeaderElements && (
-        <div className="relative">
-          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
-          </svg>
-          <input
-            type="search"
-            value={searchQuery}
-            onChange={(event) => setSearchQuery(event.target.value)}
-            placeholder="Buscar en toda la bóveda..."
-            className="h-10 w-full rounded-xl border border-black/[0.06] bg-white/90 pl-9 pr-12 text-base font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white"
-            aria-label="Búsqueda global de la bóveda"
-          />
-          {searchQuery.trim().length > 0 && (
-            <div className="absolute left-0 right-0 top-12 z-[60] max-h-[40vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-white p-2 shadow-lg backdrop-blur-xl">
-              {globalSearchResults.length === 0 ? (
-                <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
-              ) : (
-                globalSearchResults.slice(0, 8).map((result) => (
-                  <button
-                    key={result.id}
-                    type="button"
-                    onClick={() => {
-                      result.action()
-                      setSearchQuery('')
-                    }}
-                    className="flex min-h-12 w-full flex-col justify-center rounded-xl px-4 text-left transition-colors hover:bg-surface-hover"
-                  >
-                    <span className="truncate text-sm font-semibold text-text-primary">{result.title}</span>
-                    <span className="truncate text-xs text-text-tertiary">{result.subtitle}</span>
-                  </button>
-                ))
-              )}
-            </div>
-          )}
+        <div className="flex gap-2">
+          <div className="relative flex-1">
+            <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+            </svg>
+            <input
+              type="search"
+              value={searchQuery}
+              onChange={(event) => setSearchQuery(event.target.value)}
+              placeholder="Buscar en toda la bóveda..."
+              className="h-10 w-full rounded-xl border border-black/[0.06] bg-white/90 pl-9 pr-12 text-base font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white"
+              aria-label="Búsqueda global de la bóveda"
+            />
+            {searchQuery.trim().length > 0 && (
+              <div className="absolute left-0 right-0 top-12 z-[60] max-h-[40vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-white p-2 shadow-lg backdrop-blur-xl">
+                {globalSearchResults.length === 0 ? (
+                  <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
+                ) : (
+                  globalSearchResults.slice(0, 8).map((result) => (
+                    <button
+                      key={result.id}
+                      type="button"
+                      onClick={() => {
+                        result.action()
+                        setSearchQuery('')
+                      }}
+                      className="flex min-h-12 w-full flex-col justify-center rounded-xl px-4 text-left transition-colors hover:bg-surface-hover"
+                    >
+                      <span className="truncate text-sm font-semibold text-text-primary">{result.title}</span>
+                      <span className="truncate text-xs text-text-tertiary">{result.subtitle}</span>
+                    </button>
+                  ))
+                )}
+              </div>
+            )}
+          </div>
+          <div className="relative shrink-0">
+            <button
+              type="button"
+              onClick={() => setShowMobileSortMenu((v) => !v)}
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.06] bg-white text-text-secondary shadow-subtle transition-all active:scale-[0.95]"
+              aria-label="Ordenar lista"
+              title={`Ordenar: ${SORT_LABELS[sortMode]}`}
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h18M3 12h18M3 19.5h18" />
+              </svg>
+            </button>
+
+            {showMobileSortMenu && (
+              <>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowMobileSortMenu(false)}
+                  className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
+                />
+                <div className="absolute right-0 mt-2 z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left">
+                  <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
+                    Ordenar por
+                  </div>
+                  {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+                    <button
+                      key={mode}
+                      type="button"
+                      onClick={() => {
+                        setSortMode(mode)
+                        setShowMobileSortMenu(false)
+                      }}
+                      className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-xs font-semibold transition-colors ${
+                        sortMode === mode
+                          ? 'bg-text-primary text-white'
+                          : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                      }`}
+                    >
+                      <span>{SORT_LABELS[mode]}</span>
+                      {sortMode === mode && (
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                        </svg>
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
         </div>
       )}
 
@@ -854,7 +953,7 @@ function VaultApp() {
       <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16 overscroll-none overflow-x-hidden">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex-1 overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'}`}>
+        <div className={`flex-1 flex flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'}`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
@@ -892,6 +991,8 @@ function VaultApp() {
               showAddForm={showAddForm}
               onToggleAddForm={handleToggleAddForm}
               onAddClick={handleAddClick}
+              sortMode={sortMode}
+              onSortModeChange={setSortMode}
             />
           ) : (
             <MainArea
@@ -930,6 +1031,7 @@ function VaultApp() {
               onDeleteLocalItem={deleteLocalItem}
               isMobile={true}
               createTrigger={createTrigger}
+              sortMode={sortMode}
             />
           )}
         </div>
@@ -1117,6 +1219,8 @@ function VaultApp() {
           showAddForm={showAddForm}
           onToggleAddForm={handleToggleAddForm}
           onAddClick={handleAddClick}
+          sortMode={sortMode}
+          onSortModeChange={setSortMode}
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1157,6 +1261,7 @@ function VaultApp() {
             onDeleteLocalItem={deleteLocalItem}
             isMobile={false}
             createTrigger={createTrigger}
+            sortMode={sortMode}
           />
         </main>
       </div>

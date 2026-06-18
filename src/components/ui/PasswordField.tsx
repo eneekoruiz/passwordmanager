@@ -144,16 +144,28 @@ export function PasswordField({
       <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
         {label}
       </span>
-      <div className="relative flex items-center">
-        <input
-          type={visible ? 'text' : 'password'}
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          placeholder={placeholder}
-          required={required}
-          disabled={disabled}
-          className={`${inputClassName} ${prClassName} font-mono text-base tracking-wide`}
-        />
+      <div className="relative flex items-stretch">
+        {visible ? (
+          <textarea
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            rows={Math.max(1, Math.min(4, Math.ceil((value || '').length / 25)))}
+            className={`${inputClassName} ${prClassName} font-mono text-base tracking-wide resize-none py-2.5 h-auto min-h-11`}
+          />
+        ) : (
+          <input
+            type="password"
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            placeholder={placeholder}
+            required={required}
+            disabled={disabled}
+            className={`${inputClassName} ${prClassName} font-mono text-base tracking-wide`}
+          />
+        )}
 
         {/* Burbuja de feedback de copiado al estilo iOS/macOS */}
         {copied && (
@@ -162,7 +174,7 @@ export function PasswordField({
           </span>
         )}
 
-        <div className="absolute right-1.5 flex items-center gap-0.5 z-10">
+        <div className={`absolute right-1.5 ${visible ? 'top-1.5' : 'top-1/2 -translate-y-1/2'} flex items-center gap-0.5 z-10`}>
           {showGenerator && (
           <button
             type="button"

@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode } from '../types'
+import { useEffect, useState, useMemo } from 'react'
+import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode, SortMode } from '../types'
 import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -36,6 +36,15 @@ interface SidebarProps {
   showAddForm: boolean
   onToggleAddForm: (show?: boolean) => void
   onAddClick: () => void
+  sortMode: SortMode
+  onSortModeChange: (mode: SortMode) => void
+}
+
+const SORT_LABELS: Record<SortMode, string> = {
+  'alpha-asc': 'Alfabéticamente (A-Z)',
+  'alpha-desc': 'Alfabéticamente (Z-A)',
+  'date-desc': 'Más recientes primero',
+  'date-asc': 'Más antiguos primero',
 }
 
 export function Sidebar({
@@ -66,9 +75,12 @@ export function Sidebar({
   showAddForm,
   onToggleAddForm,
   onAddClick,
+  sortMode,
+  onSortModeChange,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
+  const [showSortMenu, setShowSortMenu] = useState(false)
   const [sidebarError, setSidebarError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
@@ -80,16 +92,51 @@ export function Sidebar({
   const visibleIdentities = query
     ? cloudIdentities.filter((identity) => identity.email.toLowerCase().includes(query))
     : cloudIdentities
-  const platformSummaries = cloudIdentities
-    .flatMap((identity) => identity.platforms.map((platform) => platform.name.trim()).filter(Boolean))
-    .reduce<Array<{ name: string; count: number }>>((acc, name) => {
-      const existing = acc.find((item) => item.name.toLowerCase() === name.toLowerCase())
-      if (existing) existing.count += 1
-      else acc.push({ name, count: 1 })
-      return acc
-    }, [])
-    .filter((platform) => !query || platform.name.toLowerCase().includes(query))
-    .sort((a, b) => a.name.localeCompare(b.name))
+  const platformSummaries = useMemo(() => {
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
+    for (const identity of cloudIdentities) {
+      for (const platform of identity.platforms) {
+        const name = platform.name.trim()
+        if (!name) continue
+        const key = name.toLowerCase()
+        const date = platform.createdAt || new Date(0).toISOString()
+        const existing = platformData.get(key)
+        if (existing) {
+          existing.count += 1
+          if (date < existing.minDate) existing.minDate = date
+          if (date > existing.maxDate) existing.maxDate = date
+        } else {
+          platformData.set(key, {
+            name,
+            count: 1,
+            minDate: date,
+            maxDate: date,
+          })
+        }
+      }
+    }
+
+    let list = Array.from(platformData.values())
+    if (query) {
+      list = list.filter((p) => p.name.toLowerCase().includes(query))
+    }
+
+    list.sort((a, b) => {
+      switch (sortMode) {
+        case 'alpha-asc':
+          return a.name.localeCompare(b.name)
+        case 'alpha-desc':
+          return b.name.localeCompare(a.name)
+        case 'date-desc':
+          return b.maxDate.localeCompare(a.maxDate)
+        case 'date-asc':
+          return a.minDate.localeCompare(b.minDate)
+        default:
+          return 0
+      }
+    })
+    return list
+  }, [cloudIdentities, query, sortMode])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -232,16 +279,18 @@ export function Sidebar({
             )}
           </div>
           <div className="flex items-center gap-1">
-            <button
-              type="button"
-              onClick={onAddClick}
-              className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
-              aria-label="Añadir identidad"
-            >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-              </svg>
-            </button>
+            {!isMobile && (
+              <button
+                type="button"
+                onClick={onAddClick}
+                className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
+                aria-label="Añadir identidad"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+              </button>
+            )}
             {!isMobile && (
               <button
                 type="button"
@@ -313,11 +362,66 @@ export function Sidebar({
                 </button>
               ))}
             </div>
-            <SearchBar
-              value={searchQuery}
-              onChange={onSearchChange}
-              placeholder={groupMode === 'identity' ? 'Buscar identidades...' : 'Buscar plataformas...'}
-            />
+            <div className="flex gap-2">
+              <div className="flex-1">
+                <SearchBar
+                  value={searchQuery}
+                  onChange={onSearchChange}
+                  placeholder={groupMode === 'identity' ? 'Buscar identidades...' : 'Buscar plataformas...'}
+                />
+              </div>
+              <div className="relative shrink-0">
+                <button
+                  type="button"
+                  onClick={() => setShowSortMenu((v) => !v)}
+                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-black/[0.06] bg-white text-text-secondary shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all hover:bg-surface-hover hover:text-text-primary active:scale-[0.95]"
+                  aria-label="Ordenar lista"
+                  title={`Ordenar: ${SORT_LABELS[sortMode]}`}
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h18M3 12h18M3 19.5h18" />
+                  </svg>
+                </button>
+
+                {showSortMenu && (
+                  <>
+                    <button
+                      type="button"
+                      tabIndex={-1}
+                      onClick={() => setShowSortMenu(false)}
+                      className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
+                    />
+                    <div className="absolute right-0 mt-2 z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl animate-vault-morph text-left">
+                      <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
+                        Ordenar por
+                      </div>
+                      {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+                        <button
+                          key={mode}
+                          type="button"
+                          onClick={() => {
+                            onSortModeChange(mode)
+                            setShowSortMenu(false)
+                          }}
+                          className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-xs font-semibold transition-colors ${
+                            sortMode === mode
+                              ? 'bg-text-primary text-white'
+                              : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                          }`}
+                        >
+                          <span>{SORT_LABELS[mode]}</span>
+                          {sortMode === mode && (
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                            </svg>
+                          )}
+                        </button>
+                      ))}
+                    </div>
+                  </>
+                )}
+              </div>
+            </div>
           </div>
         )}
 

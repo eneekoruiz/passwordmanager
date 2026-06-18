@@ -158,8 +158,8 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
           </button>
         </div>
       </div>
-      {isMultiline ? (
-        <div className="mt-0.5 whitespace-pre-wrap font-mono text-xs leading-relaxed text-text-secondary">{value}</div>
+      {isMultiline || (isSecret && revealed) ? (
+        <div className="mt-0.5 whitespace-pre-wrap break-all font-mono text-base font-semibold text-text-primary leading-relaxed">{value}</div>
       ) : (
         <div className={`text-base font-semibold text-text-primary truncate transition-all duration-300 ${revealed ? '' : 'tracking-widest font-mono translate-y-[1px]'}`}>
           {revealed ? value : '••••••••••••'}

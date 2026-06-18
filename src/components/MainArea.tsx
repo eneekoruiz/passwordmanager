@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
-import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode } from '../types'
+import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
@@ -30,6 +30,7 @@ interface MainAreaProps {
   onDeleteLocalItem: (itemId: string) => Promise<void>
   isMobile?: boolean
   createTrigger?: number
+  sortMode: SortMode
 }
 
 interface PlatformAccount {
@@ -70,6 +71,7 @@ export function MainArea({
   onDeleteLocalItem,
   isMobile = false,
   createTrigger = 0,
+  sortMode,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
@@ -97,7 +99,7 @@ export function MainArea({
         setEditingPlatform({
           identityId: targetIdentity.id,
           identityEmail: targetIdentity.email,
-          platform: createPlatform('', { username: targetIdentity.email }),
+          platform: createPlatform('', { username: '' }),
         })
         setView('create')
       }
@@ -107,7 +109,7 @@ export function MainArea({
   const platformAccounts = useMemo<PlatformAccount[]>(() => {
     if (groupMode !== 'platform' || !selectedPlatformName) return []
     const target = selectedPlatformName.trim().toLowerCase()
-    return identities.flatMap((item) =>
+    const list = identities.flatMap((item) =>
       item.platforms
         .filter((platform) => platform.name.trim().toLowerCase() === target)
         .map((platform) => ({
@@ -116,26 +118,66 @@ export function MainArea({
           platform,
         })),
     )
-  }, [groupMode, identities, selectedPlatformName])
+
+    return list.sort((a, b) => {
+      if (sortMode === 'alpha-asc') {
+        return a.identityEmail.localeCompare(b.identityEmail) || (a.platform.username || '').localeCompare(b.platform.username || '')
+      } else if (sortMode === 'alpha-desc') {
+        return b.identityEmail.localeCompare(a.identityEmail) || (b.platform.username || '').localeCompare(a.platform.username || '')
+      } else if (sortMode === 'date-desc') {
+        const dateA = a.platform.createdAt ? new Date(a.platform.createdAt).getTime() : 0
+        const dateB = b.platform.createdAt ? new Date(b.platform.createdAt).getTime() : 0
+        return dateB - dateA
+      } else if (sortMode === 'date-asc') {
+        const dateA = a.platform.createdAt ? new Date(a.platform.createdAt).getTime() : 0
+        const dateB = b.platform.createdAt ? new Date(b.platform.createdAt).getTime() : 0
+        return dateA - dateB
+      }
+      return 0
+    })
+  }, [groupMode, identities, selectedPlatformName, sortMode])
 
   const selectedPlatformDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName
   const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
   const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
-    const counts = new Map<string, number>()
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
     identities.forEach((item) => {
       item.platforms.forEach((platform) => {
         const name = platform.name.trim()
         if (!name) return
-        const existing = [...counts.keys()].find((key) => key.toLowerCase() === name.toLowerCase())
-        if (existing) counts.set(existing, (counts.get(existing) ?? 0) + 1)
-        else counts.set(name, 1)
+        const key = name.toLowerCase()
+        const date = platform.createdAt || new Date(0).toISOString()
+        const existing = platformData.get(key)
+        if (existing) {
+          existing.count += 1
+          if (date < existing.minDate) existing.minDate = date
+          if (date > existing.maxDate) existing.maxDate = date
+        } else {
+          platformData.set(key, {
+            name,
+            count: 1,
+            minDate: date,
+            maxDate: date,
+          })
+        }
       })
     })
-    return [...counts.entries()]
-      .map(([name, count]) => ({ name, count }))
-      .sort((a, b) => b.count - a.count || a.name.localeCompare(b.name))
-      .slice(0, 8)
-  }, [identities])
+
+    const list = Array.from(platformData.values())
+    list.sort((a, b) => {
+      if (sortMode === 'alpha-asc') {
+        return a.name.localeCompare(b.name)
+      } else if (sortMode === 'alpha-desc') {
+        return b.name.localeCompare(a.name)
+      } else if (sortMode === 'date-desc') {
+        return b.maxDate.localeCompare(a.maxDate)
+      } else if (sortMode === 'date-asc') {
+        return a.minDate.localeCompare(b.minDate)
+      }
+      return 0
+    })
+    return list.slice(0, 8)
+  }, [identities, sortMode])
 
   if (!hasVaultSelection) {
     return (
@@ -327,7 +369,7 @@ export function MainArea({
           >
             Volver
           </button>
-        ) : (groupMode === 'platform' && !localCategory) ? null : (
+        ) : (groupMode === 'platform' && !localCategory) || isMobile ? null : (
           <button
             type="button"
             onClick={() => {
@@ -337,7 +379,7 @@ export function MainArea({
                 setEditingPlatform({
                   identityId: identity.id,
                   identityEmail: identity.email,
-                  platform: createPlatform('', { username: identity.email }),
+                  platform: createPlatform('', { username: '' }),
                 })
               }
               setView('create')
@@ -349,7 +391,7 @@ export function MainArea({
         )}
       </header>
 
-      <div className="flex-1 overflow-y-auto px-4 py-4 lg:overflow-y-auto lg:px-8 lg:py-6">
+      <div className="flex-1 overflow-y-auto overscroll-none px-4 py-4 lg:px-8 lg:py-6">
         {view === 'grid' && (
           <>
             {localCategory ? (
@@ -453,7 +495,7 @@ export function MainArea({
                   setEditingPlatform({
                     identityId: identity.id,
                     identityEmail: identity.email,
-                    platform: createPlatform('', { username: identity.email }),
+                    platform: createPlatform('', { username: '' }),
                   })
                   setView('create')
                 }}
