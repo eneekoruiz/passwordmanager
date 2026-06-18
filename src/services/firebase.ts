@@ -17,7 +17,7 @@
  */
 
 import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { initializeAuth, browserLocalPersistence, inMemoryPersistence, getAuth, type Auth } from 'firebase/auth'
+import { initializeAuth, browserLocalPersistence, inMemoryPersistence, browserPopupRedirectResolver, getAuth, type Auth } from 'firebase/auth'
 import { initializeFirestore, memoryLocalCache, getFirestore, type Firestore } from 'firebase/firestore'
 
 const firebaseEnv = {
@@ -57,12 +57,14 @@ function initAuth(): Auth | null {
   try {
     return initializeAuth(app, {
       persistence: browserLocalPersistence,
+      popupRedirectResolver: browserPopupRedirectResolver,
     })
   } catch (error) {
     console.warn('Auth browserLocalPersistence failed, falling back to inMemoryPersistence:', error)
     try {
       return initializeAuth(app, {
         persistence: inMemoryPersistence,
+        popupRedirectResolver: browserPopupRedirectResolver,
       })
     } catch (innerErr) {
       console.error('Auth fallback initialization failed completely:', innerErr)

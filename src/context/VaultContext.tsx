@@ -13,6 +13,8 @@ import {
   deleteUser,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
+  getRedirectResult,
   signOut,
   type Auth,
   type User,
@@ -228,6 +230,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     const dbClient = db
+    
+    // Process redirect result first if returning from Google Auth
+    getRedirectResult(auth).then(async (credential) => {
+      if (credential?.user) {
+         setCloudUserEmail(credential.user.email ?? null)
+         try {
+           const snapshot = await getDoc(doc(dbClient, 'vaults', credential.user.uid))
+           setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
+         } catch (error) {
+           logUnexpectedError('Error comprobando vault tras redirect', error)
+         }
+      }
+    }).catch(error => {
+      console.warn('Error en getRedirectResult:', error)
+      reportCloudError(error, 'No se pudo completar el inicio de sesion con Google.')
+    })
+
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       firebaseUserRef.current = user
       setCloudUserEmail(user?.email ?? null)
@@ -655,9 +674,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     try {
       const { authClient } = getFirebaseClients()
       const provider = new GoogleAuthProvider()
-      const credential = await signInWithPopup(authClient, provider)
-      setCloudUserEmail(credential.user.email ?? 'Usuario Google')
-      setCloudSyncStatus('idle')
+      try {
+        const credential = await signInWithPopup(authClient, provider)
+        setCloudUserEmail(credential.user.email ?? 'Usuario Google')
+        setCloudSyncStatus('idle')
+      } catch (popupError: any) {
+        console.warn('signInWithPopup falló, intentando signInWithRedirect:', popupError)
+        // Check if it's a closed popup, maybe we shouldn't redirect automatically
+        if (popupError.code === 'auth/popup-closed-by-user') {
+          throw popupError
+        }
+        await signInWithRedirect(authClient, provider)
+        // Redirigiendo, el resto del código no se ejecutará aquí
+      }
     } catch (error) {
       setCloudSyncStatus('error')
       reportCloudError(error, 'No se pudo iniciar sesion con Google.')
@@ -705,7 +734,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       try {
         const { authClient, dbClient } = getFirebaseClients()
         const provider = new GoogleAuthProvider()
-        const credential = await signInWithPopup(authClient, provider)
+        let credential
+        try {
+          credential = await signInWithPopup(authClient, provider)
+        } catch (popupError: any) {
+           console.warn('signInWithPopup falló, intentando signInWithRedirect:', popupError)
+           if (popupError.code === 'auth/popup-closed-by-user') {
+             throw popupError
+           }
+           await signInWithRedirect(authClient, provider)
+           // Se detiene aquí porque la página redirige
+           return
+        }
         const snapshot = await getDoc(doc(dbClient, 'vaults', credential.user.uid))
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda valida en Google.')
