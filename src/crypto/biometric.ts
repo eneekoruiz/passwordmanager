@@ -182,8 +182,8 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
 async function derivePrfKey(prfBytes: Uint8Array): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    prfBytes,
-    'HKDF',
+    prfBytes as BufferSource,
+    { name: 'HKDF' },
     false,
     ['deriveKey'],
   )
@@ -191,8 +191,8 @@ async function derivePrfKey(prfBytes: Uint8Array): Promise<CryptoKey> {
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt: stringToBytes('contras-biometric-aes-v1'),
-      info: stringToBytes('aes-gcm-key'),
+      salt: stringToBytes('contras-biometric-aes-v1') as BufferSource,
+      info: stringToBytes('aes-gcm-key') as BufferSource,
     },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
@@ -205,7 +205,7 @@ async function encryptWithPrfKey(plaintext: string, key: CryptoKey): Promise<Enc
   const iv = new Uint8Array(12)
   crypto.getRandomValues(iv)
   const data = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv },
+    { name: 'AES-GCM', iv: iv as BufferSource },
     key,
     stringToBytes(plaintext) as BufferSource,
   )
@@ -218,7 +218,7 @@ async function encryptWithPrfKey(plaintext: string, key: CryptoKey): Promise<Enc
 
 async function decryptWithPrfKey(payload: EncryptedPayload, key: CryptoKey): Promise<string> {
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64ToBytes(payload.iv) },
+    { name: 'AES-GCM', iv: base64ToBytes(payload.iv) as BufferSource },
     key,
     base64ToBytes(payload.data) as BufferSource,
   )

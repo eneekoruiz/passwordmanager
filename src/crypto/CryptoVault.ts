@@ -97,8 +97,8 @@ export class CryptoVault {
 
     const keyMaterial = await crypto.subtle.importKey(
       'raw',
-      stringToBytes(masterPassword),
-      'PBKDF2',
+      stringToBytes(masterPassword) as BufferSource,
+      { name: 'PBKDF2' },
       false,
       ['deriveKey'],
     )
@@ -106,7 +106,7 @@ export class CryptoVault {
     return crypto.subtle.deriveKey(
       {
         name: 'PBKDF2',
-        salt,
+        salt: salt as BufferSource,
         iterations: PBKDF2_ITERATIONS,
         hash: PBKDF2_HASH,
       },
@@ -202,7 +202,7 @@ export class CryptoVault {
   ): Promise<EncryptedPayload> {
     const iv = CryptoVault.generateIv()
     const ciphertext = await crypto.subtle.encrypt(
-      { name: AES_ALGORITHM, iv },
+      { name: AES_ALGORITHM, iv: iv as BufferSource },
       key,
       data as BufferSource,
     )
@@ -234,7 +234,7 @@ export class CryptoVault {
     const ciphertext = base64ToBytes(payload.data)
 
     const plaintext = await crypto.subtle.decrypt(
-      { name: AES_ALGORITHM, iv },
+      { name: AES_ALGORITHM, iv: iv as BufferSource },
       key,
       ciphertext as BufferSource,
     )
