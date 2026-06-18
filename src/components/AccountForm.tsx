@@ -551,14 +551,22 @@ export function AccountForm({
     setAccessMethods((methods) => {
       const filtered = methods.filter((m) => m.type !== 'SSO')
       if (enabled) {
-        return [...filtered, { id: crypto.randomUUID(), type: 'SSO', provider: 'Google', email: identityEmail }]
+        return [...filtered, { id: crypto.randomUUID(), type: 'SSO', providers: ['Google'], email: identityEmail }]
       }
       return filtered
     })
   }
 
-  const updateSsoProvider = (provider: SsoProvider) => {
-    setAccessMethods((methods) => methods.map((m) => (m.type === 'SSO' ? { ...m, provider } : m)))
+  const toggleSsoProvider = (provider: SsoProvider, checked: boolean) => {
+    setAccessMethods((methods) => methods.map((m) => {
+      if (m.type === 'SSO') {
+        const nextProviders = checked 
+          ? [...new Set([...m.providers, provider])]
+          : m.providers.filter(p => p !== provider)
+        return { ...m, providers: nextProviders.length > 0 ? nextProviders : ['Google'] }
+      }
+      return m
+    }))
   }
 
   const updateTwoFactorType = (type: TwoFactorType) => {
@@ -625,7 +633,7 @@ export function AccountForm({
           <ReadOnlyField label="Usuario" value={account.username} />
           {passwordMethod && <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret />}
           {account.linkedPhone && <ReadOnlyField label="Teléfono vinculado" value={account.linkedPhone} />}
-          {ssoMethod && <ReadOnlyField label={`Login con ${ssoMethod.provider}`} value={ssoMethod.email || identityEmail} />}
+          {ssoMethod && <ReadOnlyField label={`Login con ${ssoMethod.providers.join(', ')}`} value={ssoMethod.email || identityEmail} />}
           {passkeyEnabled && <ReadOnlyField label="Biometría / Passkey" value="Activado" />}
           {magicLinkMethod && <ReadOnlyField label="Magic Link" value={magicLinkMethod.email || identityEmail} />}
           {account.hardwareKey && <ReadOnlyField label="Llave Física (YubiKey)" value="Activada" />}
@@ -730,20 +738,21 @@ export function AccountForm({
           />
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
-          <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
-            <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
-              <input
-                type="checkbox"
-                className={checkboxClassName}
-                checked={passwordEnabled}
-                onChange={(event) => togglePassword(event.target.checked)}
-              />
-              Contraseña
-            </label>
-            <div className={`grid transition-all duration-200 ${passwordEnabled && passwordMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-              <div className="overflow-hidden">
-                {passwordEnabled && passwordMethod && (
+        {/* Contraseña Principal */}
+        <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
+          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
+            <input
+              type="checkbox"
+              className={checkboxClassName}
+              checked={passwordEnabled}
+              onChange={(event) => togglePassword(event.target.checked)}
+            />
+            Contraseña Tradicional
+          </label>
+          <div className={`grid transition-all duration-200 ${passwordEnabled && passwordMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+            <div className="overflow-hidden space-y-3">
+              {passwordEnabled && passwordMethod && (
+                <>
                   <PasswordField
                     label="Contraseña"
                     value={passwordMethod.password}
@@ -752,47 +761,109 @@ export function AccountForm({
                     required
                     showGenerator
                   />
-                )}
-              </div>
-            </div>
-          </div>
-
-          <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
-            <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
-              <input
-                type="checkbox"
-                className={checkboxClassName}
-                checked={Boolean(ssoMethod)}
-                onChange={(event) => toggleSso(event.target.checked)}
-              />
-              Login Social (SSO)
-            </label>
-            <div className={`grid transition-all duration-200 ${ssoMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-              <div className="space-y-3 overflow-visible">
-                {ssoMethod && (
-                  <>
-                    <Combobox
-                      label="Proveedor SSO"
-                      value={ssoMethod.provider}
-                      options={SSO_OPTIONS}
-                      onChange={updateSsoProvider}
-                      placeholder="Discord, Okta, LinkedIn..."
-                      createLabel={(input) => `¿No encuentras tu proveedor? Crear "${input}"`}
-                    />
-                    <FormField
-                      label="Correo usado en este SSO"
-                      type="email"
-                      value={ssoMethod.email ?? ''}
-                      onChange={(event) => updateSsoEmail(event.target.value)}
-                      placeholder={identityEmail}
-                      autoComplete="off"
-                    />
-                  </>
-                )}
-              </div>
+                  {(account.passwordHistory ?? []).length > 0 && (
+                    <Accordion title="Historial de contraseñas">
+                      <div className="space-y-2 mt-2">
+                        {[...(account.passwordHistory ?? [])].reverse().map((entry) => (
+                          <div key={entry.id} className="flex items-center justify-between gap-3 rounded-xl border border-black/[0.05] bg-white p-3">
+                            <div className="min-w-0">
+                              <p className="truncate font-mono text-xs font-semibold text-text-primary">••••••••••••</p>
+                              <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">{new Date(entry.changedAt).toLocaleString()}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => void copyToClipboard(entry.password)}
+                              className="rounded-lg border border-black/5 bg-surface px-3 py-2 text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover"
+                            >
+                              Copiar antigua
+                            </button>
+                          </div>
+                        ))}
+                      </div>
+                    </Accordion>
+                  )}
+                </>
+              )}
             </div>
           </div>
         </div>
+
+        {/* Otros métodos de inicio de sesión (SSO, Passkey, Magic Link) */}
+        <Accordion title="Otros métodos de inicio de sesión" defaultOpen={Boolean(ssoMethod || passkeyEnabled || magicLinkMethod)}>
+          <div className="grid gap-4 mt-2 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
+            <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
+              <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
+                <input
+                  type="checkbox"
+                  className={checkboxClassName}
+                  checked={Boolean(ssoMethod)}
+                  onChange={(event) => toggleSso(event.target.checked)}
+                />
+                Login Social (SSO)
+              </label>
+              <div className={`grid transition-all duration-200 ${ssoMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
+                <div className="space-y-3 overflow-visible">
+                  {ssoMethod && (
+                    <>
+                      <div className="flex flex-wrap gap-2">
+                        {ssoMethod.providers.map(p => (
+                          <div key={p} className="flex items-center gap-1 rounded-lg border bg-surface px-2 py-1 text-sm text-text-primary">
+                            {p}
+                            <button type="button" onClick={() => toggleSsoProvider(p, false)} className="text-text-tertiary hover:text-red-500 font-bold">&times;</button>
+                          </div>
+                        ))}
+                      </div>
+                      <Combobox
+                        label="Añadir Proveedor SSO"
+                        value=""
+                        options={SSO_OPTIONS.filter(o => !ssoMethod.providers.includes(o.label))}
+                        onChange={(val) => toggleSsoProvider(val, true)}
+                        placeholder="Discord, Okta, LinkedIn..."
+                        createLabel={(input) => `¿No encuentras tu proveedor? Crear "${input}"`}
+                      />
+                      <FormField
+                        label="Correo usado en este SSO"
+                        type="email"
+                        value={ssoMethod.email ?? ''}
+                        onChange={(event) => updateSsoEmail(event.target.value)}
+                        placeholder={identityEmail}
+                        autoComplete="off"
+                      />
+                    </>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            <div className="flex flex-col gap-4">
+              <div className="flex flex-col gap-4 rounded-2xl border border-black/[0.04] bg-surface/40 p-4">
+                <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
+                  <input
+                    type="checkbox"
+                    className={checkboxClassName}
+                    checked={passkeyEnabled}
+                    onChange={(event) => togglePasskey(event.target.checked)}
+                  />
+                  Passkey / Biometría
+                </label>
+                <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
+                  <input
+                    type="checkbox"
+                    className={checkboxClassName}
+                    checked={Boolean(magicLinkMethod)}
+                    onChange={(event) => toggleMagicLink(event.target.checked)}
+                  />
+                  Magic Link
+                </label>
+                {magicLinkMethod && (
+                  <div className="w-full animate-vault-morph px-2 pb-2">
+                    <FormField label="Correo para magic link" type="email" value={magicLinkMethod.email ?? ''} onChange={(event) => updateMagicLinkEmail(event.target.value)} placeholder={identityEmail} autoComplete="off" />
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </Accordion>
 
         <div className="flex flex-wrap gap-4 rounded-2xl border border-black/[0.04] bg-surface/40 p-4">
           <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
@@ -808,34 +879,11 @@ export function AccountForm({
             <input
               type="checkbox"
               className={checkboxClassName}
-              checked={passkeyEnabled}
-              onChange={(event) => togglePasskey(event.target.checked)}
-            />
-            Passkey / Biometría
-          </label>
-          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
-            <input
-              type="checkbox"
-              className={checkboxClassName}
-              checked={Boolean(magicLinkMethod)}
-              onChange={(event) => toggleMagicLink(event.target.checked)}
-            />
-            Magic Link
-          </label>
-          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
-            <input
-              type="checkbox"
-              className={checkboxClassName}
               checked={Boolean(account.sensitive)}
               onChange={(event) => updateField('sensitive', event.target.checked)}
             />
             Sensible / ocultar en Modo Viaje
           </label>
-          {magicLinkMethod && (
-            <div className="w-full animate-vault-morph sm:max-w-sm">
-              <FormField label="Correo para magic link" type="email" value={magicLinkMethod.email ?? ''} onChange={(event) => updateMagicLinkEmail(event.target.value)} placeholder={identityEmail} autoComplete="off" />
-            </div>
-          )}
         </div>
       </section>
 
@@ -1114,37 +1162,7 @@ export function AccountForm({
               )}
             </div>
 
-            <div className="space-y-3">
-              <div className="flex items-center justify-between border-b border-border-subtle pb-2">
-                <div className="flex flex-col">
-                  <h3 className="text-sm font-bold text-text-primary">Historial de contraseñas</h3>
-                  <p className="text-[10px] font-medium text-text-tertiary">Las contraseñas anteriores se archivan localmente al cambiar y guardar.</p>
-                </div>
-              </div>
-              {(account.passwordHistory ?? []).length === 0 ? (
-                <div className="rounded-2xl border border-dashed border-border bg-white/60 p-5 text-center text-xs text-text-tertiary">
-                  Todavía no hay historial para esta cuenta.
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  {[...(account.passwordHistory ?? [])].reverse().map((entry) => (
-                    <div key={entry.id} className="flex items-center justify-between gap-3 rounded-2xl border border-black/[0.05] bg-white p-3">
-                      <div className="min-w-0">
-                        <p className="truncate font-mono text-xs font-semibold text-text-primary">••••••••••••</p>
-                        <p className="mt-0.5 text-[10px] font-medium text-text-tertiary">{new Date(entry.changedAt).toLocaleString()}</p>
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => void copyToClipboard(entry.password)}
-                        className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover"
-                      >
-                        Copiar antigua
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
+
 
             <div className="space-y-3">
               <div className="flex items-center justify-between border-b border-border-subtle pb-2">

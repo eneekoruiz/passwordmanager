@@ -470,7 +470,7 @@ export function MainArea({
                             .filter((method) => method.type === 'SSO')
                             .map((method) => (
                             <span key={method.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                              {method.provider}
+                              {method.providers.join(', ')}
                             </span>
                             ))}
                           {platform.accessMethods.some((method) => method.type === 'PASSKEY') && (
@@ -532,7 +532,7 @@ export function MainArea({
                           .filter((method) => method.type === 'SSO')
                           .map((method) => (
                           <span key={method.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                            {method.provider}
+                            {method.providers.join(', ')}
                           </span>
                           ))}
                         {platform.accessMethods.some((method) => method.type === 'PASSKEY') && (

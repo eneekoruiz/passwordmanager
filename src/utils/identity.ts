@@ -36,7 +36,7 @@ function normalizeAccessMethods(defaults?: Partial<Platform>): AccountAccessMeth
         authMethod?: string
         password?: string | null
         ssoProvider?: Platform['accessMethods'][number] extends infer T
-          ? T extends { provider: infer P }
+          ? T extends { providers: (infer P)[] }
             ? P
             : never
           : never
@@ -51,7 +51,7 @@ function normalizeAccessMethods(defaults?: Partial<Platform>): AccountAccessMeth
       {
         id: generateId(),
         type: 'SSO',
-        provider: legacy?.ssoProvider ?? 'Google',
+        providers: legacy?.ssoProvider ? [legacy.ssoProvider as any] : ['Google'],
         email: legacy?.ssoEmail ?? legacyGoogleAccount ?? null,
       },
     ]
@@ -102,7 +102,7 @@ type LegacyAccount = Partial<Account> & {
   password?: string | null
   ssoEmail?: string | null
   ssoProvider?: AccountAccessMethod extends infer T
-    ? T extends { provider: infer P }
+    ? T extends { providers: (infer P)[] }
       ? P
       : never
     : never

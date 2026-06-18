@@ -48,7 +48,7 @@ function extraFor(platform: Platform, identityEmail: string): string {
   if (platform.linkedPhone) parts.push(`Telefono: ${platform.linkedPhone}`)
   if (platform.hardwareKey) parts.push('Llave fisica: activada')
   for (const method of platform.accessMethods) {
-    if (method.type === 'SSO') parts.push(`SSO ${method.provider}: ${method.email ?? identityEmail}`)
+    if (method.type === 'SSO') parts.push(`SSO ${method.providers.join(', ')}: ${method.email ?? identityEmail}`)
     if (method.type === 'PASSKEY') parts.push('Passkey: activada')
     if (method.type === 'MAGIC_LINK') parts.push(`Magic Link: ${method.email ?? identityEmail}`)
   }

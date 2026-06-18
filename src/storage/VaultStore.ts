@@ -751,23 +751,25 @@ export class VaultStore {
       recovery: databaseDump.meta.recovery ?? backup.recovery,
       createdAt: databaseDump.meta.createdAt || profileRecord.createdAt,
     }
-    await db.put('meta', restoredProfile, `profile_${profileId}`)
+    const tx = db.transaction(['meta', 'platforms'], 'readwrite')
+    const metaStore = tx.objectStore('meta')
+    const platformsStore = tx.objectStore('platforms')
 
-    const txDelete = db.transaction('platforms', 'readwrite')
-    const allKeys = await txDelete.store.getAllKeys()
+    await metaStore.put(restoredProfile, `profile_${profileId}`)
+
+    const allKeys = await platformsStore.getAllKeys()
     const prefix = `${profileId}_`
     for (const key of allKeys) {
       if (key.startsWith(prefix)) {
-        await txDelete.store.delete(key)
+        await platformsStore.delete(key)
       }
     }
-    await txDelete.done
 
-    const txWrite = db.transaction('platforms', 'readwrite')
     for (const record of importedRecords) {
-      await txWrite.store.put(record.payload, `${profileId}_${record.id}`)
+      await platformsStore.put(record.payload, `${profileId}_${record.id}`)
     }
-    await txWrite.done
+
+    await tx.done
   }
 
   async inspectAndDecryptCloudPayload(payloadJson: string): Promise<{

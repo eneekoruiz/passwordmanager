@@ -222,7 +222,7 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
               ? [{
                   id: crypto.randomUUID(),
                   type: 'SSO' as const,
-                  provider: 'Google' as const,
+                  providers: ['Google'],
                   email: email || null,
                 }]
               : []),

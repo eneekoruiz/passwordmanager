@@ -1,13 +1,25 @@
 import type { Account, AccountAccessMethod, ApiKeyEntry, CustomFieldEntry, PasswordHistoryEntry, TwoFactorConfig } from '../types'
 
-function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountAccessMethod[] {
+export function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountAccessMethod[] {
   return methods
     .map((method) => {
       if (method.type === 'PASSWORD') {
         return { ...method, password: method.password.trim() }
       }
       if (method.type === 'SSO') {
-        return { ...method, email: method.email?.trim() || null }
+        const anyMethod = method as any
+        const providers: string[] = []
+        if (Array.isArray(anyMethod.providers)) {
+          providers.push(...anyMethod.providers.map((p: string) => p.trim()).filter(Boolean))
+        } else if (typeof anyMethod.provider === 'string' && anyMethod.provider.trim()) {
+          providers.push(anyMethod.provider.trim())
+        }
+        return { 
+          id: method.id,
+          type: 'SSO' as const,
+          providers,
+          email: method.email?.trim() || null 
+        }
       }
       if (method.type === 'MAGIC_LINK') {
         return { ...method, email: method.email?.trim() || null }
@@ -15,7 +27,7 @@ function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountAccessMe
       return method
     })
     .filter((method) => {
-      if (method.type === 'PASSWORD') return method.password.length > 0
+      if (method.type === 'PASSWORD') return (method as any).password.length > 0
       return true
     })
 }

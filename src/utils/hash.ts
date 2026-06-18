@@ -28,8 +28,8 @@ export function deterministicStringify(obj: any): string {
 
   const keys = Object.keys(obj).sort()
   const strParts = keys.map((key) => {
-    // Excluir metadatos volátiles como updatedAt o createdAt para la comparación de contenido
-    if (key === 'updatedAt' || key === 'createdAt') {
+    // Excluir metadatos volátiles como updatedAt, createdAt o lastSynced para la comparación de contenido
+    if (key === 'updatedAt' || key === 'createdAt' || key === 'lastSynced') {
       return `"${key}":null`
     }
     return `"${key}":${deterministicStringify(obj[key])}`

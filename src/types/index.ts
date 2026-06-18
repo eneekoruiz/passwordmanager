@@ -43,7 +43,7 @@ export interface PasswordAccessMethod {
 export interface SsoAccessMethod {
   id: string
   type: 'SSO'
-  provider: SsoProvider
+  providers: SsoProvider[]
   email: string | null
 }
 

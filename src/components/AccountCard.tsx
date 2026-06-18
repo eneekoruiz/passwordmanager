@@ -37,7 +37,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
             .filter((method) => method.type === 'SSO')
             .map((method) => (
             <p key={method.id} className="mt-0.5 text-sm text-text-secondary truncate">
-              {method.provider}: {method.email}
+              {method.providers.join(', ')}: {method.email}
             </p>
             ))}
           {account.username && (
