@@ -85,12 +85,177 @@ class InMemoryDB {
   }
 }
 
-let dbPromise: Promise<IDBPDatabase<ContrasDB>> | null = null
 let inMemoryInstance: InMemoryDB | null = null
 let isInMemory = false
+let wrapperPromise: Promise<IDBPDatabase<ContrasDB>> | null = null
 
 export function isInMemoryFallbackActive(): boolean {
   return isInMemory
+}
+
+function handleStorageError(error: any) {
+  if (isInMemory) return
+  console.warn('Safari/WebKit storage restriction detected. Switching to volatile in-memory fallback:', error)
+  isInMemory = true
+  if (!inMemoryInstance) {
+    inMemoryInstance = new InMemoryDB()
+  }
+  if (typeof window !== 'undefined') {
+    window.dispatchEvent(new CustomEvent('contras:storage-degraded', { detail: error }))
+  }
+}
+
+function wrapTransaction(tx: any, storeName: string, mode: any) {
+  const store = {
+    async getAllKeys() {
+      if (isInMemory && inMemoryInstance) {
+        const memTx = inMemoryInstance.transaction(storeName, mode)
+        return memTx.store.getAllKeys()
+      }
+      try {
+        return await tx.store.getAllKeys()
+      } catch (error) {
+        handleStorageError(error)
+        const memTx = inMemoryInstance!.transaction(storeName, mode)
+        return memTx.store.getAllKeys()
+      }
+    },
+    async get(key: any) {
+      if (isInMemory && inMemoryInstance) {
+        const memTx = inMemoryInstance.transaction(storeName, mode)
+        return memTx.store.get(key)
+      }
+      try {
+        return await tx.store.get(key)
+      } catch (error) {
+        handleStorageError(error)
+        const memTx = inMemoryInstance!.transaction(storeName, mode)
+        return memTx.store.get(key)
+      }
+    },
+    async put(value: any, key: any) {
+      if (isInMemory && inMemoryInstance) {
+        const memTx = inMemoryInstance.transaction(storeName, mode)
+        return memTx.store.put(value, key)
+      }
+      try {
+        return await tx.store.put(value, key)
+      } catch (error) {
+        handleStorageError(error)
+        const memTx = inMemoryInstance!.transaction(storeName, mode)
+        return memTx.store.put(value, key)
+      }
+    },
+    async delete(key: any) {
+      if (isInMemory && inMemoryInstance) {
+        const memTx = inMemoryInstance.transaction(storeName, mode)
+        return memTx.store.delete(key)
+      }
+      try {
+        return await tx.store.delete(key)
+      } catch (error) {
+        handleStorageError(error)
+        const memTx = inMemoryInstance!.transaction(storeName, mode)
+        return memTx.store.delete(key)
+      }
+    },
+    async clear() {
+      if (isInMemory && inMemoryInstance) {
+        const memTx = inMemoryInstance.transaction(storeName, mode)
+        return memTx.store.clear()
+      }
+      try {
+        return await tx.store.clear()
+      } catch (error) {
+        handleStorageError(error)
+        const memTx = inMemoryInstance!.transaction(storeName, mode)
+        return memTx.store.clear()
+      }
+    },
+  }
+
+  return {
+    store,
+    get done() {
+      if (isInMemory) {
+        return Promise.resolve()
+      }
+      return tx.done.catch((error: any) => {
+        handleStorageError(error)
+        return Promise.resolve()
+      })
+    },
+  }
+}
+
+class SafeDatabaseWrapper {
+  constructor(private db: IDBPDatabase<ContrasDB> | InMemoryDB) {}
+
+  async get(storeName: any, key: any): Promise<any> {
+    if (isInMemory) {
+      return (this.db as InMemoryDB).get(storeName, key)
+    }
+    try {
+      return await (this.db as IDBPDatabase<ContrasDB>).get(storeName, key)
+    } catch (error) {
+      handleStorageError(error)
+      this.db = inMemoryInstance!
+      return this.db.get(storeName, key)
+    }
+  }
+
+  async put(storeName: any, value: any, key: any): Promise<any> {
+    if (isInMemory) {
+      return (this.db as InMemoryDB).put(storeName, value, key)
+    }
+    try {
+      return await (this.db as IDBPDatabase<ContrasDB>).put(storeName, value, key)
+    } catch (error) {
+      handleStorageError(error)
+      this.db = inMemoryInstance!
+      return this.db.put(storeName, value, key)
+    }
+  }
+
+  async delete(storeName: any, key: any): Promise<void> {
+    if (isInMemory) {
+      return (this.db as InMemoryDB).delete(storeName, key)
+    }
+    try {
+      return await (this.db as IDBPDatabase<ContrasDB>).delete(storeName, key)
+    } catch (error) {
+      handleStorageError(error)
+      this.db = inMemoryInstance!
+      return this.db.delete(storeName, key)
+    }
+  }
+
+  async getAllKeys(storeName: any): Promise<any[]> {
+    if (isInMemory) {
+      return (this.db as InMemoryDB).getAllKeys(storeName)
+    }
+    try {
+      return await (this.db as IDBPDatabase<ContrasDB>).getAllKeys(storeName)
+    } catch (error) {
+      handleStorageError(error)
+      this.db = inMemoryInstance!
+      return this.db.getAllKeys(storeName)
+    }
+  }
+
+  transaction(storeName: any, mode?: any): any {
+    if (isInMemory) {
+      return (this.db as InMemoryDB).transaction(storeName, mode)
+    }
+    try {
+      const tx = (this.db as IDBPDatabase<ContrasDB>).transaction(storeName, mode)
+      return wrapTransaction(tx, storeName, mode)
+    } catch (error) {
+      handleStorageError(error)
+      this.db = inMemoryInstance!
+      return this.db.transaction(storeName, mode)
+    }
+  }
 }
 
 function openVaultDatabase(): Promise<IDBPDatabase<ContrasDB>> {
@@ -132,31 +297,33 @@ async function openVaultDatabaseWithRetries(): Promise<IDBPDatabase<ContrasDB>> 
 
 export function getVaultDb(): Promise<IDBPDatabase<ContrasDB>> {
   if (isInMemory && inMemoryInstance) {
-    return Promise.resolve(inMemoryInstance as unknown as IDBPDatabase<ContrasDB>)
+    return Promise.resolve(new SafeDatabaseWrapper(inMemoryInstance) as unknown as IDBPDatabase<ContrasDB>)
   }
 
-  if (!dbPromise) {
-    dbPromise = openVaultDatabaseWithRetries().catch(async (err) => {
-      console.error('Error inicializando IndexedDB. Intentando recuperar...', err)
-      dbPromise = null
-
+  if (!wrapperPromise) {
+    wrapperPromise = (async () => {
       try {
-        await deleteDB(DB_NAME)
-        return await openVaultDatabaseWithRetries()
-      } catch (recoveryErr) {
-        console.error('No se pudo recuperar IndexedDB de forma persistente. Activando persistencia degradada in-memory:', recoveryErr)
-        isInMemory = true
-        inMemoryInstance = new InMemoryDB()
-        dbPromise = null
-        return inMemoryInstance as unknown as IDBPDatabase<ContrasDB>
+        const physicalDb = await openVaultDatabaseWithRetries()
+        return new SafeDatabaseWrapper(physicalDb) as unknown as IDBPDatabase<ContrasDB>
+      } catch (err) {
+        console.error('Error inicializando IndexedDB. Intentando recuperar...', err)
+        try {
+          await deleteDB(DB_NAME)
+          const physicalDb = await openVaultDatabaseWithRetries()
+          return new SafeDatabaseWrapper(physicalDb) as unknown as IDBPDatabase<ContrasDB>
+        } catch (recoveryErr) {
+          console.error('No se pudo recuperar IndexedDB de forma persistente. Activando persistencia degradada in-memory:', recoveryErr)
+          handleStorageError(recoveryErr)
+          return new SafeDatabaseWrapper(inMemoryInstance!) as unknown as IDBPDatabase<ContrasDB>
+        }
       }
-    })
+    })()
   }
-  return dbPromise
+  return wrapperPromise
 }
 
 export async function deleteVaultDb(): Promise<void> {
-  dbPromise = null
+  wrapperPromise = null
   if (isInMemory && inMemoryInstance) {
     inMemoryInstance = new InMemoryDB()
     return
@@ -165,7 +332,6 @@ export async function deleteVaultDb(): Promise<void> {
     await deleteDB(DB_NAME)
   } catch (error) {
     console.warn('No se pudo borrar IndexedDB fisica, reiniciando adaptador in-memory:', error)
-    isInMemory = true
-    inMemoryInstance = new InMemoryDB()
+    handleStorageError(error)
   }
 }

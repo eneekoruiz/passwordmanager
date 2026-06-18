@@ -70,7 +70,7 @@ interface VaultContextValue {
   hasUnsyncedChanges: boolean
   loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
-  syncActiveProfileToCloud: () => Promise<CloudSyncResult>
+  syncActiveProfileToCloud: (silent?: boolean) => Promise<CloudSyncResult>
   downloadLatestCloudVault: () => Promise<CloudSyncResult>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
   restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
@@ -342,7 +342,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [currentProfileId, refreshVaultData, reportCloudError])
 
-  const syncActiveProfileToCloud = useCallback(async (): Promise<CloudSyncResult> => {
+  const syncActiveProfileToCloud = useCallback(async (silent = false): Promise<CloudSyncResult> => {
     if (syncInProgressRef.current) {
       return { action: 'idle', message: 'Sincronización en curso. Espera un momento.' }
     }
@@ -453,7 +453,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } catch (error) {
       logUnexpectedError('Error al sincronizar con Firebase', error)
       setCloudSyncStatus('error')
-      reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
+      if (!silent) {
+        reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
+      }
       throw error
     } finally {
       syncInProgressRef.current = false
@@ -461,7 +463,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, reportCloudError])
 
   const triggerCloudSync = useCallback(() => {
-    void syncActiveProfileToCloud().then(result => {
+    void syncActiveProfileToCloud(true).then(result => {
       // Si hay un download_available y estamos en triggerCloudSync (auto-push), 
       // no sobreescribimos y en su lugar notificamos de conflicto en la UI mediante un return
       if (result.action === 'download_available') {

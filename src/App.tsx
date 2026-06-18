@@ -52,7 +52,7 @@ function VaultApp() {
 
   const { showToast } = useToast()
 
-  const isInMemory = isInMemoryFallbackActive()
+  const [isInMemory, setIsInMemory] = useState(() => isInMemoryFallbackActive())
 
   const warningBanner = isInMemory ? (
     <div className="bg-amber-600 text-white px-4 py-2.5 text-[11px] sm:text-xs font-semibold text-center z-[9999] relative flex items-center justify-center gap-2 shadow-md shrink-0">
@@ -71,8 +71,26 @@ function VaultApp() {
     const checkMobile = () => setIsMobile(window.innerWidth < 1024)
     checkMobile()
     window.addEventListener('resize', checkMobile)
-    return () => window.removeEventListener('resize', checkMobile)
-  }, [])
+
+    const handleStorageDegraded = () => {
+      setIsInMemory(true)
+      showToast(
+        'Aviso de iOS: Safari está limitando el almacenamiento. La app funciona en modo temporal. Añádela a la pantalla de inicio para evitar esto.',
+        'warning',
+      )
+    }
+
+    window.addEventListener('contras:storage-degraded', handleStorageDegraded)
+
+    if (isInMemoryFallbackActive()) {
+      handleStorageDegraded()
+    }
+
+    return () => {
+      window.removeEventListener('resize', checkMobile)
+      window.removeEventListener('contras:storage-degraded', handleStorageDegraded)
+    }
+  }, [showToast])
 
   const [deferredPrompt, setDeferredPrompt] = useState<BeforeInstallPromptEvent | null>(null)
 

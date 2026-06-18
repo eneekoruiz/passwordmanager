@@ -17,8 +17,8 @@
  */
 
 import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { getAuth, type Auth } from 'firebase/auth'
-import { getFirestore, type Firestore } from 'firebase/firestore'
+import { initializeAuth, browserLocalPersistence, inMemoryPersistence, getAuth, type Auth } from 'firebase/auth'
+import { initializeFirestore, memoryLocalCache, getFirestore, type Firestore } from 'firebase/firestore'
 
 const firebaseEnv = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim() ?? '',
@@ -48,12 +48,54 @@ const app: FirebaseApp | null = firebaseConfigError ? null : initializeApp(fireb
  * Instancia de Firebase Authentication.
  * Usada para registrar usuarios, iniciar y cerrar sesión,
  * y escuchar cambios en el estado de autenticación.
+ *
+ * Se inicializa defensivamente: si la persistencia local de navegador
+ * es bloqueada (ej. por WebKit/Safari), cae de forma silenciosa a in-memory.
  */
-export const auth: Auth | null = app ? getAuth(app) : null
+function initAuth(): Auth | null {
+  if (!app) return null
+  try {
+    return initializeAuth(app, {
+      persistence: browserLocalPersistence,
+    })
+  } catch (error) {
+    console.warn('Auth browserLocalPersistence failed, falling back to inMemoryPersistence:', error)
+    try {
+      return initializeAuth(app, {
+        persistence: inMemoryPersistence,
+      })
+    } catch (innerErr) {
+      console.error('Auth fallback initialization failed completely:', innerErr)
+      return getAuth(app)
+    }
+  }
+}
+
+export const auth: Auth | null = initAuth()
 
 /**
  * Instancia de Cloud Firestore.
  * Usada exclusivamente para leer y escribir el blob de la bóveda
  * cifrada del usuario autenticado en la colección `vaults`.
+ *
+ * Se inicializa forzando el cache en memoria para evitar que
+ * Firebase intente acceder a IndexedDB nativamente si está restringido.
  */
-export const db: Firestore | null = app ? getFirestore(app) : null
+function initFirestore(): Firestore | null {
+  if (!app) return null
+  try {
+    return initializeFirestore(app, {
+      localCache: memoryLocalCache(),
+    })
+  } catch (error) {
+    console.warn('Firestore initializeFirestore with memoryLocalCache failed, falling back:', error)
+    try {
+      return getFirestore(app)
+    } catch (innerErr) {
+      console.error('Firestore initialization failed completely:', innerErr)
+      return null
+    }
+  }
+}
+
+export const db: Firestore | null = initFirestore()
