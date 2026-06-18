@@ -12,11 +12,7 @@ interface PlatformLogoProps {
  */
 export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
   const [hasError, setHasError] = useState(false)
-
-  // Resetear el estado de error si el nombre de la plataforma cambia
-  useEffect(() => {
-    setHasError(false)
-  }, [name])
+  const [src, setSrc] = useState('')
 
   const getDomainFromName = (n: string): string => {
     const clean = n.trim().toLowerCase()
@@ -31,7 +27,23 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   const domain = getDomainFromName(name)
   const initial = name.trim().charAt(0).toUpperCase() || 'P'
 
-  if (hasError) {
+  // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
+  useEffect(() => {
+    setHasError(false)
+    setSrc(`https://logo.clearbit.com/${domain}`)
+  }, [name, domain])
+
+  const handleImageError = () => {
+    if (src === `https://logo.clearbit.com/${domain}`) {
+      setSrc(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`)
+    } else if (src === `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`) {
+      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
+    } else {
+      setHasError(true)
+    }
+  }
+
+  if (hasError || !src) {
     return (
       <div
         className={`${className} rounded-full flex items-center justify-center bg-[#e5e5ea] text-text-secondary text-[10px] font-bold shrink-0 select-none border border-black/[0.03]`}
@@ -44,10 +56,10 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
 
   return (
     <img
-      src={`https://www.google.com/s2/favicons?domain=${domain}&sz=64`}
+      src={src}
       alt={`Logo de ${name}`}
-      onError={() => setHasError(true)}
-      className={`${className} rounded-full shrink-0 object-contain`}
+      onError={handleImageError}
+      className={`${className} rounded-full shrink-0 object-contain bg-white`}
     />
   )
 }

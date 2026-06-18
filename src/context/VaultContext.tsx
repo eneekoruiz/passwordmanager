@@ -765,7 +765,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCurrentProfileName(fallbackName)
       setIsUnlocked(true)
       await loadVaultDataForProfile(targetProfileId)
-      setCloudSyncStatus('synced')
+      setCloudSyncStatus('idle')
       await listProfiles()
     },
     [listProfiles, loadVaultDataForProfile],
@@ -864,7 +864,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCurrentProfileName(localDefaultProfile.name || 'Boveda Principal')
           setIsUnlocked(true)
           await loadVaultDataForProfile(profileId)
-          setCloudSyncStatus('synced')
+          setCloudSyncStatus('idle')
           // Check if biometric is registered for this profile
           void storeRef.current.hasBiometricBundle(profileId).then(setBiometricRegistered)
           triggerCloudSync()

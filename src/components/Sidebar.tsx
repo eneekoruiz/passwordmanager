@@ -33,6 +33,9 @@ interface SidebarProps {
   onInstall?: () => void
   syncing?: boolean
   syncIndicator?: React.ReactNode
+  showAddForm: boolean
+  onToggleAddForm: (show?: boolean) => void
+  onAddClick: () => void
 }
 
 export function Sidebar({
@@ -60,9 +63,11 @@ export function Sidebar({
   onInstall,
   syncing = false,
   syncIndicator,
+  showAddForm,
+  onToggleAddForm,
+  onAddClick,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
-  const [showAddForm, setShowAddForm] = useState(false)
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [sidebarError, setSidebarError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
@@ -165,7 +170,7 @@ export function Sidebar({
     try {
       await onAddIdentity(email)
       setNewIdentityEmail('')
-      setShowAddForm(false)
+      onToggleAddForm(false)
     } catch (error) {
       setSidebarError(getFriendlyErrorMessage(error, 'No se pudo crear la identidad.'))
     } finally {
@@ -229,7 +234,7 @@ export function Sidebar({
           <div className="flex items-center gap-1">
             <button
               type="button"
-              onClick={() => setShowAddForm((value) => !value)}
+              onClick={onAddClick}
               className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
               aria-label="Añadir identidad"
             >

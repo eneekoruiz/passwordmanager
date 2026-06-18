@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, Component, type ErrorInfo, type ReactNode } from 'react'
 import { VaultProvider, useVault } from './context/VaultContext'
 import { SyncDiffViewer } from './components/SyncDiffViewer'
 import { Sidebar } from './components/Sidebar'
@@ -53,6 +53,11 @@ function VaultApp() {
   } = useVault()
 
   const { showToast } = useToast()
+
+  const [mounted, setMounted] = useState(false)
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const [isInMemory, setIsInMemory] = useState(() => isInMemoryFallbackActive())
 
@@ -132,6 +137,25 @@ function VaultApp() {
   const [selectedPlatformName, setSelectedPlatformName] = useState<string | null>(null)
   const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalCategory | null>(null)
   const [searchQuery, setSearchQuery] = useState('')
+  const [showAddForm, setShowAddForm] = useState(false)
+  const [createTrigger, setCreateTrigger] = useState(0)
+
+  const handleAddClick = () => {
+    if (groupMode === 'identity') {
+      setShowAddForm((prev) => !prev)
+    } else if (groupMode === 'platform') {
+      let targetId = selectedId
+      if (!targetId && displayIdentities.length > 0) {
+        targetId = displayIdentities[0].id
+        setSelectedId(targetId)
+      }
+      setCreateTrigger((prev) => prev + 1)
+    }
+  }
+
+  const handleToggleAddForm = (show?: boolean) => {
+    setShowAddForm((prev) => (show !== undefined ? show : !prev))
+  }
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
@@ -339,7 +363,7 @@ function VaultApp() {
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [unsavedDirty, hasUnsyncedChanges])
 
-  if (!isReady) {
+  if (!mounted || !isReady) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-surface">
         <p className="text-sm text-text-secondary">Cargando…</p>
@@ -608,6 +632,18 @@ function VaultApp() {
           </p>
         </div>
         <div className="flex items-center gap-2">
+          {/* Add button */}
+          <button
+            type="button"
+            onClick={handleAddClick}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96]"
+            aria-label="Añadir"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+
           {/* Nube Icon (Sync Indicator) */}
           {CloudSyncIndicator}
 
@@ -818,7 +854,7 @@ function VaultApp() {
       <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16 overscroll-none overflow-x-hidden">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex-1 overflow-y-auto ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'}`}>
+        <div className={`flex-1 overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'}`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
@@ -853,6 +889,9 @@ function VaultApp() {
               onInstall={handleInstallApp}
               syncing={cloudSyncStatus === 'syncing'}
               syncIndicator={CloudSyncIndicator}
+              showAddForm={showAddForm}
+              onToggleAddForm={handleToggleAddForm}
+              onAddClick={handleAddClick}
             />
           ) : (
             <MainArea
@@ -890,6 +929,7 @@ function VaultApp() {
               onSaveLocalItem={saveLocalItem}
               onDeleteLocalItem={deleteLocalItem}
               isMobile={true}
+              createTrigger={createTrigger}
             />
           )}
         </div>
@@ -1037,7 +1077,7 @@ function VaultApp() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-surface overscroll-none overflow-x-hidden">
+    <div className="flex h-dvh flex-col bg-surface overscroll-none overflow-hidden">
       {warningBanner}
       <div className="flex flex-1 min-h-0">
         {globalOverlays}
@@ -1074,6 +1114,9 @@ function VaultApp() {
           onInstall={handleInstallApp}
           syncing={cloudSyncStatus === 'syncing'}
           syncIndicator={CloudSyncIndicator}
+          showAddForm={showAddForm}
+          onToggleAddForm={handleToggleAddForm}
+          onAddClick={handleAddClick}
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
@@ -1113,6 +1156,7 @@ function VaultApp() {
             onSaveLocalItem={saveLocalItem}
             onDeleteLocalItem={deleteLocalItem}
             isMobile={false}
+            createTrigger={createTrigger}
           />
         </main>
       </div>
@@ -1321,10 +1365,70 @@ function GlobalSearch({
   )
 }
 
+interface ErrorBoundaryProps {
+  children: ReactNode
+}
+
+interface ErrorBoundaryState {
+  hasError: boolean
+  error: Error | null
+}
+
+class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
+  public override state: ErrorBoundaryState = {
+    hasError: false,
+    error: null
+  }
+
+  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
+    return { hasError: true, error }
+  }
+
+  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
+    console.error('ErrorBoundary caught an error:', error, errorInfo)
+  }
+
+  public override render() {
+    if (this.state.hasError) {
+      return (
+        <div className="flex min-h-screen flex-col items-center justify-center bg-surface p-6 font-sans text-center">
+          <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-lg">
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600 mx-auto mb-4">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h2 className="text-lg font-bold text-text-primary">Algo ha salido mal</h2>
+            <p className="mt-2 text-xs text-text-secondary">
+              Se ha producido un error inesperado al renderizar la interfaz. Por favor, recarga la aplicación.
+            </p>
+            {this.state.error && (
+              <pre className="mt-3 overflow-x-auto rounded-lg bg-surface p-3 text-left text-[10px] font-mono text-text-tertiary">
+                {this.state.error.toString()}
+              </pre>
+            )}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="mt-5 min-h-11 w-full rounded-xl bg-text-primary text-xs font-bold text-white transition-all hover:bg-slate-800"
+            >
+              Recargar aplicación
+            </button>
+          </div>
+        </div>
+      )
+    }
+
+    return this.props.children
+  }
+}
+
 export default function App() {
   return (
-    <VaultProvider>
-      <VaultApp />
-    </VaultProvider>
+    <ErrorBoundary>
+      <VaultProvider>
+        <VaultApp />
+      </VaultProvider>
+    </ErrorBoundary>
   )
 }

@@ -29,6 +29,7 @@ interface MainAreaProps {
   onSaveLocalItem: (item: LocalVaultItem) => Promise<void>
   onDeleteLocalItem: (itemId: string) => Promise<void>
   isMobile?: boolean
+  createTrigger?: number
 }
 
 interface PlatformAccount {
@@ -68,6 +69,7 @@ export function MainArea({
   onSaveLocalItem,
   onDeleteLocalItem,
   isMobile = false,
+  createTrigger = 0,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
@@ -84,6 +86,23 @@ export function MainArea({
   useEffect(() => {
     resetView()
   }, [activeContextKey])
+
+  useEffect(() => {
+    if (createTrigger > 0) {
+      const targetIdentity = identity || (identities.length > 0 ? identities[0] : null)
+      if (localCategory) {
+        setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
+        setView('create')
+      } else if (targetIdentity) {
+        setEditingPlatform({
+          identityId: targetIdentity.id,
+          identityEmail: targetIdentity.email,
+          platform: createPlatform('', { username: targetIdentity.email }),
+        })
+        setView('create')
+      }
+    }
+  }, [createTrigger])
 
   const platformAccounts = useMemo<PlatformAccount[]>(() => {
     if (groupMode !== 'platform' || !selectedPlatformName) return []

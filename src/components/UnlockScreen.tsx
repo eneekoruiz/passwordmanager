@@ -1,7 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
 import { PasswordField } from './ui/PasswordField'
-import { BiometricUnlockButton } from './ui/BiometricUnlockButton'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
 
@@ -74,6 +73,7 @@ export function UnlockScreen() {
 
   const [masterPassword, setMasterPassword] = useState('')
   const [confirmMasterPassword, setConfirmMasterPassword] = useState('')
+  const [showPasswordInput, setShowPasswordInput] = useState(false)
   const [recoveryPhrase, setRecoveryPhrase] = useState('')
   const [recoveryCopied, setRecoveryCopied] = useState(false)
   const [onboardingRecoveryStep, setOnboardingRecoveryStep] = useState<OnboardingRecoveryStep>('display')
@@ -105,6 +105,17 @@ export function UnlockScreen() {
       setNukeConfirmation('')
     }
   }, [])
+
+  useEffect(() => {
+    if (cloudVaultExists !== false && biometricAvailable && biometricRegistered) {
+      const timer = setTimeout(() => {
+        unlockWithBiometricSensor().catch((err) => {
+          console.warn('Auto biometric unlock prompt failed/cancelled:', err)
+        })
+      }, 500)
+      return () => clearTimeout(timer)
+    }
+  }, [cloudVaultExists, biometricAvailable, biometricRegistered, unlockWithBiometricSensor])
 
   useEffect(() => {
     if (cloudVaultExists === false && !recoveryPhrase) {
@@ -260,6 +271,7 @@ export function UnlockScreen() {
   }
 
   const isCloudLoading = cloudSyncStatus === 'syncing'
+  const needsBiometricChoice = cloudVaultExists !== false && biometricAvailable && biometricRegistered
   const recoveryWords = recoveryPhrase.split(' ').filter(Boolean)
   const seedChallengePassed =
     recoveryWords.length === 12 &&
@@ -364,196 +376,238 @@ export function UnlockScreen() {
               </form>
             ) : (
               <form onSubmit={handleVaultAction} className="w-full space-y-5">
-                <div className="space-y-1">
-                  <h1 className="text-xl font-bold tracking-tight text-text-primary">Desbloquea tu Bóveda Local</h1>
-                  <p className="text-xs leading-relaxed text-text-secondary">
-                    Introduce tu <strong>Contraseña Maestra</strong> para abrirla. Nunca se envía a nuestros servidores.
-                  </p>
-                </div>
-
-                {cloudVaultExists !== false && biometricAvailable && biometricRegistered && (
-                  <div className="space-y-3">
-                    <BiometricUnlockButton
-                      onUnlock={unlockWithBiometricSensor}
-                      onError={(msg) => setError(msg)}
-                    />
-                    <div className="flex items-center gap-2">
-                      <div className="h-px flex-1 bg-border" />
-                      <span className="text-[10px] font-semibold uppercase tracking-widest text-text-tertiary">o continúa con contraseña</span>
-                      <div className="h-px flex-1 bg-border" />
+                {needsBiometricChoice && !showPasswordInput ? (
+                  <div className="flex flex-col items-center justify-center space-y-6 py-6 animate-fade-in">
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        setError(null)
+                        try {
+                          await unlockWithBiometricSensor()
+                        } catch (err) {
+                          const msg = err instanceof Error ? err.message : 'Error de autenticación biométrica.'
+                          if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('cancelad')) {
+                            setError(msg)
+                          }
+                        }
+                      }}
+                      className="group flex h-24 w-24 items-center justify-center rounded-full bg-slate-950 text-white shadow-[0_12px_40px_rgba(15,23,42,0.24)] transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
+                      aria-label="Desbloquear con biometría"
+                    >
+                      <svg className="h-10 w-10 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
+                      </svg>
+                    </button>
+                    <div className="text-center">
+                      <p className="text-sm font-bold text-text-primary">Desbloqueo Biométrico</p>
+                      <p className="mt-0.5 text-xs text-text-secondary">Face ID · Huella · Windows Hello</p>
                     </div>
+                    {error && <ErrorMessage error={error} />}
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setShowPasswordInput(true)
+                        setError(null)
+                      }}
+                      className="text-xs font-semibold text-text-secondary transition-colors hover:text-text-primary underline underline-offset-4"
+                    >
+                      Usar Contraseña Maestra en su lugar
+                    </button>
                   </div>
-                )}
-
-                <div className="space-y-3.5 text-left">
-                  <PasswordField
-                    label={cloudVaultExists === false ? 'Crear Contraseña Maestra' : 'Contraseña Maestra'}
-                    value={masterPassword}
-                    onChange={setMasterPassword}
-                    required
-                    placeholder="Escribe tu Contraseña Maestra"
-                  />
-
-                  {cloudVaultExists === false && (
-                    <PasswordField
-                      label="Confirmar Contraseña Maestra"
-                      value={confirmMasterPassword}
-                      onChange={setConfirmMasterPassword}
-                      required
-                      placeholder="Repite tu Contraseña Maestra"
-                    />
-                  )}
-                </div>
-
-                {cloudVaultExists === false && recoveryPhrase && (
-                  <div className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 text-left shadow-sm animate-vault-morph">
-                    <div>
-                      <p className="text-xs font-bold text-amber-900">Emergency Recovery Kit</p>
-                      <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
-                        Si olvidas tu Contraseña Maestra, esta es la UNICA forma de recuperar tus datos. Guarda estas 12 palabras fuera de este dispositivo.
+                ) : (
+                  <>
+                    <div className="space-y-1">
+                      <h1 className="text-xl font-bold tracking-tight text-text-primary">Desbloquea tu Bóveda Local</h1>
+                      <p className="text-xs leading-relaxed text-text-secondary">
+                        Introduce tu <strong>Contraseña Maestra</strong> para abrirla. Nunca se envía a nuestros servidores.
                       </p>
                     </div>
-                    {onboardingRecoveryStep === 'display' ? (
-                      <div className="space-y-3 animate-vault-morph">
-                        <div className="grid grid-cols-2 gap-2 rounded-xl border border-amber-200 bg-white/80 p-3 font-mono text-[12px] leading-6 text-text-primary sm:grid-cols-3">
-                          {recoveryWords.map((word, index) => (
-                            <div key={`${word}-${index}`} className="select-text rounded-lg bg-amber-50/70 px-2 py-1">
-                              <span className="mr-1 text-[10px] text-amber-700">{index + 1}.</span>
-                              {word}
+
+                    <div className="space-y-3.5 text-left">
+                      <PasswordField
+                        label={cloudVaultExists === false ? 'Crear Contraseña Maestra' : 'Contraseña Maestra'}
+                        value={masterPassword}
+                        onChange={setMasterPassword}
+                        required
+                        placeholder="Escribe tu Contraseña Maestra"
+                      />
+
+                      {cloudVaultExists === false && (
+                        <PasswordField
+                          label="Confirmar Contraseña Maestra"
+                          value={confirmMasterPassword}
+                          onChange={setConfirmMasterPassword}
+                          required
+                          placeholder="Repite tu Contraseña Maestra"
+                        />
+                      )}
+                    </div>
+
+                    {cloudVaultExists === false && recoveryPhrase && (
+                      <div className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 text-left shadow-sm animate-vault-morph">
+                        <div>
+                          <p className="text-xs font-bold text-amber-900">Emergency Recovery Kit</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+                            Si olvidas tu Contraseña Maestra, esta es la UNICA forma de recuperar tus datos. Guarda estas 12 palabras fuera de este dispositivo.
+                          </p>
+                        </div>
+                        {onboardingRecoveryStep === 'display' ? (
+                          <div className="space-y-3 animate-vault-morph">
+                            <div className="grid grid-cols-2 gap-2 rounded-xl border border-amber-200 bg-white/80 p-3 font-mono text-[12px] leading-6 text-text-primary sm:grid-cols-3">
+                              {recoveryWords.map((word, index) => (
+                                <div key={`${word}-${index}`} className="select-text rounded-lg bg-amber-50/70 px-2 py-1">
+                                  <span className="mr-1 text-[10px] text-amber-700">{index + 1}.</span>
+                                  {word}
+                                </div>
+                              ))}
                             </div>
-                          ))}
-                        </div>
-                        <div className="grid grid-cols-2 gap-2">
-                          <button
-                            type="button"
-                            onClick={handleCopyRecoveryPhrase}
-                            className="min-h-11 rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-text-primary transition-all hover:bg-surface-hover active:scale-[0.98]"
-                          >
-                            {recoveryCopied ? 'Copiada' : 'Copiar'}
-                          </button>
-                          <button
-                            type="button"
-                            onClick={handleDownloadRecoveryPhrase}
-                            className="min-h-11 rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-text-primary transition-all hover:bg-surface-hover active:scale-[0.98]"
-                          >
-                            Descargar
-                          </button>
-                        </div>
+                            <div className="grid grid-cols-2 gap-2">
+                              <button
+                                type="button"
+                                onClick={handleCopyRecoveryPhrase}
+                                className="min-h-11 rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-text-primary transition-all hover:bg-surface-hover active:scale-[0.98]"
+                              >
+                                {recoveryCopied ? 'Copiada' : 'Copiar'}
+                              </button>
+                              <button
+                                type="button"
+                                onClick={handleDownloadRecoveryPhrase}
+                                className="min-h-11 rounded-xl border border-black/10 bg-white px-3 py-2 text-xs font-semibold text-text-primary transition-all hover:bg-surface-hover active:scale-[0.98]"
+                              >
+                                Descargar
+                              </button>
+                            </div>
+                            <button
+                              type="button"
+                              disabled={!recoveryCopied}
+                              onClick={() => {
+                                setOnboardingRecoveryStep('verify')
+                                setError(null)
+                              }}
+                              className="min-h-11 w-full rounded-xl bg-amber-900 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-amber-950 disabled:opacity-40 active:scale-[0.98]"
+                            >
+                              He guardado la frase. Verificar ahora
+                            </button>
+                          </div>
+                        ) : (
+                          <div className="space-y-4 animate-vault-morph">
+                            <div className="rounded-xl border border-amber-200 bg-white/80 p-3">
+                              <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800">
+                                Examen de Semilla
+                              </p>
+                              <div className="space-y-3">
+                                {seedChallengeIndices.map((index) => (
+                                  <label key={index} className="block">
+                                    <span className="mb-1 block text-[11px] font-semibold text-amber-900">
+                                      Escribe la palabra número {index + 1}
+                                    </span>
+                                    <input
+                                      value={seedChallengeAnswers[index] ?? ''}
+                                      onChange={(event) =>
+                                        setSeedChallengeAnswers((answers) => ({
+                                          ...answers,
+                                          [index]: event.target.value,
+                                        }))
+                                      }
+                                      className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-base font-semibold text-text-primary outline-none transition-all focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
+                                      autoComplete="off"
+                                    />
+                                  </label>
+                                ))}
+                              </div>
+                            </div>
+                            <div className="space-y-2 rounded-xl border border-amber-200 bg-white/75 p-3">
+                              {[
+                                ['masterPassword', 'Entiendo que mi Contraseña Maestra no se puede recuperar ni restablecer.'],
+                                ['seedSaved', 'He guardado mi Frase Semilla en un lugar seguro.'],
+                                ['totalLoss', 'Comprendo que si pierdo ambas claves, perderé el acceso a mis contraseñas para siempre.'],
+                              ].map(([key, label]) => (
+                                <label key={key} className="flex items-start gap-2 text-[11px] font-semibold leading-relaxed text-amber-950">
+                                  <input
+                                    type="checkbox"
+                                    checked={responsibilityChecks[key as keyof typeof responsibilityChecks]}
+                                    onChange={(event) =>
+                                      setResponsibilityChecks((checks) => ({
+                                        ...checks,
+                                        [key]: event.target.checked,
+                                      }))
+                                    }
+                                    className="mt-0.5"
+                                  />
+                                  {label}
+                                </label>
+                              ))}
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => setOnboardingRecoveryStep('display')}
+                              className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
+                            >
+                              Volver a ver la frase
+                            </button>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    <SecurityNote />
+                    {error && <ErrorMessage error={error} />}
+
+                    <button
+                      type="submit"
+                      disabled={
+                        loading ||
+                        isCloudLoading ||
+                        !masterPassword ||
+                        (cloudVaultExists === false &&
+                          !canCreateVault)
+                      }
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+                    >
+                      {loading || isCloudLoading
+                        ? cloudVaultExists === false
+                          ? 'Inicializando bóveda...'
+                          : 'Desbloqueando bóveda...'
+                        : cloudVaultExists === false
+                          ? 'Comenzar a usar la bóveda'
+                          : 'Desbloquear Bóveda Local'}
+                    </button>
+                    {cloudVaultExists !== false && (
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setShowRecoveryFlow(true)
+                          setError(null)
+                        }}
+                        className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
+                      >
+                        ¿Olvidaste tu contraseña?
+                      </button>
+                    )}
+                    {cloudVaultExists !== false && (
+                      <button
+                        type="button"
+                        onClick={() => setShowNukeModal(true)}
+                        className="min-h-11 rounded-xl px-4 py-2 text-[11px] font-semibold text-red-500/80 transition-colors hover:bg-red-50 hover:text-red-700"
+                      >
+                        ¿Has perdido todas tus claves? Empezar de cero
+                      </button>
+                    )}
+                    {needsBiometricChoice && showPasswordInput && (
+                      <div className="pt-2 text-center">
                         <button
                           type="button"
-                          disabled={!recoveryCopied}
                           onClick={() => {
-                            setOnboardingRecoveryStep('verify')
+                            setShowPasswordInput(false)
                             setError(null)
                           }}
-                          className="min-h-11 w-full rounded-xl bg-amber-900 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-amber-950 disabled:opacity-40 active:scale-[0.98]"
+                          className="text-xs font-semibold text-text-secondary hover:text-text-primary underline underline-offset-4"
                         >
-                          He guardado la frase. Verificar ahora
-                        </button>
-                      </div>
-                    ) : (
-                      <div className="space-y-4 animate-vault-morph">
-                        <div className="rounded-xl border border-amber-200 bg-white/80 p-3">
-                          <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800">
-                            Examen de Semilla
-                          </p>
-                          <div className="space-y-3">
-                            {seedChallengeIndices.map((index) => (
-                              <label key={index} className="block">
-                                <span className="mb-1 block text-[11px] font-semibold text-amber-900">
-                                  Escribe la palabra número {index + 1}
-                                </span>
-                                <input
-                                  value={seedChallengeAnswers[index] ?? ''}
-                                  onChange={(event) =>
-                                    setSeedChallengeAnswers((answers) => ({
-                                      ...answers,
-                                      [index]: event.target.value,
-                                    }))
-                                  }
-                                  className="w-full rounded-xl border border-amber-200 bg-white px-3 py-2 text-base font-semibold text-text-primary outline-none transition-all focus:border-amber-400 focus:ring-2 focus:ring-amber-200"
-                                  autoComplete="off"
-                                />
-                              </label>
-                            ))}
-                          </div>
-                        </div>
-                        <div className="space-y-2 rounded-xl border border-amber-200 bg-white/75 p-3">
-                          {[
-                            ['masterPassword', 'Entiendo que mi Contraseña Maestra no se puede recuperar ni restablecer.'],
-                            ['seedSaved', 'He guardado mi Frase Semilla en un lugar seguro.'],
-                            ['totalLoss', 'Comprendo que si pierdo ambas claves, perderé el acceso a mis contraseñas para siempre.'],
-                          ].map(([key, label]) => (
-                            <label key={key} className="flex items-start gap-2 text-[11px] font-semibold leading-relaxed text-amber-950">
-                              <input
-                                type="checkbox"
-                                checked={responsibilityChecks[key as keyof typeof responsibilityChecks]}
-                                onChange={(event) =>
-                                  setResponsibilityChecks((checks) => ({
-                                    ...checks,
-                                    [key]: event.target.checked,
-                                  }))
-                                }
-                                className="mt-0.5"
-                              />
-                              {label}
-                            </label>
-                          ))}
-                        </div>
-                        <button
-                          type="button"
-                          onClick={() => setOnboardingRecoveryStep('display')}
-                          className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-amber-900 transition-colors hover:bg-amber-100"
-                        >
-                          Volver a ver la frase
+                          ← Volver al Desbloqueo Biométrico
                         </button>
                       </div>
                     )}
-                  </div>
-                )}
-
-                <SecurityNote />
-                {error && <ErrorMessage error={error} />}
-
-                <button
-                  type="submit"
-                  disabled={
-                    loading ||
-                    isCloudLoading ||
-                    !masterPassword ||
-                    (cloudVaultExists === false &&
-                      !canCreateVault)
-                  }
-                  className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
-                >
-                  {loading || isCloudLoading
-                    ? cloudVaultExists === false
-                      ? 'Inicializando bóveda...'
-                      : 'Desbloqueando bóveda...'
-                    : cloudVaultExists === false
-                      ? 'Comenzar a usar la bóveda'
-                      : 'Desbloquear Bóveda Local'}
-                </button>
-                {cloudVaultExists !== false && (
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setShowRecoveryFlow(true)
-                      setError(null)
-                    }}
-                    className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
-                  >
-                    ¿Olvidaste tu contraseña?
-                  </button>
-                )}
-                {cloudVaultExists !== false && (
-                  <button
-                    type="button"
-                    onClick={() => setShowNukeModal(true)}
-                    className="min-h-11 rounded-xl px-4 py-2 text-[11px] font-semibold text-red-500/80 transition-colors hover:bg-red-50 hover:text-red-700"
-                  >
-                    ¿Has perdido todas tus claves? Empezar de cero
-                  </button>
+                  </>
                 )}
               </form>
             )}

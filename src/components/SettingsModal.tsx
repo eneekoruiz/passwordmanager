@@ -1,4 +1,4 @@
-import { useState, useEffect, type FormEvent } from 'react'
+import { useState, useEffect, useMemo, type FormEvent } from 'react'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
@@ -89,7 +89,7 @@ export function SettingsModal({
   const [biometricPassword, setBiometricPassword] = useState('')
   const [biometricMessage, setBiometricMessage] = useState<string | null>(null)
   const [biometricError, setBiometricError] = useState<string | null>(null)
-  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric'>('main')
+  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric'>('health')
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -113,25 +113,55 @@ export function SettingsModal({
       ? identities
       : identities.filter((identity) => selectedIdentityIds.includes(identity.id))
 
-  const healthEntries = identities.flatMap((identity) =>
-    identity.platforms.map((platform) => ({
-      identityEmail: identity.email,
-      platform,
-      password: passwordForPlatform(platform),
-    })),
-  ).filter((entry) => entry.password)
-  const reusedPasswords = healthEntries.filter((entry, _, all) =>
-    all.some((other) => other !== entry && other.password === entry.password),
-  )
-  const weakPasswords = healthEntries.filter((entry) => passwordStrengthIssue(entry.password))
-  const oldPasswords = healthEntries.filter((entry) => {
-    const time = Date.parse(entry.platform.updatedAt)
-    return Number.isFinite(time) && Date.now() - time > 365 * 24 * 60 * 60 * 1000
-  })
-  const healthScore = Math.max(
-    0,
-    100 - reusedPasswords.length * 18 - weakPasswords.length * 14 - oldPasswords.length * 8,
-  )
+  const {
+    reusedPasswords,
+    weakPasswords,
+    oldPasswords,
+    healthScore,
+    totalPasswordsCount,
+    securePasswordsCount,
+  } = useMemo(() => {
+    const entries = identities.flatMap((identity) =>
+      identity.platforms.map((platform) => ({
+        identityEmail: identity.email,
+        platform,
+        password: passwordForPlatform(platform),
+      })),
+    ).filter((entry) => entry.password)
+
+    const reused = entries.filter((entry, _, all) =>
+      all.some((other) => other !== entry && other.password === entry.password),
+    )
+    const weak = entries.filter((entry) => passwordStrengthIssue(entry.password))
+    const old = entries.filter((entry) => {
+      const time = Date.parse(entry.platform.updatedAt)
+      return Number.isFinite(time) && Date.now() - time > 365 * 24 * 60 * 60 * 1000
+    })
+
+    const score = Math.max(
+      0,
+      100 - reused.length * 18 - weak.length * 14 - old.length * 8,
+    )
+
+    const insecureIds = new Set([
+      ...reused.map((r) => r.platform.id),
+      ...weak.map((w) => w.platform.id),
+      ...old.map((o) => o.platform.id),
+    ])
+
+    const total = entries.length
+    const secureCount = entries.filter((entry) => !insecureIds.has(entry.platform.id)).length
+
+    return {
+      healthEntries: entries,
+      reusedPasswords: reused,
+      weakPasswords: weak,
+      oldPasswords: old,
+      healthScore: score,
+      totalPasswordsCount: total,
+      securePasswordsCount: secureCount,
+    }
+  }, [identities])
 
   const toggleIdentitySelection = (id: string) => {
     setSelectedIdentityIds((ids) =>
@@ -323,10 +353,10 @@ export function SettingsModal({
       <div className="relative z-10 flex w-full max-w-lg flex-col space-y-5 rounded-2xl border border-black/5 bg-white/80 p-6 font-sans text-left shadow-[0_15px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl">
         <header className="flex items-center justify-between border-b border-border-subtle pb-3">
           <div className="flex items-center gap-3">
-            {view !== 'main' && (
+            {view !== 'health' && (
               <button
                 type="button"
-                onClick={() => setView('main')}
+                onClick={() => setView('health')}
                 className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
                 aria-label="Volver"
               >
@@ -337,8 +367,7 @@ export function SettingsModal({
             )}
             <div className="flex flex-col">
               <h2 className="text-base font-bold text-text-primary">
-                {view === 'main' && 'Ajustes de Bóveda'}
-                {view === 'health' && 'Dashboard de Salud'}
+                {view === 'health' && 'Ajustes de Bóveda'}
                 {view === 'travel' && 'Modo Viaje'}
                 {view === 'credentials' && 'Credenciales'}
                 {view === 'exportPlaintext' && 'Exportar Texto Plano'}
@@ -346,7 +375,7 @@ export function SettingsModal({
                 {view === 'importBackup' && 'Restaurar Copia'}
                 {view === 'biometric' && 'Biometría'}
               </h2>
-              {view === 'main' && <p className="text-[10px] font-medium text-text-tertiary">Bóveda Cifrada Localmente</p>}
+              {view === 'health' && <p className="text-[10px] font-medium text-text-tertiary">Bóveda Cifrada Localmente</p>}
             </div>
           </div>
           <button
@@ -362,8 +391,9 @@ export function SettingsModal({
         </header>
 
         <div className="max-h-[420px] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
-          {view === 'main' && (
-            <div className="space-y-3 animate-vault-morph">
+          {view === 'health' && (
+            <div className="space-y-4 animate-vault-morph">
+              {/* Puntuación de Seguridad */}
               <div className="flex items-center justify-between rounded-3xl border border-black/[0.06] bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
                 <div>
                   <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Puntuación de Seguridad</h3>
@@ -374,12 +404,51 @@ export function SettingsModal({
                 </div>
               </div>
 
-              <div className="space-y-2">
-                <MenuItem
-                  title="Auditoría de Contraseñas"
-                  subtitle="Revisar contraseñas débiles o reutilizadas."
-                  onClick={() => setView('health')}
-                />
+              {/* Psicología Positiva */}
+              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 flex items-start gap-3 shadow-sm">
+                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white mt-0.5">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                  </svg>
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-emerald-950">Tu Bóveda está protegida</h4>
+                  <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
+                    Tienes <span className="font-bold">{totalPasswordsCount}</span> contraseñas guardadas. <span className="font-bold">{securePasswordsCount} contraseñas seguras y a salvo</span>.
+                  </p>
+                </div>
+              </div>
+
+              {/* Grid de Auditoría */}
+              <div className="grid grid-cols-3 gap-2">
+                <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
+                  <p className="text-lg font-black text-red-700">{reusedPasswords.length}</p>
+                  <p className="text-[10px] font-bold text-red-700">Reutilizadas</p>
+                </div>
+                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
+                  <p className="text-lg font-black text-amber-800">{weakPasswords.length}</p>
+                  <p className="text-[10px] font-bold text-amber-800">Débiles</p>
+                </div>
+                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
+                  <p className="text-lg font-black text-blue-800">{oldPasswords.length}</p>
+                  <p className="text-[10px] font-bold text-blue-800">Antiguas</p>
+                </div>
+              </div>
+
+              {/* Listado de problemas */}
+              {reusedPasswords.length > 0 || weakPasswords.length > 0 || oldPasswords.length > 0 ? (
+                <div className="overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2 max-h-32 scrollbar-thin">
+                  {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry.platform.name} · ${entry.identityEmail}`))]
+                    .map((label) => (
+                      <div key={label} className="rounded-xl px-2 py-1.5 text-[11px] font-semibold text-text-secondary">{label}</div>
+                    ))}
+                </div>
+              ) : null}
+
+              {/* Ajustes de Configuración */}
+              <div className="pt-2 space-y-2">
+                <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Ajustes de Bóveda</h3>
+                
                 <MenuItem
                   title="Modo Viaje"
                   subtitle="Oculta bóvedas sensibles al cruzar fronteras."
@@ -469,7 +538,7 @@ export function SettingsModal({
                       try {
                         await onDisableBiometric?.()
                         setBiometricMessage('Biometría desactivada. Elimina el acceso biométrico de los ajustes del dispositivo si lo deseas.')
-                        setView('main')
+                        setView('health')
                       } catch (err) {
                         setBiometricError(err instanceof Error ? err.message : 'Error al desactivar la biometría.')
                       } finally {
@@ -494,7 +563,7 @@ export function SettingsModal({
                       await onRegisterBiometric?.(biometricPassword)
                       setBiometricPassword('')
                       setBiometricMessage('¡Biometría activada! La próxima vez que abras la app, podrás desbloquear con tu sensor.')
-                      setView('main')
+                      setView('health')
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : 'Error al activar la biometría.'
                       setBiometricError(msg)
@@ -530,36 +599,7 @@ export function SettingsModal({
             </div>
           )}
 
-          {view === 'health' && (
-            <div className="space-y-3 animate-vault-morph">
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
-                  <p className="text-lg font-black text-red-700">{reusedPasswords.length}</p>
-                  <p className="text-[10px] font-bold text-red-700">Reutilizadas</p>
-                </div>
-                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
-                  <p className="text-lg font-black text-amber-800">{weakPasswords.length}</p>
-                  <p className="text-[10px] font-bold text-amber-800">Débiles</p>
-                </div>
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
-                  <p className="text-lg font-black text-blue-800">{oldPasswords.length}</p>
-                  <p className="text-[10px] font-bold text-blue-800">Antiguas</p>
-                </div>
-              </div>
-              {reusedPasswords.length > 0 || weakPasswords.length > 0 || oldPasswords.length > 0 ? (
-                <div className="mt-3 overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2 max-h-64">
-                  {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry.platform.name} · ${entry.identityEmail}`))]
-                    .map((label) => (
-                      <div key={label} className="rounded-xl px-2 py-1.5 text-[11px] font-semibold text-text-secondary">{label}</div>
-                    ))}
-                </div>
-              ) : (
-                <div className="rounded-2xl border border-green-100 bg-green-50 p-4 text-center">
-                  <p className="text-xs font-bold text-green-800">¡Tu bóveda está en perfectas condiciones!</p>
-                </div>
-              )}
-            </div>
-          )}
+
 
           {view === 'travel' && (
             <div className="space-y-3 animate-vault-morph">
