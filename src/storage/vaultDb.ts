@@ -258,6 +258,15 @@ class SafeDatabaseWrapper {
   }
 }
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
+  return Promise.race([
+    promise,
+    new Promise<never>((_, reject) =>
+      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    )
+  ])
+}
+
 function openVaultDatabase(): Promise<IDBPDatabase<ContrasDB>> {
   return openDB<ContrasDB>(DB_NAME, DB_VERSION, {
     upgrade(db) {
@@ -281,7 +290,11 @@ async function openVaultDatabaseWithRetries(): Promise<IDBPDatabase<ContrasDB>> 
 
   while (attempt < maxAttempts) {
     try {
-      return await openVaultDatabase()
+      return await withTimeout(
+        openVaultDatabase(),
+        2500,
+        'La apertura de la base de datos IndexedDB excedió el tiempo límite (2.5s).'
+      )
     } catch (error) {
       attempt++
       console.warn(`Intento ${attempt} de abrir IndexedDB fallo:`, error)
@@ -308,7 +321,7 @@ export function getVaultDb(): Promise<IDBPDatabase<ContrasDB>> {
       } catch (err) {
         console.error('Error inicializando IndexedDB. Intentando recuperar...', err)
         try {
-          await deleteDB(DB_NAME)
+          await withTimeout(deleteDB(DB_NAME), 2000, 'El borrado de IndexedDB excedió el tiempo límite (2s).')
           const physicalDb = await openVaultDatabaseWithRetries()
           return new SafeDatabaseWrapper(physicalDb) as unknown as IDBPDatabase<ContrasDB>
         } catch (recoveryErr) {

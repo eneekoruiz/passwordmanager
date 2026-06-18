@@ -257,6 +257,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         return
       }
 
+      // IMPORTANTE: Ponemos isAuthReady a true de inmediato para no bloquear el arranque
+      // de la interfaz local esperando consultas de red lentas a Firestore.
+      setIsAuthReady(true)
+
       try {
         const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
         setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
@@ -264,8 +268,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         logUnexpectedError('Error al comprobar existencia de la boveda', error)
         setCloudVaultExists(false)
         reportCloudError(error, 'No se pudo comprobar el estado de la boveda en la nube.')
-      } finally {
-        setIsAuthReady(true)
       }
     })
 
