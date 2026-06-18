@@ -1,5 +1,6 @@
 import type { SyncDiffResult, VaultDiffItem, VaultItemType, BaseVaultItem } from '../types'
 import { deterministicStringify } from './hash'
+import { LOCAL_IDENTITY_EMAIL } from './identity'
 
 type PayloadItem = BaseVaultItem & { [key: string]: any }
 
@@ -132,9 +133,66 @@ export function computeSyncDiff(
   compareArrays(localItems, cloudItems, (item) => item.type || 'SECURE_NOTE')
   compareArrays(localCategories, cloudCategories, () => 'CATEGORY' as any)
 
+  // Post-procesamiento para agrupar "Cuentas Locales"
+  const emailDiffs: VaultDiffItem[] = []
+  const localGroupDiffs: VaultDiffItem[] = []
+
+  for (const diff of diffs) {
+    const isLocalNonEmail =
+      (diff.type as string) === 'CATEGORY' ||
+      diff.type === 'WIFI' ||
+      diff.type === 'SOFTWARE_LICENSE' ||
+      diff.type === 'FINANCE' ||
+      diff.type === 'SECURE_NOTE' ||
+      (diff.type === 'ACCOUNT' && (
+        diff.title === LOCAL_IDENTITY_EMAIL ||
+        (diff.localData && diff.localData.email === LOCAL_IDENTITY_EMAIL) ||
+        (diff.cloudData && diff.cloudData.email === LOCAL_IDENTITY_EMAIL)
+      ))
+
+    if (isLocalNonEmail) {
+      localGroupDiffs.push(diff)
+    } else {
+      emailDiffs.push(diff)
+    }
+  }
+
+  if (localGroupDiffs.length > 0) {
+    const added = localGroupDiffs.filter(d => d.status === 'added').length
+    const modified = localGroupDiffs.filter(d => d.status === 'modified').length
+    const deleted = localGroupDiffs.filter(d => d.status === 'deleted').length
+
+    const status = deleted > 0 ? 'deleted' : (modified > 0 ? 'modified' : 'added')
+
+    const cloudTimes = localGroupDiffs.map(d => d.cloudUpdatedAt ? Date.parse(d.cloudUpdatedAt) : 0).filter(Boolean)
+    const localTimes = localGroupDiffs.map(d => d.localUpdatedAt ? Date.parse(d.localUpdatedAt) : 0).filter(Boolean)
+
+    const maxCloudTime = cloudTimes.length > 0 ? Math.max(...cloudTimes) : undefined
+    const maxLocalTime = localTimes.length > 0 ? Math.max(...localTimes) : undefined
+
+    const details: string[] = []
+    if (added > 0) details.push(`${added} nuevo${added !== 1 ? 's' : ''}`)
+    if (modified > 0) details.push(`${modified} modificado${modified !== 1 ? 's' : ''}`)
+    if (deleted > 0) details.push(`${deleted} solo local${deleted !== 1 ? 'es' : ''}`)
+
+    const subtitle = details.join(', ') || 'Sin cambios'
+
+    const groupedDiffItem: VaultDiffItem = {
+      id: 'Cuentas Locales',
+      title: 'Cuentas Locales',
+      subtitle,
+      type: 'ACCOUNT', // Tratado como cuenta para renderizar adecuadamente
+      status,
+      cloudUpdatedAt: maxCloudTime ? new Date(maxCloudTime).toISOString() : undefined,
+      localUpdatedAt: maxLocalTime ? new Date(maxLocalTime).toISOString() : undefined,
+    }
+
+    emailDiffs.push(groupedDiffItem)
+  }
+
   return {
     hasChanges,
-    diffs,
+    diffs: emailDiffs,
     cloudIdentities,
     cloudLocalItems: cloudItems
   }

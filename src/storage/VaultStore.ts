@@ -573,7 +573,25 @@ export class VaultStore {
 
     const db = await getVaultDb()
     const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
-    if (!profileRecord) throw new Error('Perfil no encontrado.')
+    if (!profileRecord) {
+      const databaseDump = {
+        meta: {
+          salt: '',
+          verification: { v: 1, iv: '', data: '' },
+          createdAt: new Date().toISOString(),
+          name: 'Bóveda Principal',
+        },
+        identities: []
+      }
+      const encryptedPayload = await this.vault.encryptString(JSON.stringify(databaseDump))
+      const syncBlob = {
+        v: 1,
+        salt: '',
+        iv: encryptedPayload.iv,
+        data: encryptedPayload.data
+      }
+      return JSON.stringify(syncBlob)
+    }
 
     const tx = db.transaction('platforms', 'readonly')
     const allKeys = await tx.store.getAllKeys()
@@ -713,8 +731,17 @@ export class VaultStore {
     }
 
     const db = await getVaultDb()
-    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
-    if (!profileRecord) throw new Error('Perfil no encontrado.')
+    let profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    if (!profileRecord) {
+      profileRecord = {
+        id: profileId,
+        name: databaseDump.meta.name || 'Bóveda Principal',
+        salt: databaseDump.meta.salt || backup.salt || '',
+        verification: databaseDump.meta.verification || { v: 1, iv: '', data: '' },
+        recovery: databaseDump.meta.recovery ?? backup.recovery,
+        createdAt: databaseDump.meta.createdAt || new Date().toISOString()
+      }
+    }
 
     const restoredProfile: ProfileRecord = {
       ...profileRecord,
@@ -834,7 +861,17 @@ export class VaultStore {
 
     const db = await getVaultDb()
     const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
-    if (!profileRecord) throw new Error('Perfil no encontrado.')
+    if (!profileRecord) {
+      return {
+        meta: {
+          salt: '',
+          verification: { v: 1, iv: '', data: '' },
+          createdAt: new Date().toISOString(),
+          name: 'Bóveda Principal'
+        },
+        identities: []
+      }
+    }
 
     const tx = db.transaction('platforms', 'readonly')
     const allKeys = await tx.store.getAllKeys()

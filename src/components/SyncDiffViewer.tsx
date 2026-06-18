@@ -22,25 +22,25 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
   const hasOnlyAdditions = addedCount > 0 && modifiedCount === 0 && deletedCount === 0
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="flex h-full max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl">
-        <div className="flex items-center justify-between border-b border-border bg-surface px-6 py-5">
-          <div>
-            <h2 className="text-xl font-bold tracking-tight text-text-primary">Resolución de Sincronización</h2>
-            <p className="mt-1 text-sm text-text-secondary">
+    <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-fade-in w-full max-w-[100vw] overflow-x-hidden">
+      <div className="flex h-full max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl w-full max-w-[100vw] overflow-x-hidden">
+        <div className="flex items-center justify-between border-b border-border bg-surface px-6 py-5 min-w-0 w-full">
+          <div className="min-w-0 mr-4">
+            <h2 className="text-xl font-bold tracking-tight text-text-primary truncate">Resolución de Sincronización</h2>
+            <p className="mt-1 text-sm text-text-secondary truncate">
               {hasOnlyAdditions
                 ? `Se encontraron ${addedCount} elemento${addedCount !== 1 ? 's' : ''} nuevo${addedCount !== 1 ? 's' : ''} en la nube. Se combinarán con tus datos locales.`
                 : 'La nube contiene cambios. Revisa las diferencias antes de sincronizar.'}
             </p>
           </div>
-          <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
+          <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
             </svg>
           </div>
         </div>
 
-        <div className="flex gap-2 border-b border-border bg-surface px-6 pt-3">
+        <div className="flex gap-2 border-b border-border bg-surface px-6 pt-3 overflow-x-auto scrollbar-none flex-nowrap w-full">
           <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')} label="Todos" count={diffResult.diffs.length} />
           <TabButton active={activeTab === 'added'} onClick={() => setActiveTab('added')} label="Nuevos en Nube" count={addedCount} color="text-green-600" bg="bg-green-100" />
           <TabButton active={activeTab === 'modified'} onClick={() => setActiveTab('modified')} label="Modificados" count={modifiedCount} color="text-amber-600" bg="bg-amber-100" />
@@ -61,18 +61,18 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
           )}
         </div>
 
-        <div className="flex items-center justify-between border-t border-border bg-surface px-6 py-4">
-          <p className="text-xs text-text-tertiary">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border bg-surface px-6 py-4 w-full">
+          <p className="text-xs text-text-tertiary max-w-md">
             {hasDeletedItems
               ? 'Al aceptar, los elementos "Solo Locales" no se incluirán en la versión final.'
               : 'Al aceptar, se descargarán los datos de la nube y se combinarán con los locales.'}
           </p>
-          <div className="flex gap-3">
+          <div className="flex gap-3 shrink-0 justify-end w-full sm:w-auto">
             <button
               type="button"
               onClick={onCancel}
               disabled={isDownloading}
-              className="rounded-xl border border-black/5 bg-surface px-5 py-2.5 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-50"
+              className="flex-1 sm:flex-none rounded-xl border border-black/5 bg-surface px-5 py-2.5 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-50"
             >
               Cancelar
             </button>
@@ -80,7 +80,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
               type="button"
               onClick={onConfirm}
               disabled={isDownloading}
-              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:opacity-60 ${
+              className={`flex-1 sm:flex-none flex items-center justify-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:opacity-60 ${
                 hasDeletedItems
                   ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700'
                   : 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700'
@@ -154,21 +154,21 @@ function DiffItemRow({ item }: { item: VaultDiffItem }) {
   const typeIcon = getTypeIcon(item.type)
 
   return (
-    <div className={`flex items-center justify-between rounded-2xl border bg-white p-4 transition-all hover:shadow-subtle ${statusConfig.border}`}>
-      <div className="flex items-center gap-4">
+    <div className={`flex items-center justify-between gap-4 rounded-2xl border bg-white p-4 transition-all hover:shadow-subtle min-w-0 w-full ${statusConfig.border}`}>
+      <div className="flex items-center gap-4 min-w-0 flex-1">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${statusConfig.bg}`}>
           {typeIcon}
         </div>
-        <div className="min-w-0">
+        <div className="min-w-0 flex-1">
           <h4 className="truncate text-sm font-bold text-text-primary">{item.title}</h4>
-          <div className="mt-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-            <span>{item.subtitle || item.type.replace('_', ' ')}</span>
-            <span className="h-1 w-1 rounded-full bg-border"></span>
-            <span className={`${statusConfig.color}`}>{statusConfig.label}</span>
+          <div className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary min-w-0">
+            <span className="truncate max-w-[150px] sm:max-w-none shrink">{item.subtitle || item.type.replace('_', ' ')}</span>
+            <span className="h-1 w-1 rounded-full bg-border shrink-0"></span>
+            <span className={`${statusConfig.color} shrink-0`}>{statusConfig.label}</span>
           </div>
         </div>
       </div>
-      <div className="text-right text-xs text-text-tertiary shrink-0">
+      <div className="text-right text-[10px] sm:text-xs text-text-tertiary shrink-0 ml-auto pl-2">
         {item.cloudUpdatedAt && <p>Nube: {new Date(item.cloudUpdatedAt).toLocaleString()}</p>}
         {item.localUpdatedAt && <p>Local: {new Date(item.localUpdatedAt).toLocaleString()}</p>}
       </div>

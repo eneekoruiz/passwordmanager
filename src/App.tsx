@@ -592,8 +592,8 @@ function VaultApp() {
         isDownloading={downloadingCloud}
       />
     ) : (
-      <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-        <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+      <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in w-full max-w-[100vw] overflow-x-hidden">
+        <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph overflow-x-hidden max-w-[100vw]">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
@@ -615,12 +615,12 @@ function VaultApp() {
               <p className="text-xs text-text-tertiary">{pendingCloudDownload.cloudLocalCategoryCount ?? 0} secciones</p>
             </div>
           </div>
-          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+          <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end w-full">
             <button
               type="button"
               onClick={() => setPendingCloudDownload(null)}
               disabled={downloadingCloud}
-              className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-60"
+              className="flex-1 sm:flex-none min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover disabled:opacity-60"
             >
               Ahora no
             </button>
@@ -628,7 +628,7 @@ function VaultApp() {
               type="button"
               onClick={handleConfirmCloudDownload}
               disabled={downloadingCloud}
-              className="min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 disabled:opacity-60"
+              className="flex-1 sm:flex-none min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 disabled:opacity-60"
             >
               {downloadingCloud ? 'Descargando...' : 'Descargar de la nube'}
             </button>
