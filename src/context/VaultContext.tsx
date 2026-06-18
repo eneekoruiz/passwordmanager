@@ -391,9 +391,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       if (snapshot.exists() && cloudBlob) {
         const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
-        const localPayload = await storeRef.current.getUnencryptedCloudPayload(currentProfileId)
         
-        const isIdentical = await payloadsAreIdentical(localPayload, cloudSummary.rawDump)
+        // En modo in-memory (iOS/Safari degradado), el perfil local puede no existir
+        // en la base de datos volátil. En ese caso tratamos local como vacío.
+        let localPayload: any = null
+        let localPayloadAvailable = true
+        try {
+          localPayload = await storeRef.current.getUnencryptedCloudPayload(currentProfileId)
+        } catch (payloadError) {
+          console.warn('No se pudo leer el payload local (probable modo in-memory):', payloadError)
+          localPayloadAvailable = false
+        }
+        
+        const isIdentical = localPayloadAvailable 
+          ? await payloadsAreIdentical(localPayload, cloudSummary.rawDump)
+          : false
         
         if (isIdentical) {
           setCloudVaultExists(true)
@@ -447,27 +459,38 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
       }
-
-      const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
-      await withTimeout(
-        setDoc(vaultRefDoc, {
-          encrypted_vault_blob: encryptedBlob,
-          updated_at: new Date().toISOString(),
-        }),
-        10000,
-        'La subida a Google Cloud excedió el tiempo límite (10s). Revisa tu conexión a internet.'
-      )
-      
-      setCloudVaultExists(true)
-      setCloudSyncStatus('synced')
-      return {
-        action: 'uploaded',
-        message: `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''}, ${localCounts.localItemCount} secreto${localCounts.localItemCount !== 1 ? 's' : ''} local${localCounts.localItemCount !== 1 ? 'es' : ''} y ${localCounts.localCategoryCount} sección${localCounts.localCategoryCount !== 1 ? 'es' : ''} protegidos.`,
-        localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
-        localIdentityCount: localCounts.identityCount,
-        localPlatformCount: localCounts.platformCount,
-        localLocalItemCount: localCounts.localItemCount,
-        localLocalCategoryCount: localCounts.localCategoryCount,
+      // Subida: intentar exportar el payload local para subir a la nube
+      // En modo in-memory degradado, exportCloudPayload puede fallar si el perfil
+      // no existe en la base de datos volátil.
+      try {
+        const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
+        await withTimeout(
+          setDoc(vaultRefDoc, {
+            encrypted_vault_blob: encryptedBlob,
+            updated_at: new Date().toISOString(),
+          }),
+          10000,
+          'La subida a Google Cloud excedió el tiempo límite (10s). Revisa tu conexión a internet.'
+        )
+        
+        setCloudVaultExists(true)
+        setCloudSyncStatus('synced')
+        return {
+          action: 'uploaded',
+          message: `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''}, ${localCounts.localItemCount} secreto${localCounts.localItemCount !== 1 ? 's' : ''} local${localCounts.localItemCount !== 1 ? 'es' : ''} y ${localCounts.localCategoryCount} sección${localCounts.localCategoryCount !== 1 ? 'es' : ''} protegidos.`,
+          localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
+          localIdentityCount: localCounts.identityCount,
+          localPlatformCount: localCounts.platformCount,
+          localLocalItemCount: localCounts.localItemCount,
+          localLocalCategoryCount: localCounts.localCategoryCount,
+        }
+      } catch (uploadError) {
+        console.warn('No se pudo exportar la bóveda local para subir (probable modo in-memory):', uploadError)
+        setCloudSyncStatus('idle')
+        return {
+          action: 'idle',
+          message: 'No se pudo subir la bóveda local. Restaura primero tus datos desde la nube para sincronizar este dispositivo.',
+        }
       }
     } catch (error) {
       logUnexpectedError('Error al sincronizar con Firebase', error)

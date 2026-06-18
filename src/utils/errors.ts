@@ -17,7 +17,7 @@ const STORAGE_ERROR_PATTERNS: Array<[RegExp, string]> = [
   [/quota/i, 'El dispositivo no tiene espacio suficiente para guardar cambios locales.'],
   [/decrypt/i, 'Los datos no pudieron descifrarse. Verifica tu contrasena maestra.'],
   [/unexpected token/i, 'El archivo o contenido importado no tiene un formato valido.'],
-  [/profile no encontrado/i, 'No se encontro la boveda local seleccionada.'],
+  [/perfil no encontrado/i, 'La bóveda local no se encontró en este dispositivo. Descarga tus datos desde la nube.'],
 ]
 
 export function getFriendlyErrorMessage(error: unknown, fallback: string): string {
@@ -34,7 +34,7 @@ export function getFriendlyErrorMessage(error: unknown, fallback: string): strin
     }
 
     if (error.name === 'InvalidStateError') {
-      return 'El almacenamiento local no esta disponible temporalmente. Recarga la aplicacion e intentalo otra vez.'
+      return 'Safari está limitando el almacenamiento temporalmente. La app funciona en modo seguro.'
     }
   }
 

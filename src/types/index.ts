@@ -79,6 +79,7 @@ export type VaultDiffStatus = 'added' | 'modified' | 'deleted' | 'conflict'
 export interface VaultDiffItem {
   id: string
   title: string
+  subtitle?: string
   type: VaultItemType
   status: VaultDiffStatus
   localUpdatedAt?: string

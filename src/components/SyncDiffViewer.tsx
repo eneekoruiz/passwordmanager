@@ -17,6 +17,10 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
   const modifiedCount = diffResult.diffs.filter((d) => d.status === 'modified').length
   const deletedCount = diffResult.diffs.filter((d) => d.status === 'deleted').length
 
+  // Determinar si la operación tiene elementos solo locales que se perderían
+  const hasDeletedItems = deletedCount > 0
+  const hasOnlyAdditions = addedCount > 0 && modifiedCount === 0 && deletedCount === 0
+
   return (
     <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-sm animate-fade-in">
       <div className="flex h-full max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl">
@@ -24,7 +28,9 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
           <div>
             <h2 className="text-xl font-bold tracking-tight text-text-primary">Resolución de Sincronización</h2>
             <p className="mt-1 text-sm text-text-secondary">
-              La nube contiene cambios. Revisa las diferencias antes de descargar.
+              {hasOnlyAdditions
+                ? `Se encontraron ${addedCount} elemento${addedCount !== 1 ? 's' : ''} nuevo${addedCount !== 1 ? 's' : ''} en la nube. Se combinarán con tus datos locales.`
+                : 'La nube contiene cambios. Revisa las diferencias antes de sincronizar.'}
             </p>
           </div>
           <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">
@@ -57,7 +63,9 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
 
         <div className="flex items-center justify-between border-t border-border bg-surface px-6 py-4">
           <p className="text-xs text-text-tertiary">
-            Al aceptar, tu bóveda local será reemplazada por la versión de la nube.
+            {hasDeletedItems
+              ? 'Al aceptar, los elementos "Solo Locales" no se incluirán en la versión final.'
+              : 'Al aceptar, se descargarán los datos de la nube y se combinarán con los locales.'}
           </p>
           <div className="flex gap-3">
             <button
@@ -72,16 +80,26 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
               type="button"
               onClick={onConfirm}
               disabled={isDownloading}
-              className="flex items-center gap-2 rounded-xl bg-blue-600 px-5 py-2.5 text-sm font-semibold text-white shadow-sm shadow-blue-600/20 transition-all hover:-translate-y-0.5 hover:bg-blue-700 disabled:opacity-60"
+              className={`flex items-center gap-2 rounded-xl px-5 py-2.5 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 disabled:opacity-60 ${
+                hasDeletedItems
+                  ? 'bg-amber-600 shadow-amber-600/20 hover:bg-amber-700'
+                  : 'bg-blue-600 shadow-blue-600/20 hover:bg-blue-700'
+              }`}
             >
               {isDownloading ? (
-                <>Descargando...</>
+                <>
+                  <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                    <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                    <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                  </svg>
+                  Descargando...
+                </>
               ) : (
                 <>
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                   </svg>
-                  Sobrescribir Local
+                  {hasDeletedItems ? 'Reemplazar Bóveda Local' : 'Descargar y Combinar'}
                 </>
               )}
             </button>
@@ -110,6 +128,21 @@ function TabButton({ active, onClick, label, count, color = 'text-text-primary',
   )
 }
 
+/**
+ * Devuelve un icono emoji representativo para cada tipo de item.
+ */
+function getTypeIcon(type: string): string {
+  switch (type) {
+    case 'ACCOUNT': return '👤'
+    case 'WIFI': return '📶'
+    case 'SOFTWARE_LICENSE': return '🔑'
+    case 'FINANCE': return '💳'
+    case 'SECURE_NOTE': return '📝'
+    case 'CATEGORY': return '📁'
+    default: return '🔒'
+  }
+}
+
 function DiffItemRow({ item }: { item: VaultDiffItem }) {
   const statusConfig = {
     added: { icon: '+', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', label: 'Nuevo en nube' },
@@ -118,22 +151,24 @@ function DiffItemRow({ item }: { item: VaultDiffItem }) {
     conflict: { icon: '!', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', label: 'Conflicto' },
   }[item.status]
 
+  const typeIcon = getTypeIcon(item.type)
+
   return (
     <div className={`flex items-center justify-between rounded-2xl border bg-white p-4 transition-all hover:shadow-subtle ${statusConfig.border}`}>
       <div className="flex items-center gap-4">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-bold ${statusConfig.bg} ${statusConfig.color}`}>
-          {statusConfig.icon}
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-xl text-lg ${statusConfig.bg}`}>
+          {typeIcon}
         </div>
-        <div>
-          <h4 className="text-sm font-bold text-text-primary">{item.title}</h4>
+        <div className="min-w-0">
+          <h4 className="truncate text-sm font-bold text-text-primary">{item.title}</h4>
           <div className="mt-1 flex items-center gap-2 text-[10px] font-semibold uppercase tracking-wider text-text-tertiary">
-            <span>{item.type.replace('_', ' ')}</span>
+            <span>{item.subtitle || item.type.replace('_', ' ')}</span>
             <span className="h-1 w-1 rounded-full bg-border"></span>
             <span className={`${statusConfig.color}`}>{statusConfig.label}</span>
           </div>
         </div>
       </div>
-      <div className="text-right text-xs text-text-tertiary">
+      <div className="text-right text-xs text-text-tertiary shrink-0">
         {item.cloudUpdatedAt && <p>Nube: {new Date(item.cloudUpdatedAt).toLocaleString()}</p>}
         {item.localUpdatedAt && <p>Local: {new Date(item.localUpdatedAt).toLocaleString()}</p>}
       </div>
