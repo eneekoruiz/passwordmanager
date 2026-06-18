@@ -329,7 +329,7 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
             onChange={(e) => setTsvText(e.target.value)}
             disabled={loading}
             placeholder="Pega las filas de tu tabla aquí..."
-            className="w-full min-h-[220px] flex-1 rounded-lg border border-border-subtle bg-surface p-3 text-xs font-mono text-text-primary placeholder:text-text-tertiary outline-none focus:border-border transition-colors resize-y"
+            className="w-full min-h-[220px] flex-1 rounded-lg border border-border-subtle bg-surface p-3 text-base font-mono text-text-primary placeholder:text-text-tertiary outline-none focus:border-border transition-colors resize-y"
           />
         </div>
 

@@ -152,7 +152,7 @@ export function PasswordField({
           placeholder={placeholder}
           required={required}
           disabled={disabled}
-          className={`${inputClassName} ${prClassName} font-mono text-sm tracking-wide`}
+          className={`${inputClassName} ${prClassName} font-mono text-base tracking-wide`}
         />
 
         {/* Burbuja de feedback de copiado al estilo iOS/macOS */}

@@ -48,20 +48,15 @@ function VaultApp() {
     biometricRegistered,
     registerBiometricUnlock,
     disableBiometricUnlock,
+    cloudUserEmail,
+    localCategories,
   } = useVault()
 
   const { showToast } = useToast()
 
   const [isInMemory, setIsInMemory] = useState(() => isInMemoryFallbackActive())
 
-  const warningBanner = isInMemory ? (
-    <div className="bg-amber-600 text-white px-4 py-2.5 text-[11px] sm:text-xs font-semibold text-center z-[9999] relative flex items-center justify-center gap-2 shadow-md shrink-0">
-      <svg className="h-4 w-4 shrink-0 text-white" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-      <span>Modo de persistencia degradado: Los cambios locales no se guardarán al cerrar la aplicación. Por favor, asegúrate de sincronizar con la nube o exportar tus datos antes de salir.</span>
-    </div>
-  ) : null
+  const warningBanner = null
 
   const [isMobile, setIsMobile] = useState(false)
 
@@ -145,7 +140,6 @@ function VaultApp() {
     if (typeof window === 'undefined') return false
     return window.sessionStorage.getItem('contras.travelMode') === '1'
   })
-  const [mobileSyncCheckVisible, setMobileSyncCheckVisible] = useState(false)
   const [unsavedDirty, setUnsavedDirty] = useState(false)
   const [unsavedActions, setUnsavedActions] = useState<UnsavedFormActions | null>(null)
   const [pendingNavigation, setPendingNavigation] = useState<(() => void) | null>(null)
@@ -154,6 +148,140 @@ function VaultApp() {
   const [savingBeforeNavigation, setSavingBeforeNavigation] = useState(false)
   const [pendingCloudDownload, setPendingCloudDownload] = useState<CloudSyncResult | null>(null)
   const [downloadingCloud, setDownloadingCloud] = useState(false)
+  const [isOnline, setIsOnline] = useState(true)
+  const [syncPopoverOpen, setSyncPopoverOpen] = useState(false)
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    setIsOnline(window.navigator.onLine)
+    const handleOnline = () => setIsOnline(true)
+    const handleOffline = () => setIsOnline(false)
+    window.addEventListener('online', handleOnline)
+    window.addEventListener('offline', handleOffline)
+    return () => {
+      window.removeEventListener('online', handleOnline)
+      window.removeEventListener('offline', handleOffline)
+    }
+  }, [])
+
+  const localUpdatedAt = useMemo(() => {
+    const timestamps = [
+      ...identities.flatMap((identity) => [
+        identity.updatedAt,
+        identity.createdAt,
+        ...identity.platforms.flatMap((platform) => [platform.updatedAt, platform.createdAt]),
+      ]),
+      ...localItems.flatMap((item) => [item.updatedAt, item.createdAt]),
+      ...localCategories.flatMap((category) => [category.updatedAt ?? '', category.createdAt ?? '']),
+    ].filter(Boolean)
+
+    const latest = timestamps.reduce((latestVal, value) => {
+      const time = Date.parse(value)
+      return Number.isFinite(time) ? Math.max(latestVal, time) : latestVal
+    }, 0)
+
+    return latest > 0 ? new Date(latest).toLocaleString() : 'Nunca'
+  }, [identities, localItems, localCategories])
+
+  const syncState = useMemo(() => {
+    if (isInMemory || cloudSyncStatus === 'error' || !isOnline) {
+      return {
+        color: 'text-amber-600 bg-amber-50 border-amber-100 hover:bg-amber-100/50',
+        dotColor: 'bg-amber-500',
+        label: 'Bóveda local (Offline o degradado)',
+        description: isInMemory 
+          ? 'Almacenamiento de Safari bloqueado o degradado. Tus cambios no se guardarán al salir. Configura la sincronización con Google Cloud o añade la app a la pantalla de inicio.' 
+          : !isOnline 
+            ? 'Sin conexión a Internet. Operando en modo local.'
+            : 'Fallo al sincronizar con Google Cloud. Revisa tu conexión de red.',
+        icon: (
+          <svg className="h-5 w-5 text-amber-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+          </svg>
+        )
+      }
+    }
+    if (hasUnsyncedChanges || cloudSyncStatus === 'syncing') {
+      return {
+        color: 'text-blue-500 bg-blue-50 border-blue-100 hover:bg-blue-100/50',
+        dotColor: 'bg-blue-500',
+        label: cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Cambios locales pendientes',
+        description: cloudSyncStatus === 'syncing'
+          ? 'Actualizando cambios de forma segura en Google Cloud...'
+          : 'Tienes cambios locales guardados. Se subirán a la nube automáticamente en unos segundos.',
+        icon: (
+          <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-pulse' : 'animate-pulse'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
+          </svg>
+        )
+      }
+    }
+    return {
+      color: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100/50',
+      dotColor: 'bg-emerald-500',
+      label: 'Bóveda protegida',
+      description: 'Todos los datos de tu bóveda están sincronizados de forma segura en Google Cloud.',
+      icon: (
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+        </svg>
+      )
+    }
+  }, [isInMemory, cloudSyncStatus, isOnline, hasUnsyncedChanges])
+
+  const CloudSyncIndicator = (
+    <div className="relative inline-block">
+      <button
+        type="button"
+        onClick={() => setSyncPopoverOpen((open) => !open)}
+        className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${syncState.color}`}
+        title="Estado de sincronización"
+      >
+        {syncState.icon}
+      </button>
+
+      {syncPopoverOpen && (
+        <>
+          <div className="fixed inset-0 z-[60]" onClick={() => setSyncPopoverOpen(false)} />
+          <div className="absolute right-0 mt-2 z-[70] w-72 rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl text-left">
+            <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">
+              Estado de Sincronización
+            </h4>
+            <div className="flex items-center gap-2 mb-3">
+              <span className={`h-2.5 w-2.5 rounded-full ${syncState.dotColor}`} />
+              <span className="text-sm font-semibold text-text-primary">{syncState.label}</span>
+            </div>
+            <p className="text-xs text-text-secondary leading-relaxed mb-4">
+              {syncState.description}
+            </p>
+            <div className="text-[11px] text-text-tertiary space-y-1 border-t border-black/[0.05] pt-3 mb-4">
+              <div className="flex justify-between">
+                <span>Último cambio local:</span>
+                <span className="font-medium text-text-secondary">{localUpdatedAt}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Google Cloud:</span>
+                <span className="font-medium text-text-secondary">{cloudUserEmail ?? 'No conectado'}</span>
+              </div>
+            </div>
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  setSyncPopoverOpen(false)
+                  await handleManualSync()
+                }}
+                disabled={cloudSyncStatus === 'syncing'}
+                className="flex-1 min-h-10 rounded-xl bg-text-primary text-white text-xs font-bold hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50"
+              >
+                {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Refrescar / Sincronizar'}
+              </button>
+            </div>
+          </div>
+        </>
+      )}
+    </div>
+  )
 
   const displayIdentities = useMemo(
     () =>
@@ -172,13 +300,6 @@ function VaultApp() {
     () => displayIdentities.find((identity) => identity.id === selectedId) ?? null,
     [displayIdentities, selectedId],
   )
-
-  useEffect(() => {
-    if (cloudSyncStatus !== 'synced') return
-    setMobileSyncCheckVisible(true)
-    const timer = window.setTimeout(() => setMobileSyncCheckVisible(false), 1600)
-    return () => window.clearTimeout(timer)
-  }, [cloudSyncStatus])
 
   useEffect(() => {
     if (!isUnlocked) return
@@ -474,47 +595,101 @@ function VaultApp() {
     setSelectedPlatformName(null)
   }
 
+  const showExtraHeaderElements = selectedId === null && selectedLocalCategory === null && selectedPlatformName === null
+
   const mobileTopBar = isMobile ? (
-    <div className="fixed left-0 right-0 top-0 z-50 flex flex-col shadow-[0_10px_30px_rgba(15,23,42,0.08)]">
-      {warningBanner}
-      <header className="flex h-14 items-center justify-between border-b border-black/5 bg-white/85 px-4 backdrop-blur-xl">
+    <div className="fixed left-0 right-0 top-0 z-50 flex flex-col bg-white/85 backdrop-blur-xl border-b border-black/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
+      {/* Row 1: Title & Cloud Status & Settings */}
+      <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="truncate text-sm font-bold text-text-primary">Contras</p>
+          <p className="truncate text-lg font-bold text-text-primary">Contras</p>
           <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
             {currentProfileName ?? 'Bóveda segura'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={() => setSettingsMenuOpen((open) => !open)}
-          className="flex h-11 w-11 items-center justify-center rounded-2xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96] disabled:opacity-70"
-          aria-label="Abrir ajustes"
-        >
-          {mobileSyncCheckVisible ? (
-            <svg className="h-5 w-5 text-emerald-600 animate-vault-morph" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-            </svg>
-          ) : cloudSyncStatus === 'error' ? (
-            <span className="relative flex h-5 w-5 items-center justify-center">
-              <svg className="h-5 w-5 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-              </svg>
-              <span className="absolute -right-0.5 -top-0.5 h-2 w-2 rounded-full bg-red-600" />
-            </span>
-          ) : (
-            <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : 'text-text-secondary'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+        <div className="flex items-center gap-2">
+          {/* Nube Icon (Sync Indicator) */}
+          {CloudSyncIndicator}
+
+          {/* Settings button */}
+          <button
+            type="button"
+            onClick={() => setSettingsOpen(true)}
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96]"
+            aria-label="Abrir ajustes"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
               <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
             </svg>
+          </button>
+        </div>
+      </div>
+
+      {/* Row 2: Search input (only on list view) */}
+      {showExtraHeaderElements && (
+        <div className="relative">
+          <svg className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+          </svg>
+          <input
+            type="search"
+            value={searchQuery}
+            onChange={(event) => setSearchQuery(event.target.value)}
+            placeholder="Buscar en toda la bóveda..."
+            className="h-10 w-full rounded-xl border border-black/[0.06] bg-white/90 pl-9 pr-12 text-base font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white"
+            aria-label="Búsqueda global de la bóveda"
+          />
+          {searchQuery.trim().length > 0 && (
+            <div className="absolute left-0 right-0 top-12 z-[60] max-h-[40vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-white p-2 shadow-lg backdrop-blur-xl">
+              {globalSearchResults.length === 0 ? (
+                <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
+              ) : (
+                globalSearchResults.slice(0, 8).map((result) => (
+                  <button
+                    key={result.id}
+                    type="button"
+                    onClick={() => {
+                      result.action()
+                      setSearchQuery('')
+                    }}
+                    className="flex min-h-12 w-full flex-col justify-center rounded-xl px-4 text-left transition-colors hover:bg-surface-hover"
+                  >
+                    <span className="truncate text-sm font-semibold text-text-primary">{result.title}</span>
+                    <span className="truncate text-xs text-text-tertiary">{result.subtitle}</span>
+                  </button>
+                ))
+              )}
+            </div>
           )}
-        </button>
-      </header>
+        </div>
+      )}
+
+      {/* Row 3: Tabs selector (only on list view) */}
+      {showExtraHeaderElements && (
+        <div className="grid grid-cols-2 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+          {(['identity', 'platform'] as VaultGroupMode[]).map((mode) => (
+            <button
+              key={mode}
+              type="button"
+              onClick={() => handleGroupModeChange(mode)}
+              className={`min-h-9 rounded-lg px-2 py-1 text-xs font-bold transition-all duration-150 ${
+                groupMode === mode
+                  ? 'bg-text-primary text-white shadow-sm'
+                  : 'text-text-secondary hover:bg-surface-hover'
+              }`}
+            >
+              {mode === 'identity' ? 'Identidad' : 'Plataforma'}
+            </button>
+          ))}
+        </div>
+      )}
     </div>
   ) : null
 
   const globalOverlays = (
     <>
-      {!settingsOpen && !importTextOpen && !lockModalOpen && (
+      {!settingsOpen && !importTextOpen && !lockModalOpen && !isMobile && (
         <GlobalSearch
           query={searchQuery}
           onQueryChange={setSearchQuery}
@@ -640,10 +815,10 @@ function VaultApp() {
 
   if (isMobile) {
     return (
-      <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16">
+      <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16 overscroll-none overflow-x-hidden">
         {mobileTopBar}
         {globalOverlays}
-        <div className="flex-1 overflow-y-auto pt-28">
+        <div className={`flex-1 overflow-y-auto ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'}`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
@@ -676,6 +851,8 @@ function VaultApp() {
               isMobile={true}
               installPromptAvailable={Boolean(deferredPrompt)}
               onInstall={handleInstallApp}
+              syncing={cloudSyncStatus === 'syncing'}
+              syncIndicator={CloudSyncIndicator}
             />
           ) : (
             <MainArea
@@ -860,42 +1037,44 @@ function VaultApp() {
   }
 
   return (
-    <div className="flex min-h-dvh flex-col bg-surface">
+    <div className="flex min-h-dvh flex-col bg-surface overscroll-none overflow-x-hidden">
       {warningBanner}
       <div className="flex flex-1 min-h-0">
         {globalOverlays}
         <Sidebar
-        identities={displayIdentities}
-        localItems={localItems}
-        groupMode={groupMode}
-        selectedId={selectedId}
-        selectedPlatformName={selectedPlatformName}
-        selectedLocalCategory={selectedLocalCategory}
-        searchQuery={searchQuery}
-        onSearchChange={setSearchQuery}
-        onGroupModeChange={handleGroupModeChange}
-        onSelect={handleSelect}
-        onSelectPlatform={handleSelectPlatform}
-        onSelectLocalCategory={handleSelectLocalCategory}
-        onAddIdentity={async (email) => {
-          const identity = await addIdentity(email)
-          requestNavigation(() => {
-            setSelectedId(identity.id)
-            setSelectedPlatformName(null)
-            setSelectedLocalCategory(null)
-          })
-        }}
-        onDeleteIdentity={handleDeleteIdentity}
-        onLock={handleLock}
-        onSync={() => void handleManualSync()}
-        isOpen={sidebarOpen}
-        onClose={() => setSidebarOpen(false)}
-        onOpenSettings={() => setSettingsOpen(true)}
-        profileName={currentProfileName}
-        isMobile={false}
-        installPromptAvailable={Boolean(deferredPrompt)}
-        onInstall={handleInstallApp}
-      />
+          identities={displayIdentities}
+          localItems={localItems}
+          groupMode={groupMode}
+          selectedId={selectedId}
+          selectedPlatformName={selectedPlatformName}
+          selectedLocalCategory={selectedLocalCategory}
+          searchQuery={searchQuery}
+          onSearchChange={setSearchQuery}
+          onGroupModeChange={handleGroupModeChange}
+          onSelect={handleSelect}
+          onSelectPlatform={handleSelectPlatform}
+          onSelectLocalCategory={handleSelectLocalCategory}
+          onAddIdentity={async (email) => {
+            const identity = await addIdentity(email)
+            requestNavigation(() => {
+              setSelectedId(identity.id)
+              setSelectedPlatformName(null)
+              setSelectedLocalCategory(null)
+            })
+          }}
+          onDeleteIdentity={handleDeleteIdentity}
+          onLock={handleLock}
+          onSync={() => void handleManualSync()}
+          isOpen={sidebarOpen}
+          onClose={() => setSidebarOpen(false)}
+          onOpenSettings={() => setSettingsOpen(true)}
+          profileName={currentProfileName}
+          isMobile={false}
+          installPromptAvailable={Boolean(deferredPrompt)}
+          onInstall={handleInstallApp}
+          syncing={cloudSyncStatus === 'syncing'}
+          syncIndicator={CloudSyncIndicator}
+        />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
         <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated pt-20 lg:rounded-l-2xl lg:border-l lg:border-border-subtle">

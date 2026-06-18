@@ -28,7 +28,7 @@ export function SecretField({
     }
   }
 
-  const fieldClass = `${inputClassName} pr-20 font-mono text-sm ${multiline ? 'min-h-[88px] resize-y' : ''}`
+  const fieldClass = `${inputClassName} pr-20 font-mono text-base ${multiline ? 'min-h-[88px] resize-y' : ''}`
 
   return (
     <label className="block">

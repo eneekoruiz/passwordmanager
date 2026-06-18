@@ -30,7 +30,7 @@ export function SearchBar({
         value={value}
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
-        className="w-full rounded-lg border border-border-subtle bg-surface-elevated py-2.5 pl-9 pr-3 text-sm text-text-primary placeholder:text-text-tertiary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
+        className="w-full rounded-lg border border-border-subtle bg-surface-elevated py-2.5 pl-9 pr-3 text-base text-text-primary placeholder:text-text-tertiary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
         aria-label="Buscar plataformas"
       />
     </div>

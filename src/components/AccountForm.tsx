@@ -56,14 +56,14 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
             value={keyEntry.nombre}
             onChange={(e) => updateApiKey(keyEntry.id, 'nombre', e.target.value)}
             placeholder="Nombre visible"
-            className="w-full border-b border-transparent bg-transparent pb-0.5 text-sm font-bold text-text-primary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
+            className="w-full border-b border-transparent bg-transparent pb-0.5 text-base font-bold text-text-primary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
           />
           <input
             type="text"
             value={keyEntry.descripcion}
             onChange={(e) => updateApiKey(keyEntry.id, 'descripcion', e.target.value)}
             placeholder="Entorno, alcance o proyecto"
-            className="w-full border-b border-transparent bg-transparent pb-0.5 text-[11px] text-text-secondary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
+            className="w-full border-b border-transparent bg-transparent pb-0.5 text-base text-text-secondary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
           />
         </div>
         <button
@@ -84,7 +84,7 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
           value={keyEntry.valor}
           onChange={(e) => updateApiKey(keyEntry.id, 'valor', e.target.value)}
           placeholder="Clave secreta (ej. sk-...)"
-          className="w-full bg-transparent pr-24 text-xs font-mono text-text-primary outline-none"
+          className="w-full bg-transparent pr-24 text-base font-mono text-text-primary outline-none"
         />
         <div className="absolute right-2 top-1/2 flex -translate-y-1/2 items-center gap-1">
           <button
@@ -1079,7 +1079,7 @@ export function AccountForm({
                           value={field.key}
                           onChange={(event) => updateCustomField(field.id, 'key', event.target.value)}
                           placeholder="Clave"
-                          className="min-w-0 flex-1 border-b border-transparent bg-transparent pb-1 text-xs font-bold text-text-primary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
+                          className="min-w-0 flex-1 border-b border-transparent bg-transparent pb-1 text-base font-bold text-text-primary outline-none placeholder:text-text-tertiary focus:border-border-subtle"
                         />
                         <button
                           type="button"
@@ -1096,7 +1096,7 @@ export function AccountForm({
                         value={field.value}
                         onChange={(event) => updateCustomField(field.id, 'value', event.target.value)}
                         placeholder="Valor"
-                        className="mt-2 min-h-20 w-full resize-y rounded-xl border border-black/5 bg-surface px-3 py-2 text-xs text-text-primary outline-none focus:border-border"
+                        className="mt-2 min-h-20 w-full resize-y rounded-xl border border-black/5 bg-surface px-3 py-2 text-base text-text-primary outline-none focus:border-border"
                         style={field.protected ? ({ WebkitTextSecurity: 'disc' } as CSSProperties) : undefined}
                       />
                       <label className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-text-secondary">

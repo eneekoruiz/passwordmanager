@@ -431,7 +431,29 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           cloudSummary.localItemCount > localCounts.localItemCount ||
           cloudSummary.localCategoryCount > localCounts.localCategoryCount
 
-        if (cloudLooksNewer || localLooksEmpty || cloudHasMoreData || !isIdentical) {
+        if (localLooksEmpty) {
+          // Descarga silenciosa automática si el local está vacío y hay datos en la nube
+          await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+          await refreshVaultData()
+          setCloudVaultExists(true)
+          setCloudSyncStatus('synced')
+          return {
+            action: 'downloaded',
+            message: `Sincronización completada. Se descargaron ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} de forma automática.`,
+            cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
+            localUpdatedAt: new Date().toISOString(),
+            cloudIdentityCount: cloudSummary.identityCount,
+            cloudPlatformCount: cloudSummary.platformCount,
+            cloudLocalItemCount: cloudSummary.localItemCount,
+            cloudLocalCategoryCount: cloudSummary.localCategoryCount,
+            localIdentityCount: cloudSummary.identityCount,
+            localPlatformCount: cloudSummary.platformCount,
+            localLocalItemCount: cloudSummary.localItemCount,
+            localLocalCategoryCount: cloudSummary.localCategoryCount,
+          }
+        }
+
+        if (cloudLooksNewer || cloudHasMoreData || !isIdentical) {
           const decryptedCloud = await storeRef.current.inspectAndDecryptCloudPayload(cloudBlob)
           const localIdns = await storeRef.current.loadAllIdentities(currentProfileId)
           const localIts = await storeRef.current.loadLocalItems(currentProfileId)
@@ -845,6 +867,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCloudSyncStatus('synced')
           // Check if biometric is registered for this profile
           void storeRef.current.hasBiometricBundle(profileId).then(setBiometricRegistered)
+          triggerCloudSync()
           return
         }
 
@@ -858,7 +881,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         throw error
       }
     },
-    [loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile],
+    [loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile, triggerCloudSync],
   )
 
   const recoverVaultWithSeed = useCallback(
