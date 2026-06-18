@@ -204,7 +204,7 @@ export class CryptoVault {
     const ciphertext = await crypto.subtle.encrypt(
       { name: AES_ALGORITHM, iv },
       key,
-      data,
+      data as BufferSource,
     )
 
     return {
@@ -236,7 +236,7 @@ export class CryptoVault {
     const plaintext = await crypto.subtle.decrypt(
       { name: AES_ALGORITHM, iv },
       key,
-      ciphertext,
+      ciphertext as BufferSource,
     )
 
     return new Uint8Array(plaintext)

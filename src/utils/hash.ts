@@ -43,7 +43,7 @@ export function deterministicStringify(obj: any): string {
  */
 export async function generateSha256Hash(message: string): Promise<string> {
   const msgBuffer = new TextEncoder().encode(message)
-  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer)
+  const hashBuffer = await crypto.subtle.digest('SHA-256', msgBuffer as BufferSource)
   const hashArray = Array.from(new Uint8Array(hashBuffer))
   return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
 }

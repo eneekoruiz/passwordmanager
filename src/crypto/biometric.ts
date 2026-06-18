@@ -207,7 +207,7 @@ async function encryptWithPrfKey(plaintext: string, key: CryptoKey): Promise<Enc
   const data = await crypto.subtle.encrypt(
     { name: 'AES-GCM', iv },
     key,
-    stringToBytes(plaintext),
+    stringToBytes(plaintext) as BufferSource,
   )
   return {
     v: 1,
@@ -220,7 +220,7 @@ async function decryptWithPrfKey(payload: EncryptedPayload, key: CryptoKey): Pro
   const plaintext = await crypto.subtle.decrypt(
     { name: 'AES-GCM', iv: base64ToBytes(payload.iv) },
     key,
-    base64ToBytes(payload.data),
+    base64ToBytes(payload.data) as BufferSource,
   )
   return bytesToString(new Uint8Array(plaintext))
 }
