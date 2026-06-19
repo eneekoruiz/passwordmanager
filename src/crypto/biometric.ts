@@ -135,7 +135,9 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
 
-  const credentialIdBytes = base64ToBytes(bundle.credentialId)
+  // WebAuthn requires an ArrayBuffer-backed view; decoded data may be typed as
+  // ArrayBufferLike by newer TypeScript DOM definitions.
+  const credentialIdBytes = new Uint8Array(base64ToBytes(bundle.credentialId))
 
   const getOptions: PublicKeyCredentialRequestOptions = {
     rpId: BIOMETRIC_RP_ID,
