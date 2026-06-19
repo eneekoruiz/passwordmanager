@@ -639,7 +639,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       logUnexpectedError('Error al sincronizar con Firebase', error)
       setCloudSyncStatus('error')
       if (!silent) {
-        reportCloudError(error, 'No se pudo sincronizar la boveda con Firebase.')
+        reportCloudError(error, 'No se pudo sincronizar la bóveda con Firebase.')
       }
       throw error
     } finally {

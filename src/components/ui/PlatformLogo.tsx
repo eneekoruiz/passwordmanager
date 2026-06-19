@@ -70,14 +70,14 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
     setHasError(false)
-    setSrc(`https://logo.clearbit.com/${domain}?size=256`)
+    setSrc(`https://logo.clearbit.com/${domain}?size=512`)
   }, [name, domain])
 
   const handleImageError = () => {
-    if (src === `https://logo.clearbit.com/${domain}?size=256`) {
-      setSrc(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`)
-    } else if (src === `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`) {
-      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
+    if (src === `https://logo.clearbit.com/${domain}?size=512`) {
+      setSrc(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=256`)
+    } else if (src === `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=256`) {
+      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`)
     } else {
       setHasError(true)
     }

@@ -8,8 +8,8 @@ type PlaintextExportFormat = 'csv' | 'json'
 const checkboxClassName =
   'h-5 w-5 shrink-0 cursor-pointer rounded-md border border-black/15 bg-white accent-slate-950 shadow-sm transition-transform duration-150 checked:scale-105 focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
 
-function passwordForPlatform(platform: Identity['platforms'][number]): string {
-  return platform.accessMethods.find((method) => method.type === 'PASSWORD')?.password ?? ''
+function passwordForPlatform(platform: Identity['platforms'][number] | undefined): string {
+  return platform?.accessMethods?.find((method) => method?.type === 'PASSWORD')?.password ?? ''
 }
 
 function passwordStrengthIssue(password: string): boolean {
@@ -121,43 +121,44 @@ export function SettingsModal({
     totalPasswordsCount,
     securePasswordsCount,
   } = useMemo(() => {
-    const entries = identities.flatMap((identity) =>
+    const entries = (identities || []).flatMap((identity) =>
       (identity?.platforms || []).map((platform) => ({
         identityEmail: identity?.email,
         platform,
         password: passwordForPlatform(platform),
       })),
-    ).filter((entry) => entry.password)
+    ).filter((entry) => entry?.password)
 
     const reused = entries.filter((entry, _, all) =>
-      all.some((other) => other !== entry && other.password === entry.password),
+      all.some((other) => other !== entry && other?.password === entry?.password),
     )
-    const weak = entries.filter((entry) => passwordStrengthIssue(entry.password))
+    const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || ''))
     const old = entries.filter((entry) => {
+      if (!entry?.platform?.updatedAt) return false
       const time = Date.parse(entry.platform.updatedAt)
       return Number.isFinite(time) && Date.now() - time > 365 * 24 * 60 * 60 * 1000
     })
 
     const score = Math.max(
       0,
-      100 - reused.length * 18 - weak.length * 14 - old.length * 8,
+      100 - (reused.length * 18) - (weak.length * 14) - (old.length * 8),
     )
 
     const insecureIds = new Set([
-      ...reused.map((r) => r.platform.id),
-      ...weak.map((w) => w.platform.id),
-      ...old.map((o) => o.platform.id),
+      ...reused.map((r) => r?.platform?.id).filter(Boolean),
+      ...weak.map((w) => w?.platform?.id).filter(Boolean),
+      ...old.map((o) => o?.platform?.id).filter(Boolean),
     ])
 
     const total = entries.length
-    const secureCount = entries.filter((entry) => !insecureIds.has(entry.platform.id)).length
+    const secureCount = entries.filter((entry) => entry?.platform?.id && !insecureIds.has(entry.platform.id)).length
 
     return {
       healthEntries: entries,
       reusedPasswords: reused,
       weakPasswords: weak,
       oldPasswords: old,
-      healthScore: score,
+      healthScore: isNaN(score) ? 100 : score,
       totalPasswordsCount: total,
       securePasswordsCount: secureCount,
     }
@@ -438,7 +439,7 @@ export function SettingsModal({
               {/* Listado de problemas */}
               {reusedPasswords.length > 0 || weakPasswords.length > 0 || oldPasswords.length > 0 ? (
                 <div className="overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2 max-h-32 scrollbar-thin">
-                  {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry.platform.name} · ${entry.identityEmail}`))]
+                  {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry?.platform?.name || 'Desconocida'} · ${entry?.identityEmail || 'Sin email'}`))]
                     .map((label) => (
                       <div key={label} className="rounded-xl px-2 py-1.5 text-[11px] font-semibold text-text-secondary">{label}</div>
                     ))}
