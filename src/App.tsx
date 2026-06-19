@@ -149,7 +149,9 @@ function VaultApp() {
   const [createTrigger, setCreateTrigger] = useState(0)
 
   const handleAddClick = () => {
-    if (groupMode === 'identity') {
+    if (selectedId || selectedLocalCategory || selectedPlatformName) {
+      setCreateTrigger((prev) => prev + 1)
+    } else if (groupMode === 'identity') {
       setShowAddForm((prev) => !prev)
     } else if (groupMode === 'platform') {
       let targetId = selectedId

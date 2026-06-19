@@ -1,5 +1,6 @@
 import type { Account, AccountAccessMethod, Identity, Platform } from '../types'
 import { generateId } from './id'
+import { normalizeAccessMethods as fullNormalizeAccessMethods } from './normalizeAccount'
 
 export const LOCAL_IDENTITY_EMAIL = 'Cuentas Locales / Sin Correo'
 
@@ -27,45 +28,45 @@ function createPasswordMethod(password = ''): AccountAccessMethod {
 }
 
 function normalizeAccessMethods(defaults?: Partial<Platform>): AccountAccessMethod[] {
+  let methods: AccountAccessMethod[] = []
+
   if (defaults?.accessMethods?.length) {
-    return defaults.accessMethods.map((method) => ({ ...method }))
-  }
-
-  const legacy = defaults as
-    | (Partial<Platform> & {
-        authMethod?: string
-        password?: string | null
-        ssoProvider?: Platform['accessMethods'][number] extends infer T
-          ? T extends { providers: (infer P)[] }
-            ? P
+    methods = defaults.accessMethods.map((method) => ({ ...method }))
+  } else {
+    const legacy = defaults as
+      | (Partial<Platform> & {
+          authMethod?: string
+          password?: string | null
+          ssoProvider?: Platform['accessMethods'][number] extends infer T
+            ? T extends { providers: (infer P)[] }
+              ? P
+              : never
             : never
-          : never
-        ssoEmail?: string | null
-        linkedGoogleAccount?: string | null
-      })
-    | undefined
-  const legacyGoogleAccount = legacy?.linkedGoogleAccount
+          ssoEmail?: string | null
+          linkedGoogleAccount?: string | null
+        })
+      | undefined
+    const legacyGoogleAccount = legacy?.linkedGoogleAccount
 
-  if (legacy?.authMethod === 'SSO' || legacyGoogleAccount) {
-    return [
-      {
-        id: generateId(),
-        type: 'SSO',
-        providers: legacy?.ssoProvider ? [legacy.ssoProvider as any] : ['Google'],
-        email: legacy?.ssoEmail ?? legacyGoogleAccount ?? null,
-      },
-    ]
+    if (legacy?.authMethod === 'SSO' || legacyGoogleAccount) {
+      methods = [
+        {
+          id: generateId(),
+          type: 'SSO',
+          providers: legacy?.ssoProvider ? [legacy.ssoProvider as any] : ['Google'],
+          email: legacy?.ssoEmail ?? legacyGoogleAccount ?? null,
+        },
+      ]
+    } else if (legacy?.authMethod === 'PASSKEY') {
+      methods = [{ id: generateId(), type: 'PASSKEY' }]
+    } else if (legacy?.authMethod === 'MAGIC_LINK') {
+      methods = [{ id: generateId(), type: 'MAGIC_LINK', email: legacy?.ssoEmail ?? null }]
+    } else {
+      methods = [createPasswordMethod(legacy?.password ?? '')]
+    }
   }
 
-  if (legacy?.authMethod === 'PASSKEY') {
-    return [{ id: generateId(), type: 'PASSKEY' }]
-  }
-
-  if (legacy?.authMethod === 'MAGIC_LINK') {
-    return [{ id: generateId(), type: 'MAGIC_LINK', email: legacy?.ssoEmail ?? null }]
-  }
-
-  return [createPasswordMethod(legacy?.password ?? '')]
+  return fullNormalizeAccessMethods(methods)
 }
 
 export function createPlatform(name: string, defaults?: Partial<Platform>): Platform {
