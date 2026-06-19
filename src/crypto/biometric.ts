@@ -10,7 +10,13 @@
  * - En ningún momento la contraseña maestra queda accesible sin pasar por el sensor biométrico.
  */
 
-import { bytesToBase64, base64ToBytes, stringToBytes, bytesToString } from './encoding'
+import {
+  base64ToBytes,
+  bytesToArrayBuffer,
+  bytesToBase64,
+  bytesToString,
+  stringToBytes,
+} from './encoding'
 import type { EncryptedPayload } from './types'
 
 const BIOMETRIC_RP_ID = window.location.hostname
@@ -144,7 +150,7 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
     allowCredentials: [
       {
         type: 'public-key',
-        id: credentialIdBytes as any,
+        id: bytesToArrayBuffer(credentialIdBytes),
         transports: ['internal'] as AuthenticatorTransport[],
       },
     ],
@@ -184,7 +190,7 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
 async function derivePrfKey(prfBytes: Uint8Array): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(
     'raw',
-    prfBytes as BufferSource,
+    bytesToArrayBuffer(prfBytes),
     { name: 'HKDF' },
     false,
     ['deriveKey'],
@@ -193,8 +199,8 @@ async function derivePrfKey(prfBytes: Uint8Array): Promise<CryptoKey> {
     {
       name: 'HKDF',
       hash: 'SHA-256',
-      salt: stringToBytes('contras-biometric-aes-v1') as BufferSource,
-      info: stringToBytes('aes-gcm-key') as BufferSource,
+      salt: bytesToArrayBuffer(stringToBytes('contras-biometric-aes-v1')),
+      info: bytesToArrayBuffer(stringToBytes('aes-gcm-key')),
     },
     keyMaterial,
     { name: 'AES-GCM', length: 256 },
@@ -207,9 +213,9 @@ async function encryptWithPrfKey(plaintext: string, key: CryptoKey): Promise<Enc
   const iv = new Uint8Array(12)
   crypto.getRandomValues(iv)
   const data = await crypto.subtle.encrypt(
-    { name: 'AES-GCM', iv: iv as BufferSource },
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(iv) },
     key,
-    stringToBytes(plaintext) as BufferSource,
+    bytesToArrayBuffer(stringToBytes(plaintext)),
   )
   return {
     v: 1,
@@ -220,9 +226,9 @@ async function encryptWithPrfKey(plaintext: string, key: CryptoKey): Promise<Enc
 
 async function decryptWithPrfKey(payload: EncryptedPayload, key: CryptoKey): Promise<string> {
   const plaintext = await crypto.subtle.decrypt(
-    { name: 'AES-GCM', iv: base64ToBytes(payload.iv) as BufferSource },
+    { name: 'AES-GCM', iv: bytesToArrayBuffer(base64ToBytes(payload.iv)) },
     key,
-    base64ToBytes(payload.data) as BufferSource,
+    bytesToArrayBuffer(base64ToBytes(payload.data)),
   )
   return bytesToString(new Uint8Array(plaintext))
 }
