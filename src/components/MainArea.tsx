@@ -298,6 +298,7 @@ export function MainArea({
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
+      {!isFormView && (
       <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border-subtle bg-white/72 px-4 py-3 shadow-sm backdrop-blur-xl lg:px-8 lg:py-5">
         {isMobile ? (
           <button
@@ -324,52 +325,23 @@ export function MainArea({
         )}
 
         <div className="min-w-0 flex-1">
-          {isFormView && identity && (
-            <div className="mb-2 inline-flex max-w-full items-center gap-2 rounded-full border border-black/[0.06] bg-white/85 px-3 py-1 shadow-[0_8px_24px_rgba(0,0,0,0.04)] backdrop-blur">
-              <span className="h-2 w-2 rounded-full bg-emerald-500 shadow-[0_0_0_4px_rgba(16,185,129,0.12)]" />
-              <span className="truncate text-[10px] font-semibold uppercase tracking-[0.16em] text-text-tertiary">
-                Identidad activa
-              </span>
-              <span className="truncate text-xs font-semibold text-text-primary">
-                {identity.email}
-              </span>
-            </div>
-          )}
           <h2 className="truncate text-lg font-semibold text-text-primary">
-            {isFormView
-              ? view === 'create'
-                ? localCategory
-                  ? `Nuevo ${localCategory.label}`
-                  : 'Nueva plataforma'
-                : editingPlatform?.platform.name ?? editingLocalItem?.title
-              : localCategory
-                ? localCategory.label
-                : groupMode === 'platform'
-                  ? selectedPlatformDisplayName
-                  : identity?.email}
+            {localCategory
+              ? localCategory.label
+              : groupMode === 'platform'
+                ? selectedPlatformDisplayName
+                : identity?.email}
           </h2>
           <p className="mt-0.5 truncate text-xs text-text-tertiary">
-            {isFormView
-              ? localCategory
-                ? localCategory.label
-                : identity?.email
-              : localCategory
-                ? `${selectedLocalItems.length} secreto${selectedLocalItems.length !== 1 ? 's' : ''}`
-                : groupMode === 'platform'
-                  ? `${platformAccounts.length} cuenta${platformAccounts.length !== 1 ? 's' : ''} en esta plataforma`
-                  : `${identity?.platforms.length ?? 0} plataforma${identity?.platforms.length !== 1 ? 's' : ''}`}
+            {localCategory
+              ? `${selectedLocalItems.length} secreto${selectedLocalItems.length !== 1 ? 's' : ''}`
+              : groupMode === 'platform'
+                ? `${platformAccounts.length} cuenta${platformAccounts.length !== 1 ? 's' : ''} en esta plataforma`
+                : `${identity?.platforms.length ?? 0} plataforma${identity?.platforms.length !== 1 ? 's' : ''}`}
           </p>
         </div>
 
-        {isFormView ? (
-          <button
-            type="button"
-            onClick={() => onRequestNavigation(resetView)}
-            className="rounded-lg px-3 py-2 text-sm font-medium text-text-secondary transition-colors hover:bg-surface-hover"
-          >
-            Volver
-          </button>
-        ) : (groupMode === 'platform' && !localCategory) || isMobile ? null : (
+        {(groupMode === 'platform' && !localCategory) || isMobile ? null : (
           <button
             type="button"
             onClick={() => {
@@ -390,8 +362,9 @@ export function MainArea({
           </button>
         )}
       </header>
+      )}
 
-      <div className="flex-1 overflow-y-auto overscroll-none px-4 py-4 lg:px-8 lg:py-6">
+      <div className={`flex-1 overflow-y-auto overscroll-none ${isFormView ? '' : 'px-4 py-4 lg:px-8 lg:py-6'}`}>
         {view === 'grid' && (
           <>
             {localCategory ? (

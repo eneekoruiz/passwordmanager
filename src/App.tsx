@@ -1,4 +1,5 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { VaultProvider, useVault } from './context/VaultContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { SyncDiffViewer } from './components/SyncDiffViewer'
@@ -185,6 +186,7 @@ function VaultApp() {
   const [downloadingCloud, setDownloadingCloud] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [syncPopoverOpen, setSyncPopoverOpen] = useState(false)
+  const syncButtonRef = useRef<HTMLButtonElement>(null)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -282,6 +284,7 @@ function VaultApp() {
   const CloudSyncIndicator = (
     <div className="relative inline-block">
       <button
+        ref={syncButtonRef}
         type="button"
         onClick={() => setSyncPopoverOpen((open) => !open)}
         className={`flex h-9 w-9 items-center justify-center rounded-xl border transition-all ${syncState.color}`}
@@ -290,10 +293,19 @@ function VaultApp() {
         {syncState.icon}
       </button>
 
-      {syncPopoverOpen && (
+      {syncPopoverOpen && createPortal(
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setSyncPopoverOpen(false)} />
-          <div className="absolute left-0 md:left-auto md:right-0 mt-2 z-[70] w-72 max-w-[90vw] origin-top-left md:origin-top-right rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl text-left">
+          <div
+            className="fixed z-[70] w-72 max-w-[90vw] rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl text-left animate-fade-in"
+            style={(() => {
+              const rect = syncButtonRef.current?.getBoundingClientRect()
+              if (!rect) return { top: 0, left: 0 }
+              const top = rect.bottom + 8
+              const left = Math.max(8, Math.min(rect.left, window.innerWidth - 296))
+              return { top, left }
+            })()}
+          >
             <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">
               Estado de Sincronización
             </h4>
@@ -328,7 +340,8 @@ function VaultApp() {
               </button>
             </div>
           </div>
-        </>
+        </>,
+        document.body
       )}
     </div>
   )

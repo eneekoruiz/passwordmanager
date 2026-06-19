@@ -188,7 +188,7 @@ export function PasswordField({
                 })
             }}
             disabled={disabled}
-            className={`rounded-md p-1.5 active:scale-95 transition-all duration-150 ${
+            className={`group relative rounded-md p-1.5 active:scale-95 transition-all duration-150 ${
                 showGeneratorMenu
                   ? 'bg-surface-active text-text-primary'
                   : 'text-text-tertiary hover:bg-surface-hover hover:text-text-secondary'
@@ -198,6 +198,7 @@ export function PasswordField({
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l8.904-4.452a3 3 0 114.242-4.243L17.25 15.75m-7.437.154L4 12l8.904-4.452a3 3 0 114.242-4.243L13.25 7.75" />
               </svg>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">Generar</span>
             </button>
           )}
 
@@ -205,7 +206,7 @@ export function PasswordField({
             type="button"
             onClick={() => setVisible((v) => !v)}
             disabled={disabled}
-            className="rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150"
+            className="group relative rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150"
             aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >
             {visible ? (
@@ -218,18 +219,20 @@ export function PasswordField({
                 <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
               </svg>
             )}
+            <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">{visible ? 'Ocultar' : 'Mostrar'}</span>
           </button>
 
           <button
             type="button"
             onClick={handleCopy}
             disabled={!value || disabled}
-            className="rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150 disabled:opacity-40"
+            className="group relative rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150 disabled:opacity-40"
             aria-label="Copiar al portapapeles"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.646.049 1.288.11 1.927.184 1.102.124 1.99 1.003 1.99 2.122v6.228a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18.75v-6.228c0-1.12.888-2.002 1.99-2.122A48.394 48.394 0 0112 3c.775 0 1.545.09 2.298.266" />
             </svg>
+            <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">Copiar</span>
           </button>
         </div>
       </div>

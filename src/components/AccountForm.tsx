@@ -615,19 +615,24 @@ export function AccountForm({
   // MODO LECTURA (VIEW MODE)
   if (!isEditing) {
     return (
-      <div className="mx-auto w-full max-w-5xl space-y-5 pb-24 font-sans animate-vault-morph">
-        <div className="flex items-center justify-between rounded-2xl border border-black/[0.06] bg-white/90 p-6 shadow-[0_24px_80px_rgba(0,0,0,0.055)] backdrop-blur transition-all duration-300 hover:shadow-[0_30px_100px_rgba(0,0,0,0.075)]">
-          <div className="flex items-center gap-4">
-            <PlatformLogo name={account.name} className="h-12 w-12 shrink-0 rounded-2xl shadow-sm border border-black/5" />
-            <div>
-              <h2 className="text-2xl font-bold tracking-tight text-text-primary">{account.name}</h2>
-              <p className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">Resumen seguro</p>
-            </div>
+      <div className="w-full font-sans animate-vault-morph">
+        {/* Sticky Header — Vista Lectura */}
+        <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
+          <div className="flex items-center gap-3 min-w-0">
+            <button type="button" onClick={onCancel} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+              </svg>
+            </button>
+            <PlatformLogo name={account.name} className="h-8 w-8 shrink-0 rounded-xl" />
+            <h2 className="truncate text-lg font-bold tracking-tight text-text-primary">{account.name}</h2>
           </div>
-          <button type="button" onClick={() => setIsEditing(true)} className="rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_10px_24px_rgba(0,0,0,0.12)] transition-all duration-150 hover:-translate-y-0.5 hover:opacity-95 active:scale-[0.98]">
+          <button type="button" onClick={() => setIsEditing(true)} className="shrink-0 rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95">
             Editar
           </button>
-        </div>
+        </header>
+
+        <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 lg:px-8">
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ReadOnlyField label="Usuario" value={account.username} />
@@ -708,13 +713,40 @@ export function AccountForm({
             isSecret={field.protected}
           />
         ))}
+        </div>
       </div>
     )
   }
 
   // MODO EDICIÓN (EDIT MODE)
   return (
-    <form onSubmit={handleSubmit} className="mx-auto flex w-full max-w-6xl flex-col gap-5 pb-40 select-none font-sans animate-vault-morph lg:pb-36">
+    <form onSubmit={handleSubmit} className="flex w-full flex-col select-none font-sans animate-vault-morph">
+      {/* Sticky Header — Modo Edición */}
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
+        <div className="flex items-center gap-3 min-w-0">
+          <button type="button" onClick={handleCancelEdit} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <PlatformLogo name={account.name} className="h-8 w-8 shrink-0 rounded-xl" />
+          <h2 className="truncate text-lg font-bold text-text-primary">
+            {mode === 'create' ? 'Nueva plataforma' : (account.name || 'Editar plataforma')}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {mode === 'edit' && onDelete && (
+            <button type="button" onClick={() => setShowDeleteModal(true)} className="rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95">
+              Eliminar
+            </button>
+          )}
+          <button type="submit" disabled={saving} className="rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
+            {saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar'}
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 lg:px-8">
       <section className="space-y-5 rounded-2xl border border-black/[0.08] bg-gradient-to-b from-white to-slate-50/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] backdrop-blur">
         <div className="flex flex-col border-b border-border-subtle pb-3">
           <h3 className="text-sm font-bold text-text-primary">Credenciales Principales</h3>
@@ -1245,34 +1277,6 @@ export function AccountForm({
         </div>
       )}
 
-      <div className="fixed bottom-4 left-4 right-4 z-[60] flex items-center justify-between gap-3 rounded-2xl border border-black/[0.08] bg-white px-4 py-3 shadow-[0_22px_70px_rgba(15,23,42,0.18)] ring-1 ring-white/80 backdrop-blur-xl lg:left-[calc(20rem+2rem)] lg:right-8">
-        <div>
-          {mode === 'edit' && onDelete && (
-            <button
-              type="button"
-              onClick={() => setShowDeleteModal(true)}
-              className="text-sm font-semibold text-red-600 hover:text-red-700 active:scale-95 transition-all"
-            >
-              Eliminar cuenta
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button
-            type="button"
-              onClick={handleCancelEdit}
-              className="rounded-xl px-5 py-2.5 text-sm font-semibold text-text-secondary transition-all hover:bg-surface-hover active:scale-95"
-          >
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving}
-              className="rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95"
-          >
-              {saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar Cambios'}
-          </button>
-        </div>
       </div>
 
       {/* Modal Seguro de Borrado */}

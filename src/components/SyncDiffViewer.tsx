@@ -45,7 +45,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
       <div className="flex h-full max-h-[85vh] w-full max-w-3xl flex-col overflow-hidden rounded-3xl border border-white/20 bg-white shadow-2xl w-full max-w-[100vw] overflow-x-hidden">
         <div className="flex items-center justify-between border-b border-border bg-surface px-6 py-5 min-w-0 w-full">
           <div className="min-w-0 mr-4">
-            <h2 className="text-xl font-bold tracking-tight text-text-primary truncate">Resolución de Sincronización</h2>
+            <h2 className="text-xl font-bold tracking-tight text-text-primary truncate">Revisión de Cambios Detectados</h2>
             <p className="mt-1 text-sm text-text-secondary truncate">
               {hasOnlyAdditions
                 ? `Se encontraron ${addedCount} elemento${addedCount !== 1 ? 's' : ''} nuevo${addedCount !== 1 ? 's' : ''} en la nube. Se combinarán con tus datos locales.`
@@ -62,7 +62,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
         <div className="flex gap-2 border-b border-border bg-surface px-6 pt-3 overflow-x-auto scrollbar-none flex-nowrap w-full">
           <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')} label="Todos" count={diffResult.diffs.length} />
           <TabButton active={activeTab === 'added'} onClick={() => setActiveTab('added')} label="Nuevos en Nube" count={addedCount} color="text-green-600" bg="bg-green-100" />
-          <TabButton active={activeTab === 'conflict'} onClick={() => setActiveTab('conflict')} label="Conflictos" count={conflictCount} color="text-purple-600" bg="bg-purple-100" />
+          <TabButton active={activeTab === 'conflict'} onClick={() => setActiveTab('conflict')} label="Revisión Requerida" count={conflictCount} color="text-purple-600" bg="bg-purple-100" />
           <TabButton active={activeTab === 'deleted'} onClick={() => setActiveTab('deleted')} label="Solo Locales" count={deletedCount} color="text-red-600" bg="bg-red-100" />
         </div>
 
@@ -88,7 +88,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between border-t border-border bg-surface px-6 py-4 w-full">
           <p className="text-xs text-text-tertiary max-w-md">
             {hasConflicts
-              ? 'Elige qué versión conservar para cada conflicto (preseleccionada la más reciente).'
+              ? 'Elige qué versión conservar para cada cambio detectado (preseleccionada la más reciente).'
               : hasDeletedItems
                 ? 'Al aceptar, los elementos "Solo Locales" no se incluirán en la versión final.'
                 : 'Al aceptar, se descargarán los datos de la nube y se combinarán con los locales.'}
@@ -125,7 +125,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                   </svg>
-                  {hasConflicts ? 'Resolver y Guardar' : hasDeletedItems ? 'Reemplazar Bóveda Local' : 'Descargar y Combinar'}
+                  {hasConflicts ? 'Aplicar Cambios y Guardar' : hasDeletedItems ? 'Reemplazar Bóveda Local' : 'Descargar y Combinar'}
                 </>
               )}
             </button>
@@ -179,7 +179,7 @@ function DiffItemRow({
     added: { icon: '+', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', label: 'Nuevo en nube' },
     modified: { icon: '±', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', label: 'Diferente' },
     deleted: { icon: '-', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', label: 'Solo local' },
-    conflict: { icon: '!', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', label: 'Conflicto' },
+    conflict: { icon: '!', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', label: 'Versión diferente' },
   }[item.status]
 
   const typeIcon = getTypeIcon(item.type)
@@ -210,7 +210,7 @@ function DiffItemRow({
 
       {item.status === 'conflict' && onResolutionChange && selectedResolution && (
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 border border-black/[0.03]">
-          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mr-auto">Versión a conservar:</span>
+          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mr-auto">¿Qué versión prefieres?</span>
           <button
             type="button"
             onClick={() => onResolutionChange('local')}
