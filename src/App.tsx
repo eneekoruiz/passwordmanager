@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState, Component, type ErrorInfo, type ReactNode } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { VaultProvider, useVault } from './context/VaultContext'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { SyncDiffViewer } from './components/SyncDiffViewer'
 import { Sidebar } from './components/Sidebar'
 import { MainArea } from './components/MainArea'
@@ -47,6 +48,7 @@ function VaultApp() {
     importMassiveAccounts,
     currentProfileName,
     cloudSyncStatus,
+    isInMemory,
     syncActiveProfileToCloud,
     downloadLatestCloudVault,
     logoutProfile,
@@ -66,8 +68,6 @@ function VaultApp() {
     setMounted(true)
   }, [])
 
-  const [isInMemory, setIsInMemory] = useState(() => isInMemoryFallbackActive())
-
   const warningBanner = null
 
   const [isMobile, setIsMobile] = useState(false)
@@ -80,7 +80,6 @@ function VaultApp() {
     window.addEventListener('resize', checkMobile)
 
     const handleStorageDegraded = () => {
-      setIsInMemory(true)
       showToast(
         'Aviso de iOS: Safari está limitando el almacenamiento. La app funciona en modo temporal. Añádela a la pantalla de inicio para evitar esto.',
         'warning',
@@ -217,11 +216,24 @@ function VaultApp() {
   }, [identities, localItems, localCategories])
 
   const syncState = useMemo(() => {
+    if (cloudSyncStatus === 'checking_storage') {
+      return {
+        color: 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100/50',
+        dotColor: 'bg-slate-400',
+        label: 'Verificando almacenamiento...',
+        description: 'Validando persistencia y sincronización segura...',
+        icon: (
+          <svg className="h-5 w-5 animate-pulse text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+          </svg>
+        )
+      }
+    }
     if (isInMemory || cloudSyncStatus === 'error' || !isOnline) {
       return {
         color: 'text-amber-600 bg-amber-50 border-amber-100 hover:bg-amber-100/50',
         dotColor: 'bg-amber-500',
-        label: 'Bóveda local (Offline o degradado)',
+        label: isInMemory ? 'Almacenamiento bloqueado' : 'Bóveda local (Offline o degradado)',
         description: isInMemory 
           ? 'Almacenamiento de Safari bloqueado o degradado. Tus cambios no se guardarán al salir. Configura la sincronización con Google Cloud o añade la app a la pantalla de inicio.' 
           : !isOnline 
@@ -253,14 +265,16 @@ function VaultApp() {
       color: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100/50',
       dotColor: 'bg-emerald-500',
       label: 'Bóveda protegida',
-      description: 'Todos los datos de tu bóveda están sincronizados de forma segura en Google Cloud.',
+      description: cloudUserEmail 
+        ? 'Todos los datos de tu bóveda están sincronizados de forma segura en Google Cloud.'
+        : 'Almacenamiento local persistente y seguro.',
       icon: (
         <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
         </svg>
       )
     }
-  }, [isInMemory, cloudSyncStatus, isOnline, hasUnsyncedChanges])
+  }, [isInMemory, cloudSyncStatus, isOnline, hasUnsyncedChanges, cloudUserEmail])
 
   const CloudSyncIndicator = (
     <div className="relative inline-block">
@@ -1470,63 +1484,7 @@ function GlobalSearch({
   )
 }
 
-interface ErrorBoundaryProps {
-  children: ReactNode
-}
 
-interface ErrorBoundaryState {
-  hasError: boolean
-  error: Error | null
-}
-
-class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
-  public override state: ErrorBoundaryState = {
-    hasError: false,
-    error: null
-  }
-
-  public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
-  }
-
-  public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
-    console.error('ErrorBoundary caught an error:', error, errorInfo)
-  }
-
-  public override render() {
-    if (this.state.hasError) {
-      return (
-        <div className="flex min-h-screen flex-col items-center justify-center bg-surface p-6 font-sans text-center">
-          <div className="w-full max-w-md rounded-2xl border border-black/5 bg-white p-6 shadow-lg">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-red-100 text-red-600 mx-auto mb-4">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <h2 className="text-lg font-bold text-text-primary">Algo ha salido mal</h2>
-            <p className="mt-2 text-xs text-text-secondary">
-              Se ha producido un error inesperado al renderizar la interfaz. Por favor, recarga la aplicación.
-            </p>
-            {this.state.error && (
-              <pre className="mt-3 overflow-x-auto rounded-lg bg-surface p-3 text-left text-[10px] font-mono text-text-tertiary">
-                {this.state.error.toString()}
-              </pre>
-            )}
-            <button
-              type="button"
-              onClick={() => window.location.reload()}
-              className="mt-5 min-h-11 w-full rounded-xl bg-text-primary text-xs font-bold text-white transition-all hover:bg-slate-800"
-            >
-              Recargar aplicación
-            </button>
-          </div>
-        </div>
-      )
-    }
-
-    return this.props.children
-  }
-}
 
 export default function App() {
   return (

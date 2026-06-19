@@ -23,7 +23,7 @@ import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firesto
 import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
-import { deleteVaultDb } from '../storage/vaultDb'
+import { deleteVaultDb, isInMemoryFallbackActive } from '../storage/vaultDb'
 import type { Identity, LocalCategory, LocalVaultItem, Platform } from '../types'
 import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
@@ -67,7 +67,8 @@ interface VaultContextValue {
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
   importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<string | null>
   cloudUserEmail: string | null
-  cloudSyncStatus: 'idle' | 'syncing' | 'synced' | 'error'
+  cloudSyncStatus: 'checking_storage' | 'idle' | 'syncing' | 'synced' | 'error'
+  isInMemory: boolean
   cloudVaultExists: boolean | null
   hasUnsyncedChanges: boolean
   loginWithGoogleCloud: () => Promise<void>
@@ -143,7 +144,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
   const [cloudUserEmail, setCloudUserEmail] = useState<string | null>(null)
-  const [cloudSyncStatus, setCloudSyncStatus] = useState<'idle' | 'syncing' | 'synced' | 'error'>('idle')
+  const [cloudSyncStatus, setCloudSyncStatus] = useState<'checking_storage' | 'idle' | 'syncing' | 'synced' | 'error'>('checking_storage')
+  const [isInMemory, setIsInMemory] = useState(isInMemoryFallbackActive())
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
@@ -155,6 +157,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     void isBiometricAvailable().then(setBiometricAvailable)
   }, [])
+
+  // Escuchar degradación de almacenamiento (Safari/WebKit fallback)
+  useEffect(() => {
+    const handleStorageDegraded = () => {
+      setIsInMemory(true)
+      setCloudSyncStatus('idle')
+    }
+    window.addEventListener('contras:storage-degraded', handleStorageDegraded)
+    if (isInMemoryFallbackActive()) {
+      setIsInMemory(true)
+      setCloudSyncStatus('idle')
+    }
+    return () => {
+      window.removeEventListener('contras:storage-degraded', handleStorageDegraded)
+    }
+  }, [])
+
 
   const reportAppError = useCallback((error: unknown, fallback: string) => {
     const message = getFriendlyErrorMessage(error, fallback)
@@ -527,6 +546,40 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       syncInProgressRef.current = false
     }
   }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, reportCloudError])
+
+  // Boot and Sincronización State Machine
+  useEffect(() => {
+    if (!isReady || !isAuthReady) return
+
+    // Storage and Auth are ready!
+    if (isInMemoryFallbackActive()) {
+      setIsInMemory(true)
+      setCloudSyncStatus('idle')
+      return
+    }
+
+    // Storage is persistent!
+    const user = firebaseUserRef.current
+    if (user && currentProfileId) {
+      // Both user logged in and profile unlocked.
+      // Trigger auto-sync!
+      setCloudSyncStatus('syncing')
+      void syncActiveProfileToCloud(true).then((result) => {
+        if (result.action === 'downloaded' || result.action === 'uploaded' || result.action === 'idle') {
+          setCloudSyncStatus('synced')
+        } else if (result.action === 'download_available') {
+          setCloudSyncStatus('idle')
+          setHasUnsyncedChanges(true)
+        }
+      }).catch((err) => {
+        logUnexpectedError('Auto sync failed at boot state machine', err)
+        setCloudSyncStatus('error')
+      })
+    } else {
+      // Local persistent storage, not logged in or profile not unlocked yet
+      setCloudSyncStatus('idle')
+    }
+  }, [isReady, isAuthReady, currentProfileId, cloudUserEmail, syncActiveProfileToCloud])
 
   const triggerCloudSync = useCallback(() => {
     void syncActiveProfileToCloud(true).then(result => {
@@ -1104,6 +1157,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       importMassiveAccounts,
       cloudUserEmail,
       cloudSyncStatus,
+      isInMemory,
       cloudVaultExists,
       hasUnsyncedChanges,
       loginWithGoogleCloud,
@@ -1128,6 +1182,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudSyncStatus,
       cloudUserEmail,
       cloudVaultExists,
+      isInMemory,
       createProfile,
       currentProfileId,
       currentProfileName,

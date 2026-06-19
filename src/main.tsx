@@ -3,8 +3,31 @@ import { createRoot } from 'react-dom/client'
 import './index.css'
 import App from './App'
 import { logUnexpectedError } from './utils/errors'
-
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastProvider } from './components/ui/ToastProvider'
+
+// Manejador global para detectar errores de carga de chunks dinámicos (post-despliegue)
+if (typeof window !== 'undefined') {
+  const handleChunkError = (event: ErrorEvent | PromiseRejectionEvent) => {
+    const error = 'reason' in event ? event.reason : event.error
+    if (!error) return
+    
+    const errorMessage = String(error.message || error)
+    const isChunkError = 
+      /failed to fetch dynamically imported module/i.test(errorMessage) ||
+      /error loading dynamically imported module/i.test(errorMessage) ||
+      errorMessage.includes('ChunkLoadError')
+      
+    if (isChunkError) {
+      console.warn('Chunk load error detected. Reloading page to clear cache...', error)
+      // Force a hard reload of the page from the server
+      window.location.reload()
+    }
+  }
+
+  window.addEventListener('error', handleChunkError, true)
+  window.addEventListener('unhandledrejection', handleChunkError)
+}
 
 const rootElement = document.getElementById('root')
 
@@ -14,9 +37,11 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <ToastProvider>
-      <App />
-    </ToastProvider>
+    <ErrorBoundary>
+      <ToastProvider>
+        <App />
+      </ToastProvider>
+    </ErrorBoundary>
   </StrictMode>
 )
 
@@ -33,4 +58,3 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
     window.addEventListener('load', registerSW, { once: true })
   }
 }
-

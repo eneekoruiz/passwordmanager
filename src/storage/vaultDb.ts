@@ -58,28 +58,47 @@ class InMemoryDB {
     return Array.from(this.stores[storeName]?.keys() || [])
   }
 
-  transaction(storeName: any, _mode?: any): any {
-    const storeMap = this.stores[storeName]
-    const store = {
-      async getAllKeys(): Promise<any[]> {
-        return Array.from(storeMap?.keys() || [])
-      },
-      async get(key: any): Promise<any> {
-        return storeMap?.get(key)
-      },
-      async put(value: any, key: any): Promise<any> {
-        storeMap?.set(key, value)
-        return key
-      },
-      async delete(key: any): Promise<void> {
-        storeMap?.delete(key)
-      },
-      async clear(): Promise<void> {
-        storeMap?.clear()
-      },
+  transaction(storeNames: any, _mode?: any): any {
+    const names = Array.isArray(storeNames) ? storeNames : [storeNames]
+    const createStoreWrapper = (name: string) => {
+      return {
+        getAllKeys: async (): Promise<any[]> => {
+          const storeMap = this.stores[name]
+          return Array.from(storeMap?.keys() || [])
+        },
+        get: async (key: any): Promise<any> => {
+          const storeMap = this.stores[name]
+          return storeMap?.get(key)
+        },
+        put: async (value: any, key: any): Promise<any> => {
+          const storeMap = this.stores[name]
+          storeMap?.set(key, value)
+          return key
+        },
+        delete: async (key: any): Promise<void> => {
+          const storeMap = this.stores[name]
+          storeMap?.delete(key)
+        },
+        clear: async (): Promise<void> => {
+          const storeMap = this.stores[name]
+          storeMap?.clear()
+        },
+      }
     }
+
+    const txStores: Record<string, any> = {}
+    for (const name of names) {
+      txStores[name] = createStoreWrapper(name)
+    }
+
     return {
-      store,
+      store: Array.isArray(storeNames) ? undefined : txStores[storeNames],
+      objectStore(name: string) {
+        if (!txStores[name]) {
+          throw new Error(`Store ${name} not included in transaction.`)
+        }
+        return txStores[name]
+      },
       done: Promise.resolve(),
     }
   }
@@ -105,77 +124,97 @@ function handleStorageError(error: any) {
   }
 }
 
-function wrapTransaction(tx: any, storeName: string, mode: any) {
-  const store = {
-    async getAllKeys() {
-      if (isInMemory && inMemoryInstance) {
-        const memTx = inMemoryInstance.transaction(storeName, mode)
-        return memTx.store.getAllKeys()
-      }
-      try {
-        return await tx.store.getAllKeys()
-      } catch (error) {
-        handleStorageError(error)
-        const memTx = inMemoryInstance!.transaction(storeName, mode)
-        return memTx.store.getAllKeys()
-      }
-    },
-    async get(key: any) {
-      if (isInMemory && inMemoryInstance) {
-        const memTx = inMemoryInstance.transaction(storeName, mode)
-        return memTx.store.get(key)
-      }
-      try {
-        return await tx.store.get(key)
-      } catch (error) {
-        handleStorageError(error)
-        const memTx = inMemoryInstance!.transaction(storeName, mode)
-        return memTx.store.get(key)
-      }
-    },
-    async put(value: any, key: any) {
-      if (isInMemory && inMemoryInstance) {
-        const memTx = inMemoryInstance.transaction(storeName, mode)
-        return memTx.store.put(value, key)
-      }
-      try {
-        return await tx.store.put(value, key)
-      } catch (error) {
-        handleStorageError(error)
-        const memTx = inMemoryInstance!.transaction(storeName, mode)
-        return memTx.store.put(value, key)
-      }
-    },
-    async delete(key: any) {
-      if (isInMemory && inMemoryInstance) {
-        const memTx = inMemoryInstance.transaction(storeName, mode)
-        return memTx.store.delete(key)
-      }
-      try {
-        return await tx.store.delete(key)
-      } catch (error) {
-        handleStorageError(error)
-        const memTx = inMemoryInstance!.transaction(storeName, mode)
-        return memTx.store.delete(key)
-      }
-    },
-    async clear() {
-      if (isInMemory && inMemoryInstance) {
-        const memTx = inMemoryInstance.transaction(storeName, mode)
-        return memTx.store.clear()
-      }
-      try {
-        return await tx.store.clear()
-      } catch (error) {
-        handleStorageError(error)
-        const memTx = inMemoryInstance!.transaction(storeName, mode)
-        return memTx.store.clear()
-      }
-    },
+function wrapTransaction(tx: any, storeNames: any, mode: any) {
+  const names = Array.isArray(storeNames) ? storeNames : [storeNames]
+
+  const createStoreWrapper = (name: string) => {
+    return {
+      async getAllKeys() {
+        if (isInMemory && inMemoryInstance) {
+          const memTx = inMemoryInstance.transaction(name, mode)
+          return memTx.store.getAllKeys()
+        }
+        try {
+          const targetStore = Array.isArray(storeNames) ? tx.objectStore(name) : tx.store
+          return await targetStore.getAllKeys()
+        } catch (error) {
+          handleStorageError(error)
+          const memTx = inMemoryInstance!.transaction(name, mode)
+          return memTx.store.getAllKeys()
+        }
+      },
+      async get(key: any) {
+        if (isInMemory && inMemoryInstance) {
+          const memTx = inMemoryInstance.transaction(name, mode)
+          return memTx.store.get(key)
+        }
+        try {
+          const targetStore = Array.isArray(storeNames) ? tx.objectStore(name) : tx.store
+          return await targetStore.get(key)
+        } catch (error) {
+          handleStorageError(error)
+          const memTx = inMemoryInstance!.transaction(name, mode)
+          return memTx.store.get(key)
+        }
+      },
+      async put(value: any, key: any) {
+        if (isInMemory && inMemoryInstance) {
+          const memTx = inMemoryInstance.transaction(name, mode)
+          return memTx.store.put(value, key)
+        }
+        try {
+          const targetStore = Array.isArray(storeNames) ? tx.objectStore(name) : tx.store
+          return await targetStore.put(value, key)
+        } catch (error) {
+          handleStorageError(error)
+          const memTx = inMemoryInstance!.transaction(name, mode)
+          return memTx.store.put(value, key)
+        }
+      },
+      async delete(key: any) {
+        if (isInMemory && inMemoryInstance) {
+          const memTx = inMemoryInstance.transaction(name, mode)
+          return memTx.store.delete(key)
+        }
+        try {
+          const targetStore = Array.isArray(storeNames) ? tx.objectStore(name) : tx.store
+          return await targetStore.delete(key)
+        } catch (error) {
+          handleStorageError(error)
+          const memTx = inMemoryInstance!.transaction(name, mode)
+          return memTx.store.delete(key)
+        }
+      },
+      async clear() {
+        if (isInMemory && inMemoryInstance) {
+          const memTx = inMemoryInstance.transaction(name, mode)
+          return memTx.store.clear()
+        }
+        try {
+          const targetStore = Array.isArray(storeNames) ? tx.objectStore(name) : tx.store
+          return await targetStore.clear()
+        } catch (error) {
+          handleStorageError(error)
+          const memTx = inMemoryInstance!.transaction(name, mode)
+          return memTx.store.clear()
+        }
+      },
+    }
+  }
+
+  const txStores: Record<string, any> = {}
+  for (const name of names) {
+    txStores[name] = createStoreWrapper(name)
   }
 
   return {
-    store,
+    store: Array.isArray(storeNames) ? undefined : txStores[storeNames],
+    objectStore(name: string) {
+      if (!txStores[name]) {
+        throw new Error(`Store ${name} not included in transaction.`)
+      }
+      return txStores[name]
+    },
     get done() {
       if (isInMemory) {
         return Promise.resolve()

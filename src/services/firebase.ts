@@ -42,7 +42,14 @@ export const firebaseConfigError =
     : null
 
 /** Instancia principal de la aplicación Firebase. */
-const app: FirebaseApp | null = firebaseConfigError ? null : initializeApp(firebaseEnv)
+let app: FirebaseApp | null = null
+try {
+  if (!firebaseConfigError) {
+    app = initializeApp(firebaseEnv)
+  }
+} catch (error) {
+  console.error('Error al inicializar Firebase App de forma síncrona:', error)
+}
 
 /**
  * Instancia de Firebase Authentication.
@@ -68,7 +75,12 @@ function initAuth(): Auth | null {
       })
     } catch (innerErr) {
       console.error('Auth fallback initialization failed completely:', innerErr)
-      return getAuth(app)
+      try {
+        return getAuth(app)
+      } catch (getAuthErr) {
+        console.error('getAuth falló completamente:', getAuthErr)
+        return null
+      }
     }
   }
 }

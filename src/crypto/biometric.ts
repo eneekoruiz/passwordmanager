@@ -142,7 +142,7 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
     allowCredentials: [
       {
         type: 'public-key',
-        id: credentialIdBytes,
+        id: credentialIdBytes as any,
         transports: ['internal'] as AuthenticatorTransport[],
       },
     ],
