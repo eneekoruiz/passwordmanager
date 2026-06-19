@@ -27,3 +27,12 @@ export function stringToBytes(value: string): Uint8Array {
 export function bytesToString(bytes: Uint8Array): string {
   return new TextDecoder().decode(bytes)
 }
+/**
+ * Crea un ArrayBuffer independiente y compatible con Web Crypto.
+ * Evita pasar vistas respaldadas por SharedArrayBuffer y no depende de casts.
+ */
+export function bytesToArrayBuffer(bytes: Uint8Array): ArrayBuffer {
+  const copy = new Uint8Array(bytes.byteLength)
+  copy.set(bytes)
+  return copy.buffer
+}
