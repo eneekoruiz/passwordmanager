@@ -38,6 +38,7 @@ interface SidebarProps {
   onAddClick: () => void
   sortMode: SortMode
   onSortModeChange: (mode: SortMode) => void
+  isGlobalSearching?: boolean
 }
 
 const SORT_LABELS: Record<SortMode, string> = {
@@ -77,6 +78,7 @@ export function Sidebar({
   onAddClick,
   sortMode,
   onSortModeChange,
+  isGlobalSearching = false,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
@@ -367,7 +369,8 @@ export function Sidebar({
                 <SearchBar
                   value={searchQuery}
                   onChange={onSearchChange}
-                  placeholder={groupMode === 'identity' ? 'Buscar identidades...' : 'Buscar plataformas...'}
+                  placeholder={isGlobalSearching ? 'Búsqueda global activa' : (groupMode === 'identity' ? 'Buscar identidades...' : 'Buscar plataformas...')}
+                  disabled={isGlobalSearching}
                 />
               </div>
               <div className="relative shrink-0">

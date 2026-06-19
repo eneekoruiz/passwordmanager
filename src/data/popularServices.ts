@@ -242,13 +242,16 @@ const RAW_POPULAR_SERVICES: Array<{ name: string; domain: string }> = [
   { name: 'TripAdvisor', domain: 'tripadvisor.com' },
   { name: 'Expedia', domain: 'expedia.com' },
   // AI & Modern Tools
-  { name: 'Anthropic', domain: 'anthropic.com' },
-  { name: 'Midjourney', domain: 'midjourney.com' },
-  { name: 'Poe', domain: 'poe.com' },
-  { name: 'Google Gemini', domain: 'gemini.google.com' },
-  { name: 'Kagi Search', domain: 'kagi.com' },
-  { name: 'Brave Browser', domain: 'brave.com' },
-  { name: 'Mozilla Firefox', domain: 'firefox.com' },
+  { name: 'Yubo', domain: 'yubo.live' },
+  { name: 'Yuka', domain: 'yuka.io' },
+  { name: 'YouTube Music', domain: 'music.youtube.com' },
+  { name: 'HBO Max España', domain: 'max.com' },
+  { name: 'Universidad Complutense de Madrid', domain: 'ucm.es' },
+  { name: 'Universidad de Barcelona', domain: 'ub.edu' },
+  { name: 'OpenAI Developer Platform', domain: 'platform.openai.com' },
+  { name: 'Kagi Search Portal', domain: 'kagi.com' },
+  { name: 'Brave Search', domain: 'search.brave.com' },
+  { name: 'Mozilla Firefox Account', domain: 'firefox.com' },
 ]
 
 export const POPULAR_SERVICES = Array.from(

@@ -23,7 +23,7 @@ import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firesto
 import { CryptoVault } from '../crypto/CryptoVault'
 import { auth, db, firebaseConfigError } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
-import { deleteVaultDb, isInMemoryFallbackActive } from '../storage/vaultDb'
+import { deleteVaultDb, isInMemoryFallbackActive, getVaultDb } from '../storage/vaultDb'
 import type { Identity, LocalCategory, LocalVaultItem, Platform } from '../types'
 import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
@@ -74,7 +74,7 @@ interface VaultContextValue {
   loginWithGoogleCloud: () => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: (silent?: boolean) => Promise<CloudSyncResult>
-  downloadLatestCloudVault: () => Promise<CloudSyncResult>
+  downloadLatestCloudVault: (resolutions?: Record<string, 'local' | 'cloud'>) => Promise<CloudSyncResult>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
   restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
   initializeNewVault: (masterPassword: string, recoveryPhrase: string) => Promise<void>
@@ -329,7 +329,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
 
 
-  const downloadLatestCloudVault = useCallback(async (): Promise<CloudSyncResult> => {
+  const downloadLatestCloudVault = useCallback(async (resolutions?: Record<string, 'local' | 'cloud'>): Promise<CloudSyncResult> => {
     if (syncInProgressRef.current) {
       return { action: 'idle', message: 'Sincronización en curso. Espera un momento.' }
     }
@@ -359,7 +359,75 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
 
       const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
-      await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+      
+      if (resolutions && Object.keys(resolutions).length > 0) {
+        // Resolve conflicts manually item-by-item (LWW & User choices)
+        const decryptedCloud = await storeRef.current.inspectAndDecryptCloudPayload(cloudBlob)
+        const localIdns = await storeRef.current.loadAllIdentities(currentProfileId)
+        
+        // Match identities by email
+        const mergedIdns = [...decryptedCloud.identities]
+        let localWinsExist = false
+        
+        for (const localIdn of localIdns) {
+          const index = mergedIdns.findIndex(i => i.id === localIdn.id)
+          if (index >= 0) {
+            const resolution = resolutions[localIdn.id]
+            if (resolution === 'local') {
+              mergedIdns[index] = localIdn
+              localWinsExist = true
+            }
+          } else {
+            // Local item only, if not in cloud and not marked 'local' resolution (should not happen on modified/conflicts, but safety first)
+            mergedIdns.push(localIdn)
+            localWinsExist = true
+          }
+        }
+        
+        // Rebuild/Restore using solved items
+        const db = await getVaultDb()
+        const tx = db.transaction(['platforms'], 'readwrite')
+        const platformsStore = tx.objectStore('platforms')
+        
+        // Clear old profile platforms
+        const allKeys = await platformsStore.getAllKeys()
+        const prefix = `${currentProfileId}_`
+        for (const key of allKeys) {
+          if (key.startsWith(prefix)) {
+            await platformsStore.delete(key)
+          }
+        }
+        
+        // Put all resolved/merged identities
+        for (const idn of mergedIdns) {
+          const encrypted = await vaultRef.current.encryptJson(idn)
+          await platformsStore.put(encrypted, `${currentProfileId}_${idn.id}`)
+        }
+        await tx.done
+        
+        await refreshVaultData()
+        
+        // If local version won some conflicts, upload the final resolved payload to Google Cloud to prevent data loss
+        if (localWinsExist) {
+          try {
+            const newEncryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
+            await withTimeout(
+              setDoc(vaultRefDoc, {
+                encrypted_vault_blob: newEncryptedBlob,
+                updated_at: new Date().toISOString(),
+              }),
+              10000,
+              'Error al subir bóveda resuelta a Google Cloud.'
+            )
+          } catch (uploadErr) {
+            console.error('Failed to upload resolved payload', uploadErr)
+          }
+        }
+      } else {
+        // Standard restore
+        await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+      }
+      
       await refreshVaultData()
       setCloudVaultExists(true)
       setCloudSyncStatus('synced')

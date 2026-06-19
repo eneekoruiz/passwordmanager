@@ -142,7 +142,8 @@ function VaultApp() {
   const [groupMode, setGroupMode] = useState<VaultGroupMode>('identity')
   const [selectedPlatformName, setSelectedPlatformName] = useState<string | null>(null)
   const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalCategory | null>(null)
-  const [searchQuery, setSearchQuery] = useState('')
+  const [globalSearchTerm, setGlobalSearchTerm] = useState('')
+  const [localSearchTerm, setLocalSearchTerm] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>('alpha-asc')
   const [showAddForm, setShowAddForm] = useState(false)
   const [showMobileSortMenu, setShowMobileSortMenu] = useState(false)
@@ -292,7 +293,7 @@ function VaultApp() {
       {syncPopoverOpen && (
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setSyncPopoverOpen(false)} />
-          <div className="absolute right-0 mt-2 z-[70] w-72 rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl text-left">
+          <div className="absolute left-0 md:left-auto md:right-0 mt-2 z-[70] w-72 max-w-[90vw] origin-top-left md:origin-top-right rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl text-left">
             <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary mb-1">
               Estado de Sincronización
             </h4>
@@ -399,7 +400,8 @@ function VaultApp() {
         setSelectedId(null)
         setSelectedPlatformName(null)
         setSelectedLocalCategory(null)
-        setSearchQuery('')
+        setGlobalSearchTerm('')
+        setLocalSearchTerm('')
         showToast('Sesión bloqueada automáticamente por inactividad.', 'info')
       }, 5 * 60 * 1000)
     }
@@ -509,7 +511,8 @@ function VaultApp() {
   const handleGroupModeChange = (mode: VaultGroupMode) => {
     requestNavigation(() => {
       setGroupMode(mode)
-      setSearchQuery('')
+      setGlobalSearchTerm('')
+      setLocalSearchTerm('')
       setSelectedId(null)
       setSelectedPlatformName(null)
       setSelectedLocalCategory(null)
@@ -550,10 +553,10 @@ function VaultApp() {
     }
   }
 
-  const handleConfirmCloudDownload = async () => {
+  const handleConfirmCloudDownload = async (resolutions?: Record<string, 'local' | 'cloud'>) => {
     setDownloadingCloud(true)
     try {
-      const result = await downloadLatestCloudVault()
+      const result = await downloadLatestCloudVault(resolutions)
       setPendingCloudDownload(null)
       showToast(result.message, 'success')
     } catch (error) {
@@ -569,7 +572,8 @@ function VaultApp() {
     setSelectedId(null)
     setSelectedPlatformName(null)
     setSelectedLocalCategory(null)
-    setSearchQuery('')
+    setGlobalSearchTerm('')
+    setLocalSearchTerm('')
     showToast('Modo Viaje activado. Las cuentas sensibles quedan ocultas hasta verificar la Contraseña Maestra.', 'info')
   }
 
@@ -582,7 +586,7 @@ function VaultApp() {
   }
 
   const globalSearchResults = (() => {
-    const query = searchQuery.trim()
+    const query = globalSearchTerm.trim()
     if (!query) return []
 
     const results: GlobalSearchResult[] = []
@@ -648,7 +652,8 @@ function VaultApp() {
     setSelectedId(null)
     setSelectedPlatformName(null)
     setSelectedLocalCategory(null)
-    setSearchQuery('')
+    setGlobalSearchTerm('')
+    setLocalSearchTerm('')
   }
 
   const handleDeleteIdentity = async (id: string) => {
@@ -733,34 +738,12 @@ function VaultApp() {
             </svg>
             <input
               type="search"
-              value={searchQuery}
-              onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Buscar en toda la bóveda..."
+              value={localSearchTerm}
+              onChange={(event) => setLocalSearchTerm(event.target.value)}
+              placeholder="Buscar en esta sección..."
               className="h-10 w-full rounded-xl border border-black/[0.06] bg-white/90 pl-9 pr-12 text-base font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white"
-              aria-label="Búsqueda global de la bóveda"
+              aria-label="Búsqueda local de la sección"
             />
-            {searchQuery.trim().length > 0 && (
-              <div className="absolute left-0 right-0 top-12 z-[60] max-h-[40vh] overflow-y-auto rounded-2xl border border-black/[0.06] bg-white p-2 shadow-lg backdrop-blur-xl">
-                {globalSearchResults.length === 0 ? (
-                  <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
-                ) : (
-                  globalSearchResults.slice(0, 8).map((result) => (
-                    <button
-                      key={result.id}
-                      type="button"
-                      onClick={() => {
-                        result.action()
-                        setSearchQuery('')
-                      }}
-                      className="flex min-h-12 w-full flex-col justify-center rounded-xl px-4 text-left transition-colors hover:bg-surface-hover"
-                    >
-                      <span className="truncate text-sm font-semibold text-text-primary">{result.title}</span>
-                      <span className="truncate text-xs text-text-tertiary">{result.subtitle}</span>
-                    </button>
-                  ))
-                )}
-              </div>
-            )}
           </div>
           <div className="relative shrink-0">
             <button
@@ -842,8 +825,8 @@ function VaultApp() {
     <>
       {!settingsOpen && !importTextOpen && !lockModalOpen && !isMobile && (
         <GlobalSearch
-          query={searchQuery}
-          onQueryChange={setSearchQuery}
+          query={globalSearchTerm}
+          onQueryChange={setGlobalSearchTerm}
           results={globalSearchResults}
           syncing={cloudSyncStatus === 'syncing'}
           hasSettingsButton={!isMobile}
@@ -878,7 +861,7 @@ function VaultApp() {
                 void handleManualSync()
               }}
               disabled={cloudSyncStatus === 'syncing'}
-              className="flex min-h-12 w-full items-center justify-between rounded-2xl px-3 text-left text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-60"
+              className="flex min-h-12 w-full items-center justify-between rounded-2xl px-3 text-left text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-60 lg:hidden"
             >
               <span>{cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar ahora'}</span>
               <span className={`h-2.5 w-2.5 rounded-full ${cloudSyncStatus === 'error' ? 'bg-red-500' : cloudSyncStatus === 'synced' ? 'bg-emerald-500' : 'bg-text-tertiary'}`} />
@@ -952,7 +935,7 @@ function VaultApp() {
             </button>
             <button
               type="button"
-              onClick={handleConfirmCloudDownload}
+              onClick={() => void handleConfirmCloudDownload()}
               disabled={downloadingCloud}
               className="flex-1 sm:flex-none min-h-11 rounded-xl bg-blue-600 px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 hover:bg-blue-700 disabled:opacity-60"
             >
@@ -978,8 +961,8 @@ function VaultApp() {
               selectedId={selectedId}
               selectedPlatformName={selectedPlatformName}
               selectedLocalCategory={selectedLocalCategory}
-              searchQuery={searchQuery}
-              onSearchChange={setSearchQuery}
+              searchQuery={localSearchTerm}
+              onSearchChange={setLocalSearchTerm}
               onGroupModeChange={handleGroupModeChange}
               onSelect={handleSelect}
               onSelectPlatform={handleSelectPlatform}
@@ -1206,12 +1189,13 @@ function VaultApp() {
           selectedId={selectedId}
           selectedPlatformName={selectedPlatformName}
           selectedLocalCategory={selectedLocalCategory}
-          searchQuery={searchQuery}
-          onSearchChange={setSearchQuery}
+          searchQuery={localSearchTerm}
+          onSearchChange={setLocalSearchTerm}
           onGroupModeChange={handleGroupModeChange}
           onSelect={handleSelect}
           onSelectPlatform={handleSelectPlatform}
           onSelectLocalCategory={handleSelectLocalCategory}
+          isGlobalSearching={globalSearchTerm.trim().length > 0}
           onAddIdentity={async (email) => {
             const identity = await addIdentity(email)
             requestNavigation(() => {

@@ -350,7 +350,7 @@ export function SettingsModal({
         aria-label="Cerrar modal"
       />
 
-      <div className="relative z-10 flex w-full max-w-lg flex-col space-y-5 rounded-2xl border border-black/5 bg-white/80 p-6 font-sans text-left shadow-[0_15px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl">
+      <div className="relative z-10 flex w-full max-w-lg lg:max-w-2xl mx-auto flex-col space-y-5 rounded-2xl border border-black/5 bg-white/80 p-6 font-sans text-left shadow-[0_15px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl">
         <header className="flex items-center justify-between border-b border-border-subtle pb-3">
           <div className="flex items-center gap-3">
             {view !== 'health' && (
