@@ -90,7 +90,7 @@ interface VaultContextValue {
 }
 
 export interface CloudSyncResult {
-  action: 'idle' | 'uploaded' | 'downloaded' | 'download_available'
+  action: 'idle' | 'uploaded' | 'downloaded' | 'download_available' | 'synced'
   message: string
   cloudUpdatedAt?: string | null
   localUpdatedAt?: string | null
@@ -432,7 +432,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCloudVaultExists(true)
           setHasUnsyncedChanges(false)
           setCloudSyncStatus('synced')
-          return { action: 'idle', message: 'La bóveda ya está sincronizada y es idéntica a la nube.' }
+          return { action: 'synced', message: 'Bóveda al día. No hay cambios pendientes.' }
         }
 
         const localHasVaultData =
@@ -475,13 +475,45 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (cloudLooksNewer || cloudHasMoreData || !isIdentical) {
           const decryptedCloud = await storeRef.current.inspectAndDecryptCloudPayload(cloudBlob)
           const localIdns = await storeRef.current.loadAllIdentities(currentProfileId)
-          const localIts = await storeRef.current.loadLocalItems(currentProfileId)
-          const localCats = await storeRef.current.loadLocalCategories(currentProfileId)
+
+          const filterIdentities = (idns: any[]) => {
+            return (idns || [])
+              .filter((idn) => idn && idn.email !== LOCAL_IDENTITY_EMAIL)
+              .map((idn) => ({
+                ...idn,
+                platforms: (idn.platforms || []).filter((p: any) => p && !p.isLocalOnly)
+              }))
+              .filter((idn) => idn.platforms.length > 0)
+          }
+
+          const filteredLocalIdns = filterIdentities(localIdns)
+          const filteredCloudIdns = filterIdentities(decryptedCloud.identities)
+
           const { computeSyncDiff } = await import('../utils/syncDiff')
           const diffResult = computeSyncDiff(
-            localIdns, localIts, localCats,
-            decryptedCloud.identities, decryptedCloud.localItems, decryptedCloud.localCategories
+            filteredLocalIdns, [], [],
+            filteredCloudIdns, [], []
           )
+
+          if (!diffResult.hasChanges) {
+            setCloudVaultExists(true)
+            setHasUnsyncedChanges(false)
+            setCloudSyncStatus('synced')
+            return {
+              action: 'synced',
+              message: 'Bóveda al día. No hay cambios pendientes.',
+              cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
+              localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
+              cloudIdentityCount: cloudSummary.identityCount,
+              cloudPlatformCount: cloudSummary.platformCount,
+              cloudLocalItemCount: cloudSummary.localItemCount,
+              cloudLocalCategoryCount: cloudSummary.localCategoryCount,
+              localIdentityCount: localCounts.identityCount,
+              localPlatformCount: localCounts.platformCount,
+              localLocalItemCount: localCounts.localItemCount,
+              localLocalCategoryCount: localCounts.localCategoryCount,
+            }
+          }
 
           setCloudVaultExists(true)
           setCloudSyncStatus('idle')

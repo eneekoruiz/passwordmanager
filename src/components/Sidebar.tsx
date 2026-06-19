@@ -87,15 +87,15 @@ export function Sidebar({
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
   const query = searchQuery.trim().toLowerCase()
-  const localLooksEmpty = (identities.length === 0 || (identities.length === 1 && identities[0].platforms.length === 0 && !identities[0].email)) && localItems.length === 0
-  const cloudIdentities = identities.filter((identity) => identity.email !== LOCAL_IDENTITY_EMAIL)
+  const localLooksEmpty = (identities.length === 0 || (identities.length === 1 && (identities[0]?.platforms || []).length === 0 && !identities[0]?.email)) && localItems.length === 0
+  const cloudIdentities = identities.filter((identity) => identity?.email !== LOCAL_IDENTITY_EMAIL)
   const visibleIdentities = query
-    ? cloudIdentities.filter((identity) => identity.email.toLowerCase().includes(query))
+    ? cloudIdentities.filter((identity) => identity?.email.toLowerCase().includes(query))
     : cloudIdentities
   const platformSummaries = useMemo(() => {
     const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
     for (const identity of cloudIdentities) {
-      for (const platform of identity.platforms) {
+      for (const platform of (identity?.platforms || [])) {
         const name = platform.name.trim()
         if (!name) continue
         const key = name.toLowerCase()
@@ -496,10 +496,10 @@ export function Sidebar({
                             <span className="block truncate text-[15px] font-semibold text-text-primary/95">
                               {identity.email}
                             </span>
-                            {identity.platforms.length > 0 ? (
+                            {(identity?.platforms || []).length > 0 ? (
                               <span className="mt-2 flex items-center gap-2">
                                 <span className="flex -space-x-2">
-                                  {identity.platforms.slice(0, 3).map((platform) => (
+                                  {(identity?.platforms || []).slice(0, 3).map((platform) => (
                                     <PlatformLogo
                                       key={`${identity.id}-${platform.id}`}
                                       name={platform.name}
@@ -508,11 +508,11 @@ export function Sidebar({
                                   ))}
                                 </span>
                                 <span className="truncate text-[11px] font-medium text-text-tertiary">
-                                  {identity.platforms
+                                  {(identity?.platforms || [])
                                     .slice(0, 2)
                                     .map((platform) => platform.name)
                                     .join(' · ')}
-                                  {identity.platforms.length > 2 ? ` +${identity.platforms.length - 2}` : ''}
+                                  {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
                                 </span>
                               </span>
                             ) : (
@@ -522,7 +522,7 @@ export function Sidebar({
                             )}
                           </button>
                           <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
-                            {identity.platforms.length}
+                            {(identity?.platforms || []).length}
                           </span>
                           <button
                             type="button"

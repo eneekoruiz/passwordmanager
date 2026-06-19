@@ -110,8 +110,8 @@ export function MainArea({
     if (groupMode !== 'platform' || !selectedPlatformName) return []
     const target = selectedPlatformName.trim().toLowerCase()
     const list = identities.flatMap((item) =>
-      item.platforms
-        .filter((platform) => platform.name.trim().toLowerCase() === target)
+      (item?.platforms || [])
+        .filter((platform) => platform?.name?.trim().toLowerCase() === target)
         .map((platform) => ({
           identityId: item.id,
           identityEmail: item.email,
@@ -142,8 +142,8 @@ export function MainArea({
   const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
     const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
     identities.forEach((item) => {
-      item.platforms.forEach((platform) => {
-        const name = platform.name.trim()
+      (item?.platforms || []).forEach((platform) => {
+        const name = platform?.name?.trim()
         if (!name) return
         const key = name.toLowerCase()
         const date = platform.createdAt || new Date(0).toISOString()
@@ -262,7 +262,7 @@ export function MainArea({
                           <span className="min-w-0 flex-1">
                             <span className="block truncate text-sm font-semibold text-text-primary">{idItem.email}</span>
                             <span className="mt-1 block text-xs text-text-secondary">
-                              {idItem.platforms.length} plataforma{idItem.platforms.length !== 1 ? 's' : ''} vinculada{idItem.platforms.length !== 1 ? 's' : ''}
+                              {(idItem?.platforms || []).length} plataforma{(idItem?.platforms || []).length !== 1 ? 's' : ''} vinculada{(idItem?.platforms || []).length !== 1 ? 's' : ''}
                             </span>
                           </span>
                           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary">
@@ -466,19 +466,24 @@ export function MainArea({
                           {identityEmail}
                         </span>
                         <span className="mt-3 flex flex-wrap gap-1.5">
-                          {platform.accessMethods
-                            .filter((method) => method.type === 'SSO')
-                            .map((method) => (
-                            <span key={method.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                              {method.providers.join(', ')}
-                            </span>
-                            ))}
-                          {platform.accessMethods.some((method) => method.type === 'PASSKEY') && (
+                          {(platform?.accessMethods || [])
+                            .filter((method) => method?.type === 'SSO')
+                            .map((method) => {
+                              const providers = Array.isArray(method?.providers)
+                                ? method.providers
+                                : (typeof method?.providers === 'string' ? [method.providers] : [])
+                              return (
+                                <span key={method?.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                                  {providers.join(', ')}
+                                </span>
+                              )
+                            })}
+                          {(platform?.accessMethods || []).some((method) => method?.type === 'PASSKEY') && (
                             <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                               Passkey
                             </span>
                           )}
-                          {platform.twoFactorAuth && (
+                          {platform?.twoFactorAuth && (
                             <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                               2FA
                             </span>
@@ -489,7 +494,7 @@ export function MainArea({
                   ))}
                 </div>
               )
-            ) : identity && identity.platforms.length === 0 ? (
+            ) : identity && (identity.platforms || []).length === 0 ? (
               <EmptyState
                 onAddPassword={() => {
                   setEditingPlatform({
@@ -503,14 +508,14 @@ export function MainArea({
               />
             ) : (
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                {identity?.platforms.map((platform, index) => (
+                {(identity?.platforms || []).map((platform, index) => (
                   <button
                     key={platform.id}
                     type="button"
                     onClick={() => {
                       setEditingPlatform({
-                        identityId: identity.id,
-                        identityEmail: identity.email,
+                        identityId: identity?.id ?? '',
+                        identityEmail: identity?.email ?? '',
                         platform,
                       })
                       setView('edit')
@@ -525,22 +530,27 @@ export function MainArea({
                         {platform.name}
                       </span>
                       <span className="mt-1 block truncate text-xs text-text-secondary">
-                        {platform.username || identity.email}
+                        {(platform.username || identity?.email) ?? ''}
                       </span>
                       <span className="mt-3 flex flex-wrap gap-1.5">
-                        {platform.accessMethods
-                          .filter((method) => method.type === 'SSO')
-                          .map((method) => (
-                          <span key={method.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                            {method.providers.join(', ')}
-                          </span>
-                          ))}
-                        {platform.accessMethods.some((method) => method.type === 'PASSKEY') && (
+                        {(platform?.accessMethods || [])
+                          .filter((method) => method?.type === 'SSO')
+                          .map((method) => {
+                            const providers = Array.isArray(method?.providers)
+                              ? method.providers
+                              : (typeof method?.providers === 'string' ? [method.providers] : [])
+                            return (
+                              <span key={method?.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                                {providers.join(', ')}
+                              </span>
+                            )
+                          })}
+                        {(platform?.accessMethods || []).some((method) => method?.type === 'PASSKEY') && (
                           <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                             Passkey
                           </span>
                         )}
-                        {platform.accessMethods.some((method) => method.type === 'MAGIC_LINK') && (
+                        {(platform?.accessMethods || []).some((method) => method?.type === 'MAGIC_LINK') && (
                           <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                             Magic link
                           </span>

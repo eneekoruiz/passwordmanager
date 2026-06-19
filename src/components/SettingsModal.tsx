@@ -122,8 +122,8 @@ export function SettingsModal({
     securePasswordsCount,
   } = useMemo(() => {
     const entries = identities.flatMap((identity) =>
-      identity.platforms.map((platform) => ({
-        identityEmail: identity.email,
+      (identity?.platforms || []).map((platform) => ({
+        identityEmail: identity?.email,
         platform,
         password: passwordForPlatform(platform),
       })),

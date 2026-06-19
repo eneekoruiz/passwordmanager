@@ -10,14 +10,16 @@ export function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountA
         const anyMethod = method as any
         const providers: string[] = []
         if (Array.isArray(anyMethod.providers)) {
-          providers.push(...anyMethod.providers.map((p: string) => p.trim()).filter(Boolean))
+          providers.push(...anyMethod.providers.map((p: any) => String(p).trim()).filter(Boolean))
+        } else if (typeof anyMethod.providers === 'string' && anyMethod.providers.trim()) {
+          providers.push(anyMethod.providers.trim())
         } else if (typeof anyMethod.provider === 'string' && anyMethod.provider.trim()) {
           providers.push(anyMethod.provider.trim())
         }
         return { 
           id: method.id,
           type: 'SSO' as const,
-          providers,
+          providers: providers.length > 0 ? providers : ['Google'],
           email: method.email?.trim() || null 
         }
       }

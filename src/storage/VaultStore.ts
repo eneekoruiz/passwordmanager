@@ -4,7 +4,7 @@ import type { EncryptedPayload, RecoveryBundle } from '../crypto/types'
 import type { Identity, LocalCategory, LocalVaultItem } from '../types'
 import { getVaultDb } from './vaultDb'
 import { generateId } from '../utils/id'
-import { identityMatchesEmail, normalizeIdentityRecord } from '../utils/identity'
+import { identityMatchesEmail, normalizeIdentityRecord, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { normalizeLocalCategory, normalizeUnknownLocalVaultItem } from '../utils/vaultItem'
 
 const VAULT_META_KEY = 'vault' as const
@@ -599,18 +599,31 @@ export class VaultStore {
 
     const identitiesData: { id: string; payload: EncryptedPayload }[] = []
     for (const key of allKeys) {
-      if (key.startsWith(prefix)) {
+      if (
+        key.startsWith(prefix) &&
+        !key.includes(LOCAL_ITEM_KEY_SEGMENT) &&
+        !key.includes(LOCAL_CATEGORY_KEY_SEGMENT)
+      ) {
         const payload = await tx.store.get(key)
         if (payload) {
           try {
             const itemStr = await this.vault.decryptString(payload)
-            const item = JSON.parse(itemStr)
-            if (!item.isLocalOnly) {
-              const platformId = key.substring(prefix.length)
-              identitiesData.push({
-                id: platformId,
-                payload
-              })
+            const identity = JSON.parse(itemStr)
+            if (identity && identity.email !== LOCAL_IDENTITY_EMAIL) {
+              const filteredPlatforms = (identity.platforms || []).filter((p: any) => !p.isLocalOnly)
+              if (filteredPlatforms.length > 0) {
+                const filteredIdentity = {
+                  ...identity,
+                  platforms: filteredPlatforms,
+                  updatedAt: new Date().toISOString()
+                }
+                const reEncryptedPayload = await this.vault.encryptJson(filteredIdentity)
+                const platformId = key.substring(prefix.length)
+                identitiesData.push({
+                  id: platformId,
+                  payload: reEncryptedPayload
+                })
+              }
             }
           } catch (err) {
             console.error('Error decrypting item for cloud export', err)
@@ -881,18 +894,31 @@ export class VaultStore {
 
     const identitiesData: { id: string; payload: EncryptedPayload }[] = []
     for (const key of allKeys) {
-      if (key.startsWith(prefix)) {
+      if (
+        key.startsWith(prefix) &&
+        !key.includes(LOCAL_ITEM_KEY_SEGMENT) &&
+        !key.includes(LOCAL_CATEGORY_KEY_SEGMENT)
+      ) {
         const payload = await tx.store.get(key)
         if (payload) {
           try {
             const itemStr = await this.vault.decryptString(payload)
-            const item = JSON.parse(itemStr)
-            if (!item.isLocalOnly) {
-              const platformId = key.substring(prefix.length)
-              identitiesData.push({
-                id: platformId,
-                payload
-              })
+            const identity = JSON.parse(itemStr)
+            if (identity && identity.email !== LOCAL_IDENTITY_EMAIL) {
+              const filteredPlatforms = (identity.platforms || []).filter((p: any) => !p.isLocalOnly)
+              if (filteredPlatforms.length > 0) {
+                const filteredIdentity = {
+                  ...identity,
+                  platforms: filteredPlatforms,
+                  updatedAt: new Date().toISOString()
+                }
+                const reEncryptedPayload = await this.vault.encryptJson(filteredIdentity)
+                const platformId = key.substring(prefix.length)
+                identitiesData.push({
+                  id: platformId,
+                  payload: reEncryptedPayload
+                })
+              }
             }
           } catch (err) {
             console.error('Error decrypting item for cloud export', err)

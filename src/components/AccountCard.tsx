@@ -12,7 +12,7 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopyPassword = async () => {
-    const password = account.accessMethods.find((method) => method.type === 'PASSWORD')?.password ?? ''
+    const password = (account?.accessMethods || []).find((method) => method?.type === 'PASSWORD')?.password ?? ''
     const ok = await copyToClipboard(password)
     if (ok) {
       setCopied(true)
@@ -33,13 +33,18 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
           <p className="text-sm font-medium text-text-primary">
             {accountDisplayName(account)}
           </p>
-          {account.accessMethods
-            .filter((method) => method.type === 'SSO')
-            .map((method) => (
-            <p key={method.id} className="mt-0.5 text-sm text-text-secondary truncate">
-              {method.providers.join(', ')}: {method.email}
-            </p>
-            ))}
+          {(account?.accessMethods || [])
+            .filter((method) => method?.type === 'SSO')
+            .map((method) => {
+              const providers = Array.isArray(method?.providers)
+                ? method.providers
+                : (typeof method?.providers === 'string' ? [method.providers] : [])
+              return (
+                <p key={method?.id} className="mt-0.5 text-sm text-text-secondary truncate">
+                  {providers.join(', ')}: {method?.email}
+                </p>
+              )
+            })}
           {account.username && (
             <p className="mt-0.5 text-xs text-text-tertiary truncate">
               @{account.username}
