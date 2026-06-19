@@ -37,6 +37,12 @@ Firebase sync requires the relevant `VITE_FIREBASE_*` values. The local vault fl
 
 GitHub social preview asset: `public/og-image.png`
 
+## Architecture
+
+The React interface uses a storage layer instead of reading browser APIs directly. Vault records are encrypted before they are written to IndexedDB, and decrypted data remains in the active session only. Import and export use the same encrypted representation.
+
+Firebase is an optional synchronization adapter. Local storage remains the primary path, while the adapter transfers encrypted vault data between devices when Firebase variables are configured.
+
 ## Documentation
 
 - DeepWiki: https://deepwiki.com/eneekoruiz/passwordmanager
