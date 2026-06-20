@@ -5,6 +5,17 @@ export interface ApiKeyEntry {
   valor: string
 }
 
+export interface FileAttachment {
+  id: string
+  name: string
+  description: string
+  fileName: string
+  mimeType: string
+  size: number
+  data: string
+  createdAt: string
+}
+
 export interface CustomFieldEntry {
   id: string
   key: string
@@ -121,6 +132,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   apiKeys?: ApiKeyEntry[]
   recoveryCodes?: string
   customFields?: CustomFieldEntry[]
+  attachments?: FileAttachment[]
   passwordHistory?: PasswordHistoryEntry[]
   sensitive?: boolean
 }

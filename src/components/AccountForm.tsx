@@ -1,5 +1,5 @@
 import { useState, useEffect, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
-import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType } from '../types'
+import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType, FileAttachment } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
 import { Accordion } from './ui/Accordion'
@@ -114,6 +114,60 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
   )
 }
 
+function AttachmentItem({
+  attachment,
+  updateAttachment,
+  removeAttachment,
+  downloadAttachment,
+}: {
+  attachment: FileAttachment
+  updateAttachment: (id: string, field: 'name' | 'description', value: string) => void
+  removeAttachment: (id: string) => void
+  downloadAttachment: (attachment: FileAttachment) => void
+}) {
+  return (
+    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white/60 p-4 shadow-sm transition-all focus-within:border-border focus-within:bg-white focus-within:shadow-md hover:bg-white/90">
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-2 overflow-hidden">
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
+            </svg>
+          </div>
+          <div className="min-w-0">
+            <p className="truncate text-xs font-bold text-text-primary">{attachment.fileName}</p>
+            <p className="text-[10px] text-text-tertiary">{(attachment.size / 1024).toFixed(1)} KB</p>
+          </div>
+        </div>
+        <div className="flex gap-1">
+          <button type="button" onClick={() => downloadAttachment(attachment)} className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 transition-colors" title="Descargar">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+          </button>
+          <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 transition-colors" title="Eliminar">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
+          </button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <input
+          type="text"
+          value={attachment.name}
+          onChange={(e) => updateAttachment(attachment.id, 'name', e.target.value)}
+          placeholder="Nombre identificativo (ej. Llave AWS)"
+          className="w-full rounded-xl border border-black/5 bg-white px-3 py-2 text-xs font-semibold text-text-primary outline-none transition-colors focus:border-border"
+        />
+        <input
+          type="text"
+          value={attachment.description}
+          onChange={(e) => updateAttachment(attachment.id, 'description', e.target.value)}
+          placeholder="Descripción (opcional)"
+          className="w-full rounded-xl border border-black/5 bg-white px-3 py-2 text-xs text-text-primary outline-none transition-colors focus:border-border"
+        />
+      </div>
+    </div>
+  )
+}
+
 const CopyIcon = () => (
   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
     <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.646.049 1.288.11 1.927.184 1.102.124 1.99 1.003 1.99 2.122v6.228a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18.75v-6.228c0-1.12.888-2.002 1.99-2.122A48.394 48.394 0 0112 3c.775 0 1.545.09 2.298.266" />
@@ -159,10 +213,10 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
         </div>
       </div>
       {isMultiline || (isSecret && revealed) ? (
-        <div className="mt-0.5 whitespace-pre-wrap break-all font-mono text-base font-semibold text-text-primary leading-relaxed">{value}</div>
+        <div className="mt-0.5 break-all font-mono text-base font-semibold text-text-primary leading-relaxed whitespace-pre-wrap overflow-wrap-anywhere">{value}</div>
       ) : (
-        <div className={`text-base font-semibold text-text-primary truncate transition-all duration-300 ${revealed ? '' : 'tracking-widest font-mono translate-y-[1px]'}`}>
-          {revealed ? value : '••••••••••••'}
+        <div className="text-base font-semibold text-text-primary truncate transition-all duration-300 tracking-widest font-mono translate-y-[1px]">
+          ••••••••••••
         </div>
       )}
     </div>
@@ -210,7 +264,11 @@ function SecuritySummaryCard({
         <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/90 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              <p className="truncate font-mono text-xs text-text-primary">{revealed ? secret : '••••••••••••••••'}</p>
+              {revealed ? (
+                <p className="break-all whitespace-pre-wrap font-mono text-xs text-text-primary overflow-wrap-anywhere">{secret}</p>
+              ) : (
+                <p className="truncate font-mono text-xs tracking-widest text-text-primary">••••••••••••••••</p>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <button
@@ -313,6 +371,30 @@ export function AccountForm({
 
   const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
+  const [isDragging, setIsDragging] = useState(false)
+
+  const downloadAttachment = (attachment: FileAttachment) => {
+    try {
+      const parts = attachment.data.split(';base64,')
+      const base64Data = parts.length > 1 ? parts[1] : parts[0]
+      const binaryString = window.atob(base64Data)
+      const bytes = new Uint8Array(binaryString.length)
+      for (let i = 0; i < binaryString.length; i++) {
+        bytes[i] = binaryString.charCodeAt(i)
+      }
+      const blob = new Blob([bytes], { type: attachment.mimeType || 'application/octet-stream' })
+      const url = URL.createObjectURL(blob)
+      const link = document.createElement('a')
+      link.href = url
+      link.download = attachment.fileName
+      document.body.appendChild(link)
+      link.click()
+      document.body.removeChild(link)
+      URL.revokeObjectURL(url)
+    } catch (e) {
+      setError('Error al descargar el archivo: Formato inválido.')
+    }
+  }
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -444,6 +526,54 @@ export function AccountForm({
     setAccount((prev) => ({
       ...prev,
       customFields: (prev.customFields ?? []).filter((field) => field.id !== id),
+    }))
+  }
+
+  const addAttachmentFromFile = (file: File) => {
+    if (file.size > 10 * 1024 * 1024) {
+      setError(`El archivo ${file.name} es demasiado grande. El límite es 10MB.`)
+      return
+    }
+
+    const reader = new FileReader()
+    reader.onload = (e) => {
+      const data = e.target?.result as string
+      setAccount((prev) => ({
+        ...prev,
+        attachments: [
+          ...(prev.attachments ?? []),
+          {
+            id: crypto.randomUUID(),
+            name: file.name.split('.')[0],
+            description: '',
+            fileName: file.name,
+            mimeType: file.type || 'application/octet-stream',
+            size: file.size,
+            data,
+            createdAt: new Date().toISOString()
+          }
+        ]
+      }))
+    }
+    reader.onerror = () => {
+      setError(`No se pudo leer el archivo ${file.name}.`)
+    }
+    reader.readAsDataURL(file)
+  }
+
+  const updateAttachment = (id: string, field: 'name' | 'description', value: string) => {
+    setAccount((prev) => ({
+      ...prev,
+      attachments: (prev.attachments ?? []).map((att) =>
+        att.id === id ? { ...att, [field]: value } : att,
+      ),
+    }))
+  }
+
+  const removeAttachment = (id: string) => {
+    setAccount((prev) => ({
+      ...prev,
+      attachments: (prev.attachments ?? []).filter((att) => att.id !== id),
     }))
   }
 
@@ -1226,6 +1356,62 @@ export function AccountForm({
                       keyEntry={key}
                       updateApiKey={updateApiKey}
                       removeApiKey={removeApiKey}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
+
+            <div className="space-y-3 pt-2">
+              <div className="flex items-center justify-between border-b border-border-subtle pb-2">
+                <div className="flex flex-col">
+                  <h3 className="text-sm font-bold text-text-primary">Archivos Adjuntos</h3>
+                  <p className="text-[10px] font-medium text-text-tertiary">Documentos, JSONs o llaves PEM almacenados en la bóveda cifrada.</p>
+                </div>
+              </div>
+
+              <div
+                className={`relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-50/50' : 'border-border bg-surface-elevated hover:bg-surface-hover'}`}
+                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
+                onDragLeave={() => setIsDragging(false)}
+                onDrop={(e) => {
+                  e.preventDefault()
+                  setIsDragging(false)
+                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
+                    addAttachmentFromFile(e.dataTransfer.files[0])
+                  }
+                }}
+              >
+                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-text-tertiary shadow-sm">
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
+                  </svg>
+                </div>
+                <div>
+                  <p className="text-xs font-semibold text-text-primary">Arrastra un archivo aquí o haz clic para subir</p>
+                  <p className="mt-1 text-[10px] text-text-tertiary">Límite recomendado: 10MB</p>
+                </div>
+                <input
+                  type="file"
+                  className="absolute inset-0 cursor-pointer opacity-0"
+                  onChange={(e) => {
+                    if (e.target.files && e.target.files.length > 0) {
+                      addAttachmentFromFile(e.target.files[0])
+                      e.target.value = ''
+                    }
+                  }}
+                />
+              </div>
+
+              {(account.attachments ?? []).length > 0 && (
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
+                  {(account.attachments ?? []).map((att) => (
+                    <AttachmentItem
+                      key={att.id}
+                      attachment={att}
+                      updateAttachment={updateAttachment}
+                      removeAttachment={removeAttachment}
+                      downloadAttachment={downloadAttachment}
                     />
                   ))}
                 </div>
