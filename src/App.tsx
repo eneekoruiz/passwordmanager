@@ -239,9 +239,9 @@ function VaultApp() {
         color: 'text-amber-600 bg-amber-50 border-amber-100 hover:bg-amber-100/50',
         dotColor: 'bg-amber-500',
         label: isInMemory ? 'Almacenamiento bloqueado' : 'Bóveda local (Offline o degradado)',
-        description: isInMemory 
-          ? 'Almacenamiento de Safari bloqueado o degradado. Tus cambios no se guardarán al salir. Configura la sincronización con Google Cloud o añade la app a la pantalla de inicio.' 
-          : !isOnline 
+        description: isInMemory
+          ? 'Almacenamiento de Safari bloqueado o degradado. Tus cambios no se guardarán al salir. Configura la sincronización con Google Cloud o añade la app a la pantalla de inicio.'
+          : !isOnline
             ? 'Sin conexión a Internet. Operando en modo local.'
             : 'Fallo al sincronizar con Google Cloud. Revisa tu conexión de red.',
         icon: (
@@ -270,7 +270,7 @@ function VaultApp() {
       color: 'text-emerald-600 bg-emerald-50 border-emerald-100 hover:bg-emerald-100/50',
       dotColor: 'bg-emerald-500',
       label: 'Bóveda protegida',
-      description: cloudUserEmail 
+      description: cloudUserEmail
         ? 'Todos los datos de tu bóveda están sincronizados de forma segura en Google Cloud.'
         : 'Almacenamiento local persistente y seguro.',
       icon: (
@@ -542,14 +542,8 @@ function VaultApp() {
   }
 
   const handleRegisterBiometric = async (masterPassword: string) => {
-    // Store ephemerally so the biometric module can access it
-    ;(window as any).__contras_ephemeral_pw__ = masterPassword
-    try {
-      await registerBiometricUnlock()
-      showToast('Biometría activada correctamente. Ya puedes desbloquear con tu sensor.', 'info')
-    } finally {
-      delete (window as any).__contras_ephemeral_pw__
-    }
+    await registerBiometricUnlock(masterPassword)
+    showToast('Biometría activada correctamente. Ya puedes desbloquear con tu sensor.', 'info')
   }
 
   const handleManualSync = async () => {

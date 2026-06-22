@@ -96,6 +96,8 @@ export function Combobox({
     <label className="relative block">
       <span className="mb-1.5 block text-xs font-medium text-text-secondary">{label}</span>
       <input
+        name="vault-platform-search-off"
+        id={`combobox-input-${label.replace(/\s+/g, '-').toLowerCase()}`}
         className={`${inputClassName} pr-9`}
         value={value}
         onChange={(event) => {
@@ -112,7 +114,10 @@ export function Combobox({
         }}
         onKeyDown={handleKeyDown}
         placeholder={placeholder}
-        autoComplete="off"
+        autoComplete="new-password"
+        spellCheck="false"
+        autoCorrect="off"
+        autoCapitalize="off"
       />
       <span className="pointer-events-none absolute right-3 top-[34px] text-text-tertiary">
         <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>

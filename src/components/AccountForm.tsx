@@ -10,6 +10,8 @@ import { getFriendlyErrorMessage } from '../utils/errors'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { Combobox } from './ui/Combobox'
 import { POPULAR_SERVICES } from '../data/popularServices'
+import { useVault } from '../context/VaultContext'
+import { useToast } from './ui/ToastProvider'
 
 interface AccountFormProps {
   mode: 'create' | 'edit'
@@ -174,17 +176,47 @@ const CopyIcon = () => (
   </svg>
 )
 
-function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
+function ReadOnlyField({ label, value, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
   const [copied, setCopied] = useState(false)
-  const [revealed, setRevealed] = useState(!isSecret)
+  const [revealed, setRevealed] = useState(false)
+  const { authorizeSensitiveAction } = useVault()
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    if (!revealed) return
+    const timer = window.setTimeout(() => setRevealed(false), 2 * 60 * 1000)
+    return () => window.clearTimeout(timer)
+  }, [revealed])
+
   if (!value) return null
 
-  const handleCopy = async (e?: MouseEvent) => {
-    if (e) e.stopPropagation()
+  const authenticate = async () => {
+    try {
+      await authorizeSensitiveAction()
+      return true
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return false
+    }
+  }
+
+  const handleReveal = async () => {
+    if (revealed) {
+      setRevealed(false)
+      return
+    }
+    if (await authenticate()) setRevealed(true)
+  }
+
+  const handleCopy = async (event?: MouseEvent) => {
+    event?.stopPropagation()
+    if (!(await authenticate())) return
     const ok = await copyToClipboard(value)
     if (ok) {
       setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      window.setTimeout(() => setCopied(false), 2000)
+    } else {
+      showToast('No se pudo acceder al portapapeles.', 'error')
     }
   }
 
@@ -193,31 +225,27 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{label}</span>
         <div className="flex min-h-12 shrink-0 items-center gap-3">
-          {isSecret && (
-            <button
-              type="button"
-              onClick={() => setRevealed(!revealed)}
-              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none"
-            >
-              {revealed ? 'Ocultar' : 'Mostrar'}
-            </button>
-          )}
           <button
             type="button"
-            onClick={handleCopy}
-            className={`inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-90 ${copied ? 'border-green-100 bg-green-50 text-green-600 opacity-100' : 'border-black/5 bg-surface text-text-tertiary hover:bg-surface-hover hover:text-text-primary'}`}
-            title="Copiar al portapapeles"
+            onClick={() => void handleReveal()}
+            className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none"
+          >
+            {revealed ? 'Ocultar' : 'Mostrar'}
+          </button>
+          <button
+            type="button"
+            onClick={(event) => void handleCopy(event)}
+            className={'inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-90 ' + (copied ? 'border-green-100 bg-green-50 text-green-600' : 'border-black/5 bg-surface text-text-tertiary hover:bg-surface-hover hover:text-text-primary')}
+            title="Autenticar y copiar"
           >
             {copied ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <CopyIcon />}
           </button>
         </div>
       </div>
-      {isMultiline || (isSecret && revealed) ? (
-        <div className="mt-0.5 break-all font-mono text-base font-semibold text-text-primary leading-relaxed whitespace-pre-wrap overflow-wrap-anywhere">{value}</div>
+      {revealed ? (
+        <div className={'mt-0.5 break-all font-mono text-base font-semibold text-text-primary leading-relaxed overflow-wrap-anywhere ' + (isMultiline ? 'whitespace-pre-wrap' : '')}>{value}</div>
       ) : (
-        <div className="text-base font-semibold text-text-primary truncate transition-all duration-300 tracking-widest font-mono translate-y-[1px]">
-          ••••••••••••
-        </div>
+        <div className="text-base font-semibold text-text-primary truncate tracking-widest font-mono">••••••••••••</div>
       )}
     </div>
   )
@@ -238,13 +266,41 @@ function SecuritySummaryCard({
 }) {
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
+  const { authorizeSensitiveAction } = useVault()
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    if (!revealed) return
+    const timer = window.setTimeout(() => setRevealed(false), 2 * 60 * 1000)
+    return () => window.clearTimeout(timer)
+  }, [revealed])
+
+  const authenticate = async () => {
+    try {
+      await authorizeSensitiveAction()
+      return true
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return false
+    }
+  }
+
+  const handleReveal = async () => {
+    if (revealed) {
+      setRevealed(false)
+      return
+    }
+    if (await authenticate()) setRevealed(true)
+  }
 
   const handleCopy = async () => {
-    if (!secret) return
+    if (!secret || !(await authenticate())) return
     const ok = await copyToClipboard(secret)
     if (ok) {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      window.setTimeout(() => setCopied(false), 1500)
+    } else {
+      showToast('No se pudo acceder al portapapeles.', 'error')
     }
   }
 
@@ -256,33 +312,19 @@ function SecuritySummaryCard({
           <h4 className="mt-1 truncate text-sm font-semibold text-text-primary">{title}</h4>
           <p className="mt-1 text-xs leading-relaxed text-text-secondary">{description}</p>
         </div>
-        <span className="rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">
-          {actionLabel}
-        </span>
+        <span className="rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">{actionLabel}</span>
       </div>
       {secret ? (
         <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/90 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
-              {revealed ? (
-                <p className="break-all whitespace-pre-wrap font-mono text-xs text-text-primary overflow-wrap-anywhere">{secret}</p>
-              ) : (
-                <p className="truncate font-mono text-xs tracking-widest text-text-primary">••••••••••••••••</p>
-              )}
+              <p className="break-all whitespace-pre-wrap font-mono text-xs text-text-primary overflow-wrap-anywhere">{revealed ? secret : '••••••••••••••••'}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => setRevealed((value) => !value)}
-                className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-              >
+              <button type="button" onClick={() => void handleReveal()} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover">
                 {revealed ? 'Ocultar' : 'Mostrar'}
               </button>
-              <button
-                type="button"
-                onClick={handleCopy}
-                className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary"
-              >
+              <button type="button" onClick={() => void handleCopy()} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover">
                 {copied ? 'Copiado' : 'Copiar'}
               </button>
             </div>
@@ -690,7 +732,7 @@ export function AccountForm({
   const toggleSsoProvider = (provider: SsoProvider, checked: boolean) => {
     setAccessMethods((methods) => methods.map((m) => {
       if (m.type === 'SSO') {
-        const nextProviders = checked 
+        const nextProviders = checked
           ? [...new Set([...m.providers, provider])]
           : m.providers.filter(p => p !== provider)
         return { ...m, providers: nextProviders.length > 0 ? nextProviders : ['Google'] }

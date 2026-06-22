@@ -1,4 +1,11 @@
-const RAW_POPULAR_SERVICES: Array<{ name: string; domain: string }> = [
+export interface PopularService {
+  name: string;
+  domain: string;
+  aliases?: string[];
+  color?: string;
+}
+
+const RAW_POPULAR_SERVICES: PopularService[] = [
   { name: 'Google', domain: 'google.com' },
   { name: 'Apple', domain: 'apple.com' },
   { name: 'GitHub', domain: 'github.com' },
@@ -10,7 +17,7 @@ const RAW_POPULAR_SERVICES: Array<{ name: string; domain: string }> = [
   { name: 'Netflix', domain: 'netflix.com' },
   { name: 'Spotify', domain: 'spotify.com' },
   { name: 'LinkedIn', domain: 'linkedin.com' },
-  { name: 'YouTube', domain: 'youtube.com' },
+  { name: 'YouTube', domain: 'youtube.com', aliases: ['yt'] },
   { name: 'Slack', domain: 'slack.com' },
   { name: 'Figma', domain: 'figma.com' },
   { name: 'GitLab', domain: 'gitlab.com' },
@@ -244,7 +251,7 @@ const RAW_POPULAR_SERVICES: Array<{ name: string; domain: string }> = [
   // AI & Modern Tools
   { name: 'Yubo', domain: 'yubo.live' },
   { name: 'Yuka', domain: 'yuka.io' },
-  { name: 'YouTube Music', domain: 'music.youtube.com' },
+  { name: 'YouTube Music', domain: 'music.youtube.com', aliases: ['youtube music', 'ytmusic', 'yt music'], color: '#FF0000' },
   { name: 'HBO Max España', domain: 'max.com' },
   { name: 'Universidad Complutense de Madrid', domain: 'ucm.es' },
   { name: 'Universidad de Barcelona', domain: 'ub.edu' },
@@ -420,8 +427,11 @@ const RAW_POPULAR_SERVICES: Array<{ name: string; domain: string }> = [
   { name: 'Varo', domain: 'varomoney.com' },
   { name: 'Current', domain: 'current.com' },
   { name: 'Aspiration', domain: 'aspiration.com' },
+  { name: 'Alcampo', domain: 'alcampo.es', aliases: ['alcampo'], color: '#E3000F' },
+  { name: 'Eroski', domain: 'eroski.es', aliases: ['eroski'], color: '#004b87' },
+  { name: 'Twenty One Buttons', domain: '21buttons.com', aliases: ['21 buttons', 'twenty one buttons'], color: '#000000' },
 ]
 
-export const POPULAR_SERVICES = Array.from(
+export const POPULAR_SERVICES: PopularService[] = Array.from(
   new Map(RAW_POPULAR_SERVICES.map((service) => [service.name.toLowerCase(), service])).values(),
 ).sort((a, b) => a.name.localeCompare(b.name))

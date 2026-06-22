@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
 import { PasswordField } from './ui/PasswordField'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -92,6 +92,7 @@ export function UnlockScreen() {
   const [nukeConfirmation, setNukeConfirmation] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const automaticBiometricAttempted = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -107,13 +108,21 @@ export function UnlockScreen() {
   }, [])
 
   useEffect(() => {
-    if (cloudVaultExists !== false && biometricAvailable && biometricRegistered) {
-      const timer = setTimeout(() => {
-        unlockWithBiometricSensor().catch((err) => {
-          console.warn('Auto biometric unlock prompt failed/cancelled:', err)
+    if (
+      cloudVaultExists !== false &&
+      biometricAvailable &&
+      biometricRegistered &&
+      !automaticBiometricAttempted.current
+    ) {
+      automaticBiometricAttempted.current = true
+      const timer = window.setTimeout(() => {
+        void unlockWithBiometricSensor().catch((caughtError) => {
+          const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación biométrica.')
+          if (!message.toLowerCase().includes('cancel')) setError(message)
+          setShowPasswordInput(true)
         })
-      }, 500)
-      return () => clearTimeout(timer)
+      }, 350)
+      return () => window.clearTimeout(timer)
     }
   }, [cloudVaultExists, biometricAvailable, biometricRegistered, unlockWithBiometricSensor])
 
@@ -385,10 +394,9 @@ export function UnlockScreen() {
                         try {
                           await unlockWithBiometricSensor()
                         } catch (err) {
-                          const msg = err instanceof Error ? err.message : 'Error de autenticación biométrica.'
-                          if (!msg.toLowerCase().includes('cancel') && !msg.toLowerCase().includes('cancelad')) {
-                            setError(msg)
-                          }
+                          const msg = getFriendlyErrorMessage(err, 'Error de autenticación biométrica.')
+                          if (!msg.toLowerCase().includes('cancel')) setError(msg)
+                          setShowPasswordInput(true)
                         }
                       }}
                       className="group flex h-24 w-24 items-center justify-center rounded-full bg-slate-950 text-white shadow-[0_12px_40px_rgba(15,23,42,0.24)] transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
