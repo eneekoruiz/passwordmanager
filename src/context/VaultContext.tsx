@@ -84,8 +84,9 @@ interface VaultContextValue {
   // Biometric unlock
   biometricAvailable: boolean
   biometricRegistered: boolean
-  registerBiometricUnlock: () => Promise<void>
+  registerBiometricUnlock: (masterPassword: string) => Promise<void>
   unlockWithBiometricSensor: () => Promise<void>
+  authorizeSensitiveAction: () => Promise<void>
   disableBiometricUnlock: () => Promise<void>
 }
 
@@ -119,12 +120,19 @@ function getFirebaseClients(): { authClient: Auth; dbClient: Firestore } {
 }
 
 function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: string): Promise<T> {
-  return Promise.race([
-    promise,
-    new Promise<never>((_, reject) =>
-      setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+  return new Promise<T>((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(errorMessage)), timeoutMs)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      },
     )
-  ])
+  })
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -155,7 +163,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   // Check biometric availability on mount
   useEffect(() => {
-    void isBiometricAvailable().then(setBiometricAvailable)
+    void isBiometricAvailable()
+      .then((available) => setBiometricAvailable(available))
+      .catch(() => setBiometricAvailable(false))
   }, [])
 
   // Escuchar degradación de almacenamiento (Safari/WebKit fallback)
@@ -233,7 +243,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    void listProfiles().finally(() => {
+    void Promise.all([
+      listProfiles(),
+      storeRef.current.hasBiometricBundle('default').then((registered) => {
+        if (mounted) setBiometricRegistered(registered)
+      }),
+    ]).finally(() => {
       if (mounted) setIsReady(true)
     })
     return () => {
@@ -248,49 +263,77 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return
     }
 
+    const authClient = auth
     const dbClient = db
-    
-    // Process redirect result first if returning from Google Auth
-    getRedirectResult(auth).then(async (credential) => {
-      if (credential?.user) {
-         setCloudUserEmail(credential.user.email ?? null)
-         try {
-           const snapshot = await getDoc(doc(dbClient, 'vaults', credential.user.uid))
-           setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
-         } catch (error) {
-           logUnexpectedError('Error comprobando vault tras redirect', error)
-         }
-      }
-    }).catch(error => {
-      console.warn('Error en getRedirectResult:', error)
-      reportCloudError(error, 'No se pudo completar el inicio de sesion con Google.')
-    })
+    let active = true
 
-    const unsubscribe = onAuthStateChanged(auth, async (user) => {
+    const resolveCloudVaultPresence = async (user: User) => {
+      try {
+        const snapshot = await withTimeout(
+          getDoc(doc(dbClient, 'vaults', user.uid)),
+          10_000,
+          'La consulta de la bóveda en Google Cloud superó el tiempo límite.',
+        )
+        if (active && firebaseUserRef.current?.uid === user.uid) {
+          setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
+        }
+      } catch (error) {
+        logUnexpectedError('Error al comprobar existencia de la boveda', error)
+        if (active && firebaseUserRef.current?.uid === user.uid) {
+          const localProfiles = await storeRef.current.listProfiles().catch(() => [])
+          const hasLocalVault = localProfiles.some((profile) => profile.id === 'default')
+          setCloudVaultExists(hasLocalVault ? true : null)
+          if (!hasLocalVault) {
+            await signOut(authClient).catch(() => undefined)
+            firebaseUserRef.current = null
+            setCloudUserEmail(null)
+          }
+          reportCloudError(error, 'No se pudo comprobar la bóveda en Google Cloud. Revisa la conexión y reintenta.')
+        }
+      }
+    }
+
+    const authReadyTimer = window.setTimeout(() => {
+      if (!active) return
+      setIsAuthReady(true)
+      reportCloudError(
+        new Error('Firebase Auth no respondió a tiempo.'),
+        'La autenticación está tardando demasiado. Reintenta sin recargar la aplicación.',
+      )
+    }, 10_000)
+
+    void getRedirectResult(authClient)
+      .then(async (credential) => {
+        if (!credential?.user || !active) return
+        firebaseUserRef.current = credential.user
+        setCloudUserEmail(credential.user.email ?? null)
+        await resolveCloudVaultPresence(credential.user)
+      })
+      .catch((error) => {
+        if (active) reportCloudError(error, 'No se pudo completar el inicio de sesión con Google.')
+      })
+
+    const unsubscribe = onAuthStateChanged(authClient, (user) => {
+      window.clearTimeout(authReadyTimer)
+      if (!active) return
+
       firebaseUserRef.current = user
       setCloudUserEmail(user?.email ?? null)
+      setIsAuthReady(true)
 
       if (!user) {
         setCloudVaultExists(null)
-        setIsAuthReady(true)
         return
       }
 
-      // IMPORTANTE: Ponemos isAuthReady a true de inmediato para no bloquear el arranque
-      // de la interfaz local esperando consultas de red lentas a Firestore.
-      setIsAuthReady(true)
-
-      try {
-        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
-        setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
-      } catch (error) {
-        logUnexpectedError('Error al comprobar existencia de la boveda', error)
-        setCloudVaultExists(false)
-        reportCloudError(error, 'No se pudo comprobar el estado de la boveda en la nube.')
-      }
+      void resolveCloudVaultPresence(user)
     })
 
-    return () => unsubscribe()
+    return () => {
+      active = false
+      window.clearTimeout(authReadyTimer)
+      unsubscribe()
+    }
   }, [reportCloudError])
 
   const logoutProfile = useCallback(() => {
@@ -351,7 +394,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         10000,
         'La conexión con Google Cloud excedió el tiempo límite (10s) al descargar. Revisa tu conexión a internet.'
       )
-      
+
       const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
       if (!snapshot.exists() || !cloudBlob) {
         setCloudSyncStatus('idle')
@@ -359,16 +402,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
 
       const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
-      
+
       if (resolutions && Object.keys(resolutions).length > 0) {
         // Resolve conflicts manually item-by-item (LWW & User choices)
         const decryptedCloud = await storeRef.current.inspectAndDecryptCloudPayload(cloudBlob)
         const localIdns = await storeRef.current.loadAllIdentities(currentProfileId)
-        
+
         // Match identities by email
         const mergedIdns = [...decryptedCloud.identities]
         let localWinsExist = false
-        
+
         for (const localIdn of localIdns) {
           const index = mergedIdns.findIndex(i => i.id === localIdn.id)
           if (index >= 0) {
@@ -383,12 +426,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             localWinsExist = true
           }
         }
-        
+
         // Rebuild/Restore using solved items
         const db = await getVaultDb()
         const tx = db.transaction(['platforms'], 'readwrite')
         const platformsStore = tx.objectStore('platforms')
-        
+
         // Clear old profile platforms
         const allKeys = await platformsStore.getAllKeys()
         const prefix = `${currentProfileId}_`
@@ -397,16 +440,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             await platformsStore.delete(key)
           }
         }
-        
+
         // Put all resolved/merged identities
         for (const idn of mergedIdns) {
           const encrypted = await vaultRef.current.encryptJson(idn)
           await platformsStore.put(encrypted, `${currentProfileId}_${idn.id}`)
         }
         await tx.done
-        
+
         await refreshVaultData()
-        
+
         // If local version won some conflicts, upload the final resolved payload to Google Cloud to prevent data loss
         if (localWinsExist) {
           try {
@@ -427,7 +470,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         // Standard restore
         await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
       }
-      
+
       await refreshVaultData()
       setCloudVaultExists(true)
       setCloudSyncStatus('synced')
@@ -472,7 +515,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         10000,
         'La conexión con Google Cloud excedió el tiempo límite (10s) al comprobar la bóveda. Revisa tu conexión a internet.'
       )
-      
+
       const cloudBlob = snapshot.data()?.encrypted_vault_blob as string | undefined
       const cloudUpdatedAt = Date.parse(String(snapshot.data()?.updated_at ?? '')) || 0
       const localUpdatedAt = getLocalVaultUpdatedAt()
@@ -480,7 +523,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       if (snapshot.exists() && cloudBlob) {
         const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
-        
+
         // En modo in-memory (iOS/Safari degradado), el perfil local puede no existir
         // en la base de datos volátil. En ese caso tratamos local como vacío.
         let localPayload: any = null
@@ -491,11 +534,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           console.warn('No se pudo leer el payload local (probable modo in-memory):', payloadError)
           localPayloadAvailable = false
         }
-        
-        const isIdentical = localPayloadAvailable 
+
+        const isIdentical = localPayloadAvailable
           ? await payloadsAreIdentical(localPayload, cloudSummary.rawDump)
           : false
-        
+
         if (isIdentical) {
           setCloudVaultExists(true)
           setHasUnsyncedChanges(false)
@@ -615,7 +658,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           10000,
           'La subida a Google Cloud excedió el tiempo límite (10s). Revisa tu conexión a internet.'
         )
-        
+
         setCloudVaultExists(true)
         setCloudSyncStatus('synced')
         return {
@@ -683,7 +726,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const triggerCloudSync = useCallback(() => {
     void syncActiveProfileToCloud(true).then(result => {
-      // Si hay un download_available y estamos en triggerCloudSync (auto-push), 
+      // Si hay un download_available y estamos en triggerCloudSync (auto-push),
       // no sobreescribimos y en su lugar notificamos de conflicto en la UI mediante un return
       if (result.action === 'download_available') {
         setHasUnsyncedChanges(true)
@@ -870,27 +913,43 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   )
 
   const loginWithGoogleCloud = useCallback(async () => {
-    setCloudSyncStatus('syncing')
+    // IMPORTANTE: signInWithPopup debe llamarse lo antes posible en el stack
+    // del evento de click para que Safari/Móviles no bloqueen el popup.
+    const { authClient } = getFirebaseClients()
+    const provider = new GoogleAuthProvider()
+
+    // Configuramos prompts para forzar la selección de cuenta
+    provider.setCustomParameters({ prompt: 'select_account' })
+
     try {
-      const { authClient } = getFirebaseClients()
-      const provider = new GoogleAuthProvider()
-      try {
-        const credential = await signInWithPopup(authClient, provider)
-        setCloudUserEmail(credential.user.email ?? 'Usuario Google')
-        setCloudSyncStatus('idle')
-      } catch (popupError: any) {
-        console.warn('signInWithPopup falló, intentando signInWithRedirect:', popupError)
-        // Check if it's a closed popup, maybe we shouldn't redirect automatically
-        if (popupError.code === 'auth/popup-closed-by-user') {
-          throw popupError
-        }
-        await signInWithRedirect(authClient, provider)
-        // Redirigiendo, el resto del código no se ejecutará aquí
+      const credential = await signInWithPopup(authClient, provider)
+      firebaseUserRef.current = credential.user
+      setCloudSyncStatus('syncing')
+      setCloudUserEmail(credential.user.email ?? 'Usuario Google')
+
+      const { dbClient } = getFirebaseClients()
+      const snapshot = await withTimeout(
+        getDoc(doc(dbClient, 'vaults', credential.user.uid)),
+        10_000,
+        'Google inició la sesión, pero la comprobación de la bóveda superó el tiempo límite.',
+      )
+      setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
+      setCloudSyncStatus('idle')
+    } catch (popupError: any) {
+      // Si el usuario cierra el popup explícitamente o el navegador lo bloquea,
+      // lanzamos el error para que la UI lo maneje, NO redirigimos automáticamente
+      // porque destrozaría el estado (el modal desaparecería).
+      if (popupError.code === 'auth/popup-closed-by-user') {
+        throw new Error('El inicio de sesión fue cancelado o bloqueado por el navegador.')
       }
-    } catch (error) {
+      if (popupError.code === 'auth/popup-blocked') {
+        throw new Error('El navegador bloqueó la ventana emergente de Google. Permite las ventanas emergentes para continuar.')
+      }
+
+      console.warn('signInWithPopup falló:', popupError)
       setCloudSyncStatus('error')
-      reportCloudError(error, 'No se pudo iniciar sesion con Google.')
-      throw error
+      reportCloudError(popupError, 'No se pudo iniciar sesion con Google.')
+      throw popupError
     }
   }, [reportCloudError])
 
@@ -1084,21 +1143,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [listProfiles, loadVaultDataForProfile, reportCloudError, restoreIntoDefaultProfile, triggerCloudSync],
   )
 
-  const registerBiometricUnlock = useCallback(async () => {
+  const registerBiometricUnlock = useCallback(async (masterPassword: string) => {
     if (!currentProfileId || !cloudUserEmail) throw new Error('No hay un perfil activo.')
+    if (!masterPassword) throw new Error('Introduce tu Contraseña Maestra.')
+    const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+    if (!passwordIsValid) throw new Error('La Contraseña Maestra no es correcta.')
+
     const bundle = await registerBiometricCredential(
-      // We need the master password - we get it from the vault by verifying again
-      // Actually, we need to keep it in a secure ephemeral ref during the session
-      // For now, we expose a simpler flow: user must re-type password once to register biometric
-      // This is handled in the UI: SettingsModal asks for password before calling this
-      (window as any).__contras_ephemeral_pw__ ?? '',
+      masterPassword,
       currentProfileId,
       cloudUserEmail,
     )
     await storeRef.current.saveBiometricBundle(bundle)
     setBiometricRegistered(true)
-    // Clean ephemeral password immediately
-    delete (window as any).__contras_ephemeral_pw__
   }, [currentProfileId, cloudUserEmail])
 
   const unlockWithBiometricSensor = useCallback(async () => {
@@ -1108,6 +1165,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
     await unlockOrRestoreVault(masterPassword)
   }, [unlockOrRestoreVault])
+
+  const authorizeSensitiveAction = useCallback(async () => {
+    if (!currentProfileId || !isUnlocked) throw new Error('La bóveda está bloqueada.')
+    if (!biometricAvailable || !biometricRegistered) {
+      throw new Error('Activa la biometría en Ajustes para visualizar o copiar datos sensibles.')
+    }
+
+    const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
+    if (!bundle) {
+      setBiometricRegistered(false)
+      throw new Error('La credencial biométrica ya no está disponible. Vuelve a activarla en Ajustes.')
+    }
+
+    const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+    const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+    if (!passwordIsValid) {
+      throw new Error('La credencial biométrica está desactualizada. Vuelve a registrarla.')
+    }
+  }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
 
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return
@@ -1274,6 +1350,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       biometricRegistered,
       registerBiometricUnlock,
       unlockWithBiometricSensor,
+      authorizeSensitiveAction,
       disableBiometricUnlock,
     }),
     [
@@ -1320,6 +1397,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       syncActiveProfileToCloud,
       unlockOrRestoreVault,
       updatePlatform,
+      biometricAvailable,
+      biometricRegistered,
+      registerBiometricUnlock,
+      unlockWithBiometricSensor,
+      authorizeSensitiveAction,
+      disableBiometricUnlock,
     ],
   )
 

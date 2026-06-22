@@ -159,9 +159,6 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
     timeout: 60_000,
     extensions: {
       prf: {
-        evalByCredential: {
-          [bundle.credentialId]: { first: BIOMETRIC_PRF_SALT },
-        },
         eval: { first: BIOMETRIC_PRF_SALT },
       },
     } as any,

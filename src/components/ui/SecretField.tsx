@@ -1,6 +1,9 @@
-import { useState, type CSSProperties } from 'react'
+import { useEffect, useState, type CSSProperties } from 'react'
 import { copyToClipboard } from '../../utils/clipboard'
 import { inputClassName } from './FormField'
+import { useVault } from '../../context/VaultContext'
+import { useToast } from './ToastProvider'
+import { getFriendlyErrorMessage } from '../../utils/errors'
 
 interface SecretFieldProps {
   label: string
@@ -19,12 +22,41 @@ export function SecretField({
 }: SecretFieldProps) {
   const [visible, setVisible] = useState(false)
   const [copied, setCopied] = useState(false)
+  const { authorizeSensitiveAction } = useVault()
+  const { showToast } = useToast()
+
+  useEffect(() => {
+    if (!visible) return
+    const timer = window.setTimeout(() => setVisible(false), 2 * 60 * 1000)
+    return () => window.clearTimeout(timer)
+  }, [visible])
+
+  const authenticate = async () => {
+    try {
+      await authorizeSensitiveAction()
+      return true
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return false
+    }
+  }
+
+  const handleReveal = async () => {
+    if (visible) {
+      setVisible(false)
+      return
+    }
+    if (await authenticate()) setVisible(true)
+  }
 
   const handleCopy = async () => {
+    if (!(await authenticate())) return
     const ok = await copyToClipboard(value)
     if (ok) {
       setCopied(true)
-      setTimeout(() => setCopied(false), 1500)
+      window.setTimeout(() => setCopied(false), 1500)
+    } else {
+      showToast('No se pudo acceder al portapapeles.', 'error')
     }
   }
 
@@ -60,7 +92,7 @@ export function SecretField({
         <div className="absolute right-1 top-1.5 flex items-center gap-0.5">
           <button
             type="button"
-            onClick={() => setVisible((v) => !v)}
+            onClick={() => void handleReveal()}
             className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary"
             aria-label={visible ? 'Ocultar' : 'Mostrar'}
           >
@@ -77,7 +109,7 @@ export function SecretField({
           </button>
           <button
             type="button"
-            onClick={handleCopy}
+            onClick={() => void handleCopy()}
             disabled={!value}
             className="rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-hover hover:text-text-secondary disabled:opacity-40"
             aria-label="Copiar"
