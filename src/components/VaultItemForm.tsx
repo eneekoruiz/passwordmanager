@@ -4,7 +4,6 @@ import { normalizeLocalVaultItem, WIFI_SECURITY_OPTIONS } from '../utils/vaultIt
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { FormField, FormTextarea } from './ui/FormField'
 import { SecretField } from './ui/SecretField'
-import { Accordion } from './ui/Accordion'
 
 interface VaultItemFormProps {
   item: LocalVaultItem
@@ -148,7 +147,6 @@ export function VaultItemForm({ item, onSave, onCancel, onDelete }: VaultItemFor
       </section>
 
       <section className="mt-6 mb-6">
-        <Accordion title="Danger Zone (Sincronización Selectiva)" defaultOpen={Boolean(draft.isLocalOnly)}>
           <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
             <div className="flex items-start gap-4">
               <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
@@ -157,7 +155,7 @@ export function VaultItemForm({ item, onSave, onCancel, onDelete }: VaultItemFor
                 </svg>
               </div>
               <div className="flex-1">
-                <h3 className="text-sm font-bold text-red-900">Desactivar Sincronización en la Nube (Device-Only)</h3>
+                <h3 className="text-sm font-bold text-red-900">Danger Zone</h3>
                 <p className="mt-1 text-xs leading-relaxed text-red-800/80">
                   Si activas esta opción, este elemento <strong>nunca se subirá a la nube</strong> y solo existirá en este dispositivo.
                   Si desinstalas la aplicación o formateas el dispositivo, perderás este dato para siempre.
@@ -177,7 +175,6 @@ export function VaultItemForm({ item, onSave, onCancel, onDelete }: VaultItemFor
               </div>
             </div>
           </div>
-        </Accordion>
       </section>
 
       {error && (

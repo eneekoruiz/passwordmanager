@@ -19,7 +19,7 @@ export function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountA
         return { 
           id: method.id,
           type: 'SSO' as const,
-          providers: providers.length > 0 ? providers : ['Google'],
+          providers: [...new Set(providers)],
           email: method.email?.trim() || null 
         }
       }
@@ -30,6 +30,7 @@ export function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountA
     })
     .filter((method) => {
       if (method.type === 'PASSWORD') return (method as any).password.length > 0
+      if (method.type === 'SSO') return method.providers.length > 0
       return true
     })
 }

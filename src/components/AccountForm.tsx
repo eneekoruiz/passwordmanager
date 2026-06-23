@@ -414,6 +414,7 @@ export function AccountForm({
   const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
+  const [ssoProviderQuery, setSsoProviderQuery] = useState('')
 
   const downloadAttachment = (attachment: FileAttachment) => {
     try {
@@ -571,15 +572,59 @@ export function AccountForm({
     }))
   }
 
-  const addAttachmentFromFile = (file: File) => {
+  const readFileAsDataUrl = (file: File) =>
+    new Promise<string>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onload = (event) => resolve(String(event.target?.result ?? ''))
+      reader.onerror = () => reject(new Error(`No se pudo leer el archivo ${file.name}.`))
+      reader.readAsDataURL(file)
+    })
+
+  const compressImageAttachment = (file: File) =>
+    new Promise<{ data: string; mimeType: string; size: number }>((resolve) => {
+      if (!file.type.startsWith('image/')) {
+        resolve({ data: '', mimeType: file.type || 'application/octet-stream', size: file.size })
+        return
+      }
+
+      const image = new Image()
+      const url = URL.createObjectURL(file)
+      image.onload = () => {
+        URL.revokeObjectURL(url)
+        const maxSide = 1600
+        const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
+        const canvas = document.createElement('canvas')
+        canvas.width = Math.max(1, Math.round(image.width * scale))
+        canvas.height = Math.max(1, Math.round(image.height * scale))
+        const ctx = canvas.getContext('2d')
+        if (!ctx) {
+          resolve({ data: '', mimeType: file.type || 'image/*', size: file.size })
+          return
+        }
+        ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
+        const data = canvas.toDataURL('image/webp', 0.82)
+        const base64 = data.split(',')[1] ?? ''
+        resolve({ data, mimeType: 'image/webp', size: Math.ceil((base64.length * 3) / 4) })
+      }
+      image.onerror = () => {
+        URL.revokeObjectURL(url)
+        resolve({ data: '', mimeType: file.type || 'image/*', size: file.size })
+      }
+      image.src = url
+    })
+
+  const addAttachmentFromFile = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
       setError(`El archivo ${file.name} es demasiado grande. El límite es 10MB.`)
       return
     }
 
-    const reader = new FileReader()
-    reader.onload = (e) => {
-      const data = e.target?.result as string
+    try {
+      const compressed = await compressImageAttachment(file)
+      const data = compressed.data || await readFileAsDataUrl(file)
+      const mimeType = compressed.data ? compressed.mimeType : (file.type || 'application/octet-stream')
+      const size = compressed.data ? compressed.size : file.size
+
       setAccount((prev) => ({
         ...prev,
         attachments: [
@@ -587,20 +632,18 @@ export function AccountForm({
           {
             id: crypto.randomUUID(),
             name: file.name.split('.')[0],
-            description: '',
-            fileName: file.name,
-            mimeType: file.type || 'application/octet-stream',
-            size: file.size,
+            description: compressed.data ? 'Imagen comprimida y cifrada dentro de la bóveda' : '',
+            fileName: compressed.data ? file.name.replace(/\.[^.]+$/, '.webp') : file.name,
+            mimeType,
+            size,
             data,
             createdAt: new Date().toISOString()
           }
         ]
       }))
+    } catch (caughtError) {
+      setError(getFriendlyErrorMessage(caughtError, `No se pudo leer el archivo ${file.name}.`))
     }
-    reader.onerror = () => {
-      setError(`No se pudo leer el archivo ${file.name}.`)
-    }
-    reader.readAsDataURL(file)
   }
 
   const updateAttachment = (id: string, field: 'name' | 'description', value: string) => {
@@ -723,8 +766,9 @@ export function AccountForm({
     setAccessMethods((methods) => {
       const filtered = methods.filter((m) => m.type !== 'SSO')
       if (enabled) {
-        return [...filtered, { id: crypto.randomUUID(), type: 'SSO', providers: ['Google'], email: identityEmail }]
+        return [...filtered, { id: crypto.randomUUID(), type: 'SSO', providers: [], email: identityEmail }]
       }
+      setSsoProviderQuery('')
       return filtered
     })
   }
@@ -735,7 +779,7 @@ export function AccountForm({
         const nextProviders = checked
           ? [...new Set([...m.providers, provider])]
           : m.providers.filter(p => p !== provider)
-        return { ...m, providers: nextProviders.length > 0 ? nextProviders : ['Google'] }
+        return { ...m, providers: nextProviders }
       }
       return m
     }))
@@ -1019,10 +1063,14 @@ export function AccountForm({
                       </div>
                       <Combobox
                         label="Añadir Proveedor SSO"
-                        value=""
+                        value={ssoProviderQuery}
                         options={SSO_OPTIONS.filter(o => !ssoMethod.providers.includes(o.label))}
-                        onChange={(val) => toggleSsoProvider(val, true)}
-                        placeholder="Discord, Okta, LinkedIn..."
+                        onInputChange={setSsoProviderQuery}
+                        onChange={(val) => {
+                          toggleSsoProvider(val, true)
+                          setSsoProviderQuery('')
+                        }}
+                        placeholder="Apple, Discord, Okta, LinkedIn..."
                         createLabel={(input) => `¿No encuentras tu proveedor? Crear "${input}"`}
                       />
                       <FormField
@@ -1048,7 +1096,7 @@ export function AccountForm({
                     checked={passkeyEnabled}
                     onChange={(event) => togglePasskey(event.target.checked)}
                   />
-                  Passkey / Biometría
+                  Passkey / Biometría del dispositivo
                 </label>
                 <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
                   <input
@@ -1077,16 +1125,7 @@ export function AccountForm({
               checked={account.hardwareKey}
               onChange={(event) => updateField('hardwareKey', event.target.checked)}
             />
-            Llave física
-          </label>
-          <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
-            <input
-              type="checkbox"
-              className={checkboxClassName}
-              checked={Boolean(account.sensitive)}
-              onChange={(event) => updateField('sensitive', event.target.checked)}
-            />
-            Sensible / ocultar en Modo Viaje
+            Llave física de seguridad (FIDO2 / YubiKey)
           </label>
         </div>
       </section>
@@ -1464,36 +1503,47 @@ export function AccountForm({
       </section>
 
       <section className="mb-24">
-        <Accordion title="Danger Zone (Sincronización Selectiva)" defaultOpen={Boolean(account.isLocalOnly)}>
-          <div className="rounded-2xl border border-red-200 bg-red-50 p-5">
-            <div className="flex items-start gap-4">
-              <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                </svg>
+        <div className="rounded-2xl border border-red-200 bg-red-50 p-5 shadow-sm">
+          <div className="flex items-start gap-4">
+            <div className="mt-0.5 flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <div className="flex-1 space-y-4">
+              <div>
+                <h3 className="text-sm font-bold text-red-900">Danger Zone</h3>
+                <p className="mt-1 text-xs leading-relaxed text-red-800/80">Opciones visibles siempre. Úsalas solo para cuentas especialmente sensibles.</p>
               </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-bold text-red-900">Desactivar Sincronización en la Nube (Device-Only)</h3>
-                <p className="mt-1 text-xs leading-relaxed text-red-800/80">
-                  Si activas esta opción, esta cuenta <strong>nunca se subirá a la nube</strong> y solo existirá en este dispositivo.
-                  Si desinstalas la aplicación o formateas el dispositivo, perderás esta contraseña para siempre. Útil para credenciales ultra-secretas.
-                </p>
-                <div className="mt-4 flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
-                  <span className="text-sm font-semibold text-red-900">Modo Solo-Dispositivo</span>
-                  <label className="relative inline-flex cursor-pointer items-center">
-                    <input
-                      type="checkbox"
-                      className="peer sr-only"
-                      checked={Boolean(account.isLocalOnly)}
-                      onChange={(e) => setAccount({ ...account, isLocalOnly: e.target.checked })}
-                    />
-                    <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-red-300"></div>
-                  </label>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-red-900">Desactivar sincronización en la nube</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-red-800/75">La cuenta queda solo en este dispositivo y no se sube a Firebase.</p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input type="checkbox" className="peer sr-only" checked={Boolean(account.isLocalOnly)} onChange={(e) => setAccount({ ...account, isLocalOnly: e.target.checked })} />
+                      <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-red-300"></div>
+                    </label>
+                  </div>
+                </div>
+                <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
+                  <div className="flex items-center justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-red-900">Ocultar en Modo Viaje</p>
+                      <p className="mt-1 text-[11px] leading-relaxed text-red-800/75">La cuenta se oculta cuando el Modo Viaje está activo.</p>
+                    </div>
+                    <label className="relative inline-flex cursor-pointer items-center">
+                      <input type="checkbox" className="peer sr-only" checked={Boolean(account.sensitive)} onChange={(event) => updateField('sensitive', event.target.checked)} />
+                      <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-red-300"></div>
+                    </label>
+                  </div>
                 </div>
               </div>
             </div>
           </div>
-        </Accordion>
+        </div>
       </section>
 
       {error && (

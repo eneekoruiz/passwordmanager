@@ -12,6 +12,7 @@ interface ComboboxProps {
   value: string
   options: ComboboxOption[]
   onChange: (value: string) => void
+  onInputChange?: (value: string) => void
   placeholder?: string
   createLabel?: (value: string) => string
 }
@@ -40,6 +41,7 @@ export function Combobox({
   value,
   options,
   onChange,
+  onInputChange,
   placeholder,
   createLabel = (input) => `¿No encuentras tu plataforma? Crear "${input}"`,
 }: ComboboxProps) {
@@ -101,7 +103,12 @@ export function Combobox({
         className={`${inputClassName} pr-9`}
         value={value}
         onChange={(event) => {
-          onChange(event.target.value)
+          const nextValue = event.target.value
+          if (onInputChange) {
+            onInputChange(nextValue)
+          } else {
+            onChange(nextValue)
+          }
           setOpen(true)
           setActiveIndex(0)
         }}

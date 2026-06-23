@@ -20,8 +20,13 @@ if (typeof window !== 'undefined') {
       
     if (isChunkError) {
       console.warn('Chunk load error detected. Reloading page to clear cache...', error)
-      // Force a hard reload of the page from the server
-      window.location.reload()
+      const key = 'contras.chunk-reload-attempted'
+      if (window.sessionStorage.getItem(key) !== '1') {
+        window.sessionStorage.setItem(key, '1')
+        const url = new URL(window.location.href)
+        url.searchParams.set('v', Date.now().toString())
+        window.location.replace(url.toString())
+      }
     }
   }
 

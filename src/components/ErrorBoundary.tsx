@@ -7,20 +7,45 @@ interface ErrorBoundaryProps {
 interface ErrorBoundaryState {
   hasError: boolean
   error: Error | null
+  isChunkError: boolean
+}
+
+function isChunkLoadError(error: unknown): boolean {
+  const message = error instanceof Error ? error.message : String(error ?? '')
+  return (
+    /failed to fetch dynamically imported module/i.test(message) ||
+    /error loading dynamically imported module/i.test(message) ||
+    /chunkloaderror/i.test(message) ||
+    /loading chunk [\d]+ failed/i.test(message)
+  )
+}
+
+function reloadOnceForChunkFailure(): void {
+  if (typeof window === 'undefined') return
+  const key = 'contras.chunk-reload-attempted'
+  if (window.sessionStorage.getItem(key) === '1') return
+  window.sessionStorage.setItem(key, '1')
+  const url = new URL(window.location.href)
+  url.searchParams.set('v', Date.now().toString())
+  window.location.replace(url.toString())
 }
 
 export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundaryState> {
   public override state: ErrorBoundaryState = {
     hasError: false,
     error: null,
+    isChunkError: false,
   }
 
   public static getDerivedStateFromError(error: Error): ErrorBoundaryState {
-    return { hasError: true, error }
+    return { hasError: true, error, isChunkError: isChunkLoadError(error) }
   }
 
   public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Root ErrorBoundary caught an error:', error, errorInfo)
+    if (isChunkLoadError(error)) {
+      reloadOnceForChunkFailure()
+    }
   }
 
   public override render() {
@@ -35,7 +60,9 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
             </div>
             <h2 className="text-lg font-bold text-slate-900">Algo ha salido mal</h2>
             <p className="mt-2 text-xs text-slate-500">
-              Se ha producido un error inesperado al renderizar la interfaz. Por favor, recarga la aplicación.
+              {this.state.isChunkError
+                ? 'La app acaba de actualizarse y Safari conservó un módulo antiguo. Recarga para tomar la versión nueva.'
+                : 'Se ha producido un error inesperado al renderizar la interfaz. Por favor, recarga la aplicación.'}
             </p>
             {this.state.error && (
               <pre className="mt-3 overflow-x-auto rounded-lg bg-slate-50 p-3 text-left text-[10px] font-mono text-slate-600">
