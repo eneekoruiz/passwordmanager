@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useEffect, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
 import { PasswordField } from './ui/PasswordField'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -73,7 +73,6 @@ export function UnlockScreen() {
 
   const [masterPassword, setMasterPassword] = useState('')
   const [confirmMasterPassword, setConfirmMasterPassword] = useState('')
-  const [showPasswordInput, setShowPasswordInput] = useState(false)
   const [recoveryPhrase, setRecoveryPhrase] = useState('')
   const [recoveryCopied, setRecoveryCopied] = useState(false)
   const [onboardingRecoveryStep, setOnboardingRecoveryStep] = useState<OnboardingRecoveryStep>('display')
@@ -92,7 +91,7 @@ export function UnlockScreen() {
   const [nukeConfirmation, setNukeConfirmation] = useState('')
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
-  const automaticBiometricAttempted = useRef(false)
+  const [biometricLoading, setBiometricLoading] = useState(false)
 
   useEffect(() => {
     return () => {
@@ -107,24 +106,6 @@ export function UnlockScreen() {
     }
   }, [])
 
-  useEffect(() => {
-    if (
-      cloudVaultExists !== false &&
-      biometricAvailable &&
-      biometricRegistered &&
-      !automaticBiometricAttempted.current
-    ) {
-      automaticBiometricAttempted.current = true
-      const timer = window.setTimeout(() => {
-        void unlockWithBiometricSensor().catch((caughtError) => {
-          const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación biométrica.')
-          if (!message.toLowerCase().includes('cancel')) setError(message)
-          setShowPasswordInput(true)
-        })
-      }, 350)
-      return () => window.clearTimeout(timer)
-    }
-  }, [cloudVaultExists, biometricAvailable, biometricRegistered, unlockWithBiometricSensor])
 
   useEffect(() => {
     if (cloudVaultExists === false && !recoveryPhrase) {
@@ -174,6 +155,21 @@ export function UnlockScreen() {
     } catch (caughtError) {
       setLoading(false)
       setError(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
+    }
+  }
+
+  const handleBiometricVaultUnlock = async () => {
+    setError(null)
+    setBiometricLoading(true)
+    try {
+      await unlockWithBiometricSensor()
+      setMasterPassword('')
+      setConfirmMasterPassword('')
+    } catch (caughtError) {
+      const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación biométrica.')
+      if (!message.toLowerCase().includes('cancel')) setError(message)
+    } finally {
+      setBiometricLoading(false)
     }
   }
 
@@ -286,7 +282,7 @@ export function UnlockScreen() {
   }
 
   const isCloudLoading = cloudSyncStatus === 'syncing'
-  const needsBiometricChoice = cloudVaultExists !== false && biometricAvailable && biometricRegistered
+  const canUseBiometricUnlock = cloudVaultExists !== false && biometricAvailable && biometricRegistered
   const recoveryWords = recoveryPhrase.split(' ').filter(Boolean)
   const seedChallengePassed =
     recoveryWords.length === 12 &&
@@ -391,51 +387,33 @@ export function UnlockScreen() {
               </form>
             ) : (
               <form onSubmit={handleVaultAction} className="w-full space-y-5">
-                {needsBiometricChoice && !showPasswordInput ? (
-                  <div className="flex flex-col items-center justify-center space-y-6 py-6 animate-fade-in">
-                    <button
-                      type="button"
-                      onClick={async () => {
-                        setError(null)
-                        try {
-                          await unlockWithBiometricSensor()
-                        } catch (err) {
-                          const msg = getFriendlyErrorMessage(err, 'Error de autenticación biométrica.')
-                          if (!msg.toLowerCase().includes('cancel')) setError(msg)
-                          setShowPasswordInput(true)
-                        }
-                      }}
-                      className="group flex h-24 w-24 items-center justify-center rounded-full bg-slate-950 text-white shadow-[0_12px_40px_rgba(15,23,42,0.24)] transition-all hover:scale-105 hover:bg-slate-800 active:scale-95"
-                      aria-label="Desbloquear con biometría"
-                    >
-                      <svg className="h-10 w-10 transition-transform group-hover:scale-110" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M7.864 4.243A7.5 7.5 0 0119.5 10.5c0 2.92-.556 5.709-1.568 8.268M5.742 6.364A7.465 7.465 0 004.5 10.5a7.464 7.464 0 01-1.15 3.993m1.989 3.559A11.209 11.209 0 008.25 10.5a3.75 3.75 0 117.5 0c0 .527-.021 1.049-.064 1.565M12 10.5a14.94 14.94 0 01-3.6 9.75m6.633-4.596a18.666 18.666 0 01-2.485 5.33" />
-                      </svg>
-                    </button>
-                    <div className="text-center">
-                      <p className="text-sm font-bold text-text-primary">Desbloqueo Biométrico</p>
-                      <p className="mt-0.5 text-xs text-text-secondary">Face ID · Huella · Windows Hello</p>
-                    </div>
-                    {error && <ErrorMessage error={error} />}
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setShowPasswordInput(true)
-                        setError(null)
-                      }}
-                      className="text-xs font-semibold text-text-secondary transition-colors hover:text-text-primary underline underline-offset-4"
-                    >
-                      Usar Contraseña Maestra en su lugar
-                    </button>
-                  </div>
-                ) : (
-                  <>
                     <div className="space-y-1">
                       <h1 className="text-xl font-bold tracking-tight text-text-primary">Desbloquea tu Bóveda Local</h1>
                       <p className="text-xs leading-relaxed text-text-secondary">
                         Introduce tu <strong>Contraseña Maestra</strong> para abrirla. Nunca se envía a nuestros servidores.
                       </p>
                     </div>
+
+                    {canUseBiometricUnlock && (
+                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3 text-left shadow-sm">
+                        <div className="flex items-center justify-between gap-3">
+                          <div>
+                            <p className="text-xs font-bold text-emerald-950">Desbloqueo biométrico disponible</p>
+                            <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
+                              Face ID, huella o passkey sustituyen únicamente a la Contraseña Maestra.
+                            </p>
+                          </div>
+                          <button
+                            type="button"
+                            onClick={handleBiometricVaultUnlock}
+                            disabled={loading || biometricLoading || isCloudLoading}
+                            className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+                          >
+                            {biometricLoading ? 'Verificando...' : 'Usar biometría'}
+                          </button>
+                        </div>
+                      </div>
+                    )}
 
                     <div className="space-y-3.5 text-left">
                       <PasswordField
@@ -607,22 +585,6 @@ export function UnlockScreen() {
                         ¿Has perdido todas tus claves? Empezar de cero
                       </button>
                     )}
-                    {needsBiometricChoice && showPasswordInput && (
-                      <div className="pt-2 text-center">
-                        <button
-                          type="button"
-                          onClick={() => {
-                            setShowPasswordInput(false)
-                            setError(null)
-                          }}
-                          className="text-xs font-semibold text-text-secondary hover:text-text-primary underline underline-offset-4"
-                        >
-                          ← Volver al Desbloqueo Biométrico
-                        </button>
-                      </div>
-                    )}
-                  </>
-                )}
               </form>
             )}
 

@@ -1060,19 +1060,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     async (masterPassword: string) => {
       setCloudSyncStatus('syncing')
       try {
-        const { authClient, dbClient } = getFirebaseClients()
-        const provider = new GoogleAuthProvider()
-        let credential
-        try {
-          credential = await signInWithPopup(authClient, provider)
-        } catch (authError) {
-          if (isRecoverableFirebaseAuthError(authError)) {
-            await resetFirebaseAuthSession(authClient)
-            throw new Error(FIREBASE_AUTH_RECOVERY_MESSAGE)
-          }
-          throw authError
-        }
-        const snapshot = await getDoc(doc(dbClient, 'vaults', credential.user.uid))
+        const { dbClient } = getFirebaseClients()
+        const user = firebaseUserRef.current
+        if (!user) throw new Error('Primero inicia sesión con Google para conectar tu bóveda en la nube.')
+
+        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda valida en Google.')
         await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Restaurada')
