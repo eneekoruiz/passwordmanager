@@ -17,7 +17,16 @@
  */
 
 import { initializeApp, type FirebaseApp } from 'firebase/app'
-import { initializeAuth, browserLocalPersistence, inMemoryPersistence, browserPopupRedirectResolver, getAuth, type Auth } from 'firebase/auth'
+import {
+  initializeAuth,
+  browserLocalPersistence,
+  inMemoryPersistence,
+  browserPopupRedirectResolver,
+  getAuth,
+  setPersistence,
+  signOut,
+  type Auth,
+} from 'firebase/auth'
 import { initializeFirestore, memoryLocalCache, getFirestore, type Firestore } from 'firebase/firestore'
 
 const firebaseEnv = {
@@ -63,7 +72,7 @@ function initAuth(): Auth | null {
   if (!app) return null
   try {
     return initializeAuth(app, {
-      persistence: browserLocalPersistence,
+      persistence: [browserLocalPersistence, inMemoryPersistence],
       popupRedirectResolver: browserPopupRedirectResolver,
     })
   } catch (error) {
@@ -86,6 +95,43 @@ function initAuth(): Auth | null {
 }
 
 export const auth: Auth | null = initAuth()
+
+export const firebaseAuthDomain = firebaseEnv.authDomain
+
+export function isFirebaseAuthDomainSameOrigin(): boolean {
+  if (typeof window === 'undefined' || !firebaseAuthDomain) return false
+  try {
+    const authUrl = firebaseAuthDomain.includes('://')
+      ? new URL(firebaseAuthDomain)
+      : new URL('https://' + firebaseAuthDomain)
+    return authUrl.hostname === window.location.hostname
+  } catch {
+    return false
+  }
+}
+
+function clearFirebaseRedirectState(): void {
+  if (typeof window === 'undefined') return
+  try {
+    const keys = Array.from({ length: window.sessionStorage.length }, (_, index) =>
+      window.sessionStorage.key(index),
+    ).filter((key): key is string => Boolean(key?.startsWith('firebase:')))
+    keys.forEach((key) => window.sessionStorage.removeItem(key))
+  } catch {
+    // Safari puede bloquear por completo sessionStorage en PWA/WebView.
+  }
+}
+
+export async function resetFirebaseAuthSession(authClient: Auth): Promise<void> {
+  await signOut(authClient).catch(() => undefined)
+  clearFirebaseRedirectState()
+
+  try {
+    await setPersistence(authClient, browserLocalPersistence)
+  } catch {
+    await setPersistence(authClient, inMemoryPersistence).catch(() => undefined)
+  }
+}
 
 /**
  * Instancia de Cloud Firestore.

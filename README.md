@@ -46,3 +46,17 @@ Firebase is an optional synchronization adapter. Local storage remains the prima
 ## Documentation
 
 - DeepWiki: https://deepwiki.com/eneekoruiz/passwordmanager
+
+## Mobile Google Auth (Safari / iOS PWA)
+
+Safari ITP blocks cross-site storage used by Firebase redirect authentication. Production must expose the Firebase Auth helper on the same origin as the app.
+
+For the current Vercel deployment:
+
+1. In Firebase Console, open **Authentication → Settings → Authorized domains** and add passwordmanager-alpha.vercel.app (or the final custom app domain).
+2. In Google Cloud Console, open **APIs & Services → Credentials**, edit the OAuth 2.0 Web client used by Firebase, and add https://passwordmanager-alpha.vercel.app/__/auth/handler.
+3. In Vercel, set the Production environment variable VITE_FIREBASE_AUTH_DOMAIN=passwordmanager-alpha.vercel.app.
+4. Redeploy Production. The vercel.json rewrite proxies /__/auth/* to contras-54017.firebaseapp.com, so the Firebase helper remains first-party.
+5. Repeat the authorized-domain and redirect-URI entries for any preview or final custom domain that users will actually open.
+
+Do not switch authDomain to the Vercel/custom domain until steps 1–2 are complete. Google popup remains the primary mobile strategy; same-origin redirect is only a fallback.

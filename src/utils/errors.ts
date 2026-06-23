@@ -1,6 +1,8 @@
 const FIREBASE_AUTH_MESSAGES: Record<string, string> = {
   'auth/popup-closed-by-user': 'El inicio de sesion se cerro antes de completarse.',
-  'auth/popup-blocked': 'El navegador bloqueo la ventana de inicio de sesion. Permite popups e intentalo de nuevo.',
+  'auth/popup-blocked': 'Safari bloqueó la ventana de Google. Pulsa de nuevo y permite la ventana emergente.',
+  'auth/internal-error': 'Safari no pudo conservar el estado del acceso. Hemos limpiado la sesión temporal; pulsa de nuevo para reintentarlo.',
+  'auth/operation-not-supported-in-this-environment': 'Este modo de navegación no permite completar el acceso. Abre la app en Safari e inténtalo de nuevo.',
   'auth/network-request-failed': 'No se pudo conectar con Firebase. Revisa tu conexion e intentalo otra vez.',
   'auth/invalid-credential': 'La sesion no pudo validarse. Vuelve a intentarlo.',
   'auth/invalid-login-credentials': 'Las credenciales no son validas.',
@@ -9,6 +11,34 @@ const FIREBASE_AUTH_MESSAGES: Record<string, string> = {
   'auth/too-many-requests': 'Se han detectado demasiados intentos. Espera un momento antes de reintentar.',
   'auth/account-exists-with-different-credential':
     'Esta cuenta ya existe con otro metodo de acceso.',
+}
+
+export const FIREBASE_AUTH_RECOVERY_MESSAGE =
+  'Safari no pudo conservar el estado del acceso. Hemos limpiado la sesión temporal; pulsa de nuevo para reintentarlo.'
+
+export function isRecoverableFirebaseAuthError(error: unknown): boolean {
+  const code =
+    typeof error === 'object' && error !== null && 'code' in error
+      ? String((error as { code?: string }).code)
+      : ''
+  const message =
+    error instanceof Error
+      ? error.message
+      : typeof error === 'object' && error !== null && 'message' in error
+        ? String((error as { message?: string }).message)
+        : String(error ?? '')
+
+  return (
+    code === 'auth/internal-error' ||
+    code === 'auth/web-storage-unsupported' ||
+    code === 'auth/operation-not-supported-in-this-environment' ||
+    /unable to save initial state/i.test(message) ||
+    /sessionstorage.*(?:inaccessible|unavailable|denied|blocked)/i.test(message) ||
+    /request is not allowed by the user agent or the platform/i.test(message) ||
+    (typeof DOMException !== 'undefined' &&
+      error instanceof DOMException &&
+      error.name === 'NotAllowedError')
+  )
 }
 
 const STORAGE_ERROR_PATTERNS: Array<[RegExp, string]> = [

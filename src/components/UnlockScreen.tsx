@@ -159,15 +159,21 @@ export function UnlockScreen() {
     setRecoveryCopied(true)
   }
 
-  const handleGoogleAuth = async () => {
-    setError(null)
-    setLoading(true)
+  const handleGoogleAuth = () => {
     try {
-      await loginWithGoogleCloud()
+      // Debe ser la primera operación que inicia trabajo asíncrono. No añadir
+      // awaits, timers ni validaciones antes de esta llamada.
+      const loginAttempt = loginWithGoogleCloud()
+      setError(null)
+      setLoading(true)
+      void loginAttempt
+        .catch((caughtError) => {
+          setError(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
+        })
+        .finally(() => setLoading(false))
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
-    } finally {
       setLoading(false)
+      setError(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
     }
   }
 

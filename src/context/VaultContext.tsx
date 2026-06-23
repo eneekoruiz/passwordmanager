@@ -21,11 +21,22 @@ import {
 } from 'firebase/auth'
 import { deleteDoc, doc, getDoc, setDoc, type Firestore } from 'firebase/firestore'
 import { CryptoVault } from '../crypto/CryptoVault'
-import { auth, db, firebaseConfigError } from '../services/firebase'
+import {
+  auth,
+  db,
+  firebaseConfigError,
+  isFirebaseAuthDomainSameOrigin,
+  resetFirebaseAuthSession,
+} from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
 import { deleteVaultDb, isInMemoryFallbackActive, getVaultDb } from '../storage/vaultDb'
 import type { Identity, LocalCategory, LocalVaultItem, Platform } from '../types'
-import { getFriendlyErrorMessage, logUnexpectedError } from '../utils/errors'
+import {
+  FIREBASE_AUTH_RECOVERY_MESSAGE,
+  getFriendlyErrorMessage,
+  isRecoverableFirebaseAuthError,
+  logUnexpectedError,
+} from '../utils/errors'
 import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
 import { useToast } from '../components/ui/ToastProvider'
@@ -133,6 +144,23 @@ function withTimeout<T>(promise: Promise<T>, timeoutMs: number, errorMessage: st
       },
     )
   })
+}
+
+function firebaseErrorCode(error: unknown): string {
+  return typeof error === 'object' && error !== null && 'code' in error
+    ? String((error as { code?: string }).code)
+    : ''
+}
+
+function isAppleMobileAuthContext(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return false
+  const userAgent = navigator.userAgent
+  const isAppleMobile = /iPad|iPhone|iPod/.test(userAgent)
+  const isWebKit = /Safari/.test(userAgent) && !/CriOS|FxiOS|EdgiOS/.test(userAgent)
+  const isStandalone =
+    window.matchMedia?.('(display-mode: standalone)').matches ||
+    Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
+  return isAppleMobile || isWebKit || isStandalone
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -309,8 +337,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setCloudUserEmail(credential.user.email ?? null)
         await resolveCloudVaultPresence(credential.user)
       })
-      .catch((error) => {
-        if (active) reportCloudError(error, 'No se pudo completar el inicio de sesión con Google.')
+      .catch(async (error) => {
+        if (!active) return
+        if (isRecoverableFirebaseAuthError(error)) {
+          await resetFirebaseAuthSession(authClient)
+          firebaseUserRef.current = null
+          setCloudUserEmail(null)
+          setCloudVaultExists(null)
+          setCloudSyncStatus('idle')
+          reportCloudError(
+            new Error(FIREBASE_AUTH_RECOVERY_MESSAGE),
+            FIREBASE_AUTH_RECOVERY_MESSAGE,
+          )
+          return
+        }
+        reportCloudError(error, 'No se pudo completar el inicio de sesión con Google.')
       })
 
     const unsubscribe = onAuthStateChanged(authClient, (user) => {
@@ -912,46 +953,74 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
   )
 
-  const loginWithGoogleCloud = useCallback(async () => {
-    // IMPORTANTE: signInWithPopup debe llamarse lo antes posible en el stack
-    // del evento de click para que Safari/Móviles no bloqueen el popup.
-    const { authClient } = getFirebaseClients()
+  const loginWithGoogleCloud = useCallback((): Promise<void> => {
+    const { authClient, dbClient } = getFirebaseClients()
     const provider = new GoogleAuthProvider()
-
-    // Configuramos prompts para forzar la selección de cuenta
     provider.setCustomParameters({ prompt: 'select_account' })
 
-    try {
-      const credential = await signInWithPopup(authClient, provider)
-      firebaseUserRef.current = credential.user
-      setCloudSyncStatus('syncing')
-      setCloudUserEmail(credential.user.email ?? 'Usuario Google')
+    // La llamada se crea sin ningún await previo: conserva el user gesture de
+    // Safari/iOS y evita que el popup sea rechazado por el agente de usuario.
+    const popupAttempt = signInWithPopup(authClient, provider)
 
-      const { dbClient } = getFirebaseClients()
-      const snapshot = await withTimeout(
-        getDoc(doc(dbClient, 'vaults', credential.user.uid)),
-        10_000,
-        'Google inició la sesión, pero la comprobación de la bóveda superó el tiempo límite.',
-      )
-      setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
-      setCloudSyncStatus('idle')
-    } catch (popupError: any) {
-      // Si el usuario cierra el popup explícitamente o el navegador lo bloquea,
-      // lanzamos el error para que la UI lo maneje, NO redirigimos automáticamente
-      // porque destrozaría el estado (el modal desaparecería).
-      if (popupError.code === 'auth/popup-closed-by-user') {
-        throw new Error('El inicio de sesión fue cancelado o bloqueado por el navegador.')
-      }
-      if (popupError.code === 'auth/popup-blocked') {
-        throw new Error('El navegador bloqueó la ventana emergente de Google. Permite las ventanas emergentes para continuar.')
-      }
+    return popupAttempt.then(
+      async (credential) => {
+        firebaseUserRef.current = credential.user
+        setCloudSyncStatus('syncing')
+        setCloudUserEmail(credential.user.email ?? 'Usuario Google')
 
-      console.warn('signInWithPopup falló:', popupError)
-      setCloudSyncStatus('error')
-      reportCloudError(popupError, 'No se pudo iniciar sesion con Google.')
-      throw popupError
-    }
-  }, [reportCloudError])
+        try {
+          const snapshot = await withTimeout(
+            getDoc(doc(dbClient, 'vaults', credential.user.uid)),
+            10_000,
+            'Google inició la sesión, pero la comprobación de la bóveda superó el tiempo límite.',
+          )
+          setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
+          setCloudSyncStatus('idle')
+        } catch (cloudError) {
+          setCloudSyncStatus('error')
+          throw cloudError
+        }
+      },
+      async (authError: unknown) => {
+        const code = firebaseErrorCode(authError)
+        const safeRedirectAvailable = isFirebaseAuthDomainSameOrigin()
+
+        if (
+          safeRedirectAvailable &&
+          (code === 'auth/popup-blocked' ||
+            code === 'auth/operation-not-supported-in-this-environment')
+        ) {
+          setCloudSyncStatus('syncing')
+          await signInWithRedirect(authClient, provider)
+          return
+        }
+
+        if (isRecoverableFirebaseAuthError(authError)) {
+          await resetFirebaseAuthSession(authClient)
+          firebaseUserRef.current = null
+          setCloudUserEmail(null)
+          setCloudVaultExists(null)
+          setCloudSyncStatus('idle')
+          throw new Error(FIREBASE_AUTH_RECOVERY_MESSAGE)
+        }
+
+        setCloudSyncStatus('idle')
+
+        if (code === 'auth/popup-closed-by-user') {
+          throw new Error('El inicio de sesión se cerró antes de completarse.')
+        }
+
+        if (code === 'auth/popup-blocked') {
+          const mobileHint = isAppleMobileAuthContext()
+            ? ' En iPhone/iPad, abre la app en Safari o permite ventanas emergentes.'
+            : ' Permite ventanas emergentes e inténtalo de nuevo.'
+          throw new Error('El navegador bloqueó la ventana de Google.' + mobileHint)
+        }
+
+        throw authError
+      },
+    )
+  }, [])
 
   const logoutCloud = useCallback(async () => {
     try {
@@ -996,14 +1065,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         let credential
         try {
           credential = await signInWithPopup(authClient, provider)
-        } catch (popupError: any) {
-           console.warn('signInWithPopup falló, intentando signInWithRedirect:', popupError)
-           if (popupError.code === 'auth/popup-closed-by-user') {
-             throw popupError
-           }
-           await signInWithRedirect(authClient, provider)
-           // Se detiene aquí porque la página redirige
-           return
+        } catch (authError) {
+          if (isRecoverableFirebaseAuthError(authError)) {
+            await resetFirebaseAuthSession(authClient)
+            throw new Error(FIREBASE_AUTH_RECOVERY_MESSAGE)
+          }
+          throw authError
         }
         const snapshot = await getDoc(doc(dbClient, 'vaults', credential.user.uid))
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
