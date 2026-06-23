@@ -13,8 +13,6 @@ import {
   deleteUser,
   onAuthStateChanged,
   signInWithPopup,
-  signInWithRedirect,
-  getRedirectResult,
   signOut,
   type Auth,
   type User,
@@ -25,7 +23,6 @@ import {
   auth,
   db,
   firebaseConfigError,
-  isFirebaseAuthDomainSameOrigin,
   resetFirebaseAuthSession,
 } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
@@ -330,29 +327,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       )
     }, 10_000)
 
-    void getRedirectResult(authClient)
-      .then(async (credential) => {
-        if (!credential?.user || !active) return
-        firebaseUserRef.current = credential.user
-        setCloudUserEmail(credential.user.email ?? null)
-        await resolveCloudVaultPresence(credential.user)
-      })
-      .catch(async (error) => {
-        if (!active) return
-        if (isRecoverableFirebaseAuthError(error)) {
-          await resetFirebaseAuthSession(authClient)
-          firebaseUserRef.current = null
-          setCloudUserEmail(null)
-          setCloudVaultExists(null)
-          setCloudSyncStatus('idle')
-          reportCloudError(
-            new Error(FIREBASE_AUTH_RECOVERY_MESSAGE),
-            FIREBASE_AUTH_RECOVERY_MESSAGE,
-          )
-          return
-        }
-        reportCloudError(error, 'No se pudo completar el inicio de sesión con Google.')
-      })
 
     const unsubscribe = onAuthStateChanged(authClient, (user) => {
       window.clearTimeout(authReadyTimer)
@@ -958,12 +932,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider()
     provider.setCustomParameters({ prompt: 'select_account' })
 
-    // La llamada se crea sin ningún await previo: conserva el user gesture de
-    // Safari/iOS y evita que el popup sea rechazado por el agente de usuario.
-    const popupAttempt = signInWithPopup(authClient, provider)
-
-    return popupAttempt.then(
-      async (credential) => {
+    // Fase 1: identidad pura. Esta línea debe ejecutarse directamente desde
+    // el onClick del botón; no debe mezclarse con contraseña maestra ni
+    // comprobaciones asíncronas previas que rompan el user gesture de Safari.
+    return signInWithPopup(authClient, provider)
+      .then(async (credential) => {
         firebaseUserRef.current = credential.user
         setCloudSyncStatus('syncing')
         setCloudUserEmail(credential.user.email ?? 'Usuario Google')
@@ -980,20 +953,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCloudSyncStatus('error')
           throw cloudError
         }
-      },
-      async (authError: unknown) => {
+      })
+      .catch(async (authError: unknown) => {
         const code = firebaseErrorCode(authError)
-        const safeRedirectAvailable = isFirebaseAuthDomainSameOrigin()
-
-        if (
-          safeRedirectAvailable &&
-          (code === 'auth/popup-blocked' ||
-            code === 'auth/operation-not-supported-in-this-environment')
-        ) {
-          setCloudSyncStatus('syncing')
-          await signInWithRedirect(authClient, provider)
-          return
-        }
 
         if (isRecoverableFirebaseAuthError(authError)) {
           await resetFirebaseAuthSession(authClient)
@@ -1012,14 +974,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         if (code === 'auth/popup-blocked') {
           const mobileHint = isAppleMobileAuthContext()
-            ? ' En iPhone/iPad, abre la app en Safari o permite ventanas emergentes.'
+            ? ' En iPhone/iPad, abre la app en Safari y permite ventanas emergentes para este sitio.'
             : ' Permite ventanas emergentes e inténtalo de nuevo.'
           throw new Error('El navegador bloqueó la ventana de Google.' + mobileHint)
         }
 
         throw authError
-      },
-    )
+      })
   }, [])
 
   const logoutCloud = useCallback(async () => {

@@ -25,6 +25,68 @@ function ErrorMessage({ error }: { error: string }) {
   )
 }
 
+function GoogleIdentityStep({
+  error,
+  loading,
+  onGoogleAuth,
+}: {
+  error: string | null
+  loading: boolean
+  onGoogleAuth: () => void
+}) {
+  return (
+    <div className="w-full space-y-6">
+      <div className="space-y-2">
+        <h1 className="text-xl font-bold tracking-tight text-text-primary">Sincronización en la Nube</h1>
+        <p className="text-xs leading-relaxed text-text-secondary">
+          Inicia sesión con Google para identificarte y conectar tu bóveda cifrada.
+        </p>
+      </div>
+
+      <SecurityNote />
+      {error && <ErrorMessage error={error} />}
+
+      <button
+        type="button"
+        disabled={loading}
+        onClick={onGoogleAuth}
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
+      >
+        {loading ? 'Conectando con Google...' : 'Continuar con Google'}
+      </button>
+    </div>
+  )
+}
+
+function BiometricMasterPasswordShortcut({
+  loading,
+  onUnlock,
+}: {
+  loading: boolean
+  onUnlock: () => void
+}) {
+  return (
+    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3 text-left shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold text-emerald-950">Desbloqueo biométrico disponible</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
+            Face ID, huella o passkey sustituyen únicamente a la Contraseña Maestra.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onUnlock}
+          disabled={loading}
+          className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+        >
+          {loading ? 'Verificando...' : 'Usar biometría'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function VaultSkeleton() {
   return (
     <div className="w-full space-y-3 py-4">
@@ -307,26 +369,11 @@ export function UnlockScreen() {
     <div className="flex min-h-dvh items-center justify-center bg-surface px-4 py-8 select-none">
       <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
-          <div className="w-full space-y-6">
-            <div className="space-y-2">
-              <h1 className="text-xl font-bold tracking-tight text-text-primary">Sincronización en la Nube</h1>
-              <p className="text-xs leading-relaxed text-text-secondary">
-                Inicia sesión para mantener tus contraseñas seguras y sincronizadas.
-              </p>
-            </div>
-
-            <SecurityNote />
-            {error && <ErrorMessage error={error} />}
-
-            <button
-              type="button"
-              disabled={loading || isCloudLoading}
-              onClick={handleGoogleAuth}
-              className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
-            >
-              {loading || isCloudLoading ? 'Conectando con Google...' : 'Continuar con Google'}
-            </button>
-          </div>
+          <GoogleIdentityStep
+            error={error}
+            loading={loading || isCloudLoading}
+            onGoogleAuth={handleGoogleAuth}
+          />
         ) : (
           <div className="w-full space-y-5">
             {cloudVaultExists === null ? (
@@ -395,24 +442,10 @@ export function UnlockScreen() {
                     </div>
 
                     {canUseBiometricUnlock && (
-                      <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3 text-left shadow-sm">
-                        <div className="flex items-center justify-between gap-3">
-                          <div>
-                            <p className="text-xs font-bold text-emerald-950">Desbloqueo biométrico disponible</p>
-                            <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
-                              Face ID, huella o passkey sustituyen únicamente a la Contraseña Maestra.
-                            </p>
-                          </div>
-                          <button
-                            type="button"
-                            onClick={handleBiometricVaultUnlock}
-                            disabled={loading || biometricLoading || isCloudLoading}
-                            className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
-                          >
-                            {biometricLoading ? 'Verificando...' : 'Usar biometría'}
-                          </button>
-                        </div>
-                      </div>
+                      <BiometricMasterPasswordShortcut
+                        loading={loading || biometricLoading || isCloudLoading}
+                        onUnlock={handleBiometricVaultUnlock}
+                      />
                     )}
 
                     <div className="space-y-3.5 text-left">
