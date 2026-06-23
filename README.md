@@ -59,4 +59,4 @@ For the current Vercel deployment:
 4. Redeploy Production. The vercel.json rewrite proxies /__/auth/* to contras-54017.firebaseapp.com, so the Firebase helper remains first-party.
 5. Repeat the authorized-domain and redirect-URI entries for any preview or final custom domain that users will actually open.
 
-Do not switch authDomain to the Vercel/custom domain until steps 1–2 are complete. Google popup remains the primary mobile strategy; same-origin redirect is only a fallback.
+Production now promotes `authDomain` to the current HTTPS host when the configured value is `*.firebaseapp.com`. This keeps Firebase Auth same-origin for Safari/iOS PWA and relies on the Vercel `/__/auth/*` rewrite above. Firebase Authorized Domains and Google OAuth redirect URI must still include the production host.

@@ -29,9 +29,42 @@ import {
 } from 'firebase/auth'
 import { initializeFirestore, memoryLocalCache, getFirestore, type Firestore } from 'firebase/firestore'
 
+const configuredAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() ?? ''
+
+function isLocalhostHost(hostname: string): boolean {
+  return hostname === 'localhost' || hostname === '127.0.0.1' || hostname === '[::1]'
+}
+
+function getRuntimeAuthDomain(configuredDomain: string): string {
+  if (typeof window === 'undefined' || !configuredDomain) return configuredDomain
+
+  const { protocol, hostname, host } = window.location
+  if (protocol !== 'https:' || isLocalhostHost(hostname)) return configuredDomain
+
+  try {
+    const configuredUrl = configuredDomain.includes('://')
+      ? new URL(configuredDomain)
+      : new URL('https://' + configuredDomain)
+
+    if (configuredUrl.hostname === hostname) return configuredDomain
+
+    // Safari ITP rompe el estado temporal de Firebase Auth cuando authDomain
+    // vive en firebaseapp.com y la PWA en Vercel/custom domain. En producción
+    // usamos el host actual como authDomain y Vercel proxyea /__/auth/* hacia
+    // el dominio Firebase original definido en vercel.json.
+    if (configuredUrl.hostname.endsWith('.firebaseapp.com')) {
+      return host
+    }
+  } catch {
+    return configuredDomain
+  }
+
+  return configuredDomain
+}
+
 const firebaseEnv = {
   apiKey: import.meta.env.VITE_FIREBASE_API_KEY?.trim() ?? '',
-  authDomain: import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() ?? '',
+  authDomain: getRuntimeAuthDomain(configuredAuthDomain),
   projectId: import.meta.env.VITE_FIREBASE_PROJECT_ID?.trim() ?? '',
   appId: import.meta.env.VITE_FIREBASE_APP_ID?.trim() ?? '',
 }
@@ -97,6 +130,7 @@ function initAuth(): Auth | null {
 export const auth: Auth | null = initAuth()
 
 export const firebaseAuthDomain = firebaseEnv.authDomain
+export const configuredFirebaseAuthDomain = configuredAuthDomain
 
 export function isFirebaseAuthDomainSameOrigin(): boolean {
   if (typeof window === 'undefined' || !firebaseAuthDomain) return false
