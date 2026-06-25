@@ -994,4 +994,50 @@ export class VaultStore {
     return Boolean(bundle)
   }
 
+  // ─── Hardware Key Bundle Storage ──────────────────────────────────────────────
+
+  /**
+   * Guarda un bundle de llave física (credencial + contraseña maestra cifrada) en IndexedDB.
+   */
+  async saveHardwareKeyBundle(bundle: {
+    profileId: string
+    credentialId: string
+    encryptedPassword: import('../crypto/types').EncryptedPayload
+    createdAt: string
+  }): Promise<void> {
+    const db = await getVaultDb()
+    await db.put('hardware_key_bundles', bundle, bundle.profileId)
+  }
+
+  /**
+   * Carga el bundle de llave física para un perfil dado. Devuelve null si no existe.
+   */
+  async loadHardwareKeyBundle(profileId: string): Promise<{
+    profileId: string
+    credentialId: string
+    encryptedPassword: import('../crypto/types').EncryptedPayload
+    createdAt: string
+  } | null> {
+    const db = await getVaultDb()
+    const bundle = await db.get('hardware_key_bundles', profileId)
+    return bundle ?? null
+  }
+
+  /**
+   * Elimina el bundle de llave física de un perfil (para desactivar la llave).
+   */
+  async deleteHardwareKeyBundle(profileId: string): Promise<void> {
+    const db = await getVaultDb()
+    await db.delete('hardware_key_bundles', profileId)
+  }
+
+  /**
+   * Comprueba si hay un bundle de llave física registrado para el perfil dado.
+   */
+  async hasHardwareKeyBundle(profileId: string): Promise<boolean> {
+    const db = await getVaultDb()
+    const bundle = await db.get('hardware_key_bundles', profileId)
+    return Boolean(bundle)
+  }
+
 }

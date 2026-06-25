@@ -2,7 +2,7 @@ import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb'
 import type { EncryptedPayload } from '../crypto/types'
 
 const DB_NAME = 'contras-vault'
-const DB_VERSION = 2
+const DB_VERSION = 3
 
 export interface StoredVaultMeta {
   salt: string
@@ -13,6 +13,13 @@ export interface StoredVaultMeta {
 }
 
 export interface BiometricBundleRecord {
+  profileId: string
+  credentialId: string
+  encryptedPassword: EncryptedPayload
+  createdAt: string
+}
+
+export interface HardwareKeyBundleRecord {
   profileId: string
   credentialId: string
   encryptedPassword: EncryptedPayload
@@ -32,6 +39,10 @@ interface ContrasDB extends DBSchema {
     key: string  // profileId
     value: BiometricBundleRecord
   }
+  hardware_key_bundles: {
+    key: string  // profileId
+    value: HardwareKeyBundleRecord
+  }
 }
 
 class InMemoryDB {
@@ -39,6 +50,7 @@ class InMemoryDB {
     meta: new Map(),
     platforms: new Map(),
     biometric_bundles: new Map(),
+    hardware_key_bundles: new Map(),
   }
 
   async get(storeName: any, key: any): Promise<any> {
@@ -317,6 +329,9 @@ function openVaultDatabase(): Promise<IDBPDatabase<ContrasDB>> {
       }
       if (!db.objectStoreNames.contains('biometric_bundles')) {
         db.createObjectStore('biometric_bundles')
+      }
+      if (!db.objectStoreNames.contains('hardware_key_bundles')) {
+        db.createObjectStore('hardware_key_bundles')
       }
     },
   })

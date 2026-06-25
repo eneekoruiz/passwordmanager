@@ -127,6 +127,33 @@ function AttachmentItem({
   removeAttachment: (id: string) => void
   downloadAttachment: (attachment: FileAttachment) => void
 }) {
+  const { authorizeSensitiveAction } = useVault()
+  const { showToast } = useToast()
+  const [unblurred, setUnblurred] = useState(false)
+  const [revealing, setRevealing] = useState(false)
+
+  const isImage = attachment.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(attachment.fileName)
+
+  const handleRevealImage = async () => {
+    if (unblurred) {
+      setUnblurred(false)
+      return
+    }
+
+    setRevealing(true)
+    try {
+      await authorizeSensitiveAction()
+      setUnblurred(true)
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : 'No se pudo verificar tu identidad.'
+      if (!msg.toLowerCase().includes('cancel')) {
+        showToast(msg, 'error')
+      }
+    } finally {
+      setRevealing(false)
+    }
+  }
+
   return (
     <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white/60 p-4 shadow-sm transition-all focus-within:border-border focus-within:bg-white focus-within:shadow-md hover:bg-white/90">
       <div className="flex items-center justify-between">
@@ -150,6 +177,43 @@ function AttachmentItem({
           </button>
         </div>
       </div>
+
+      {isImage && (
+        <div className="relative mt-1 aspect-video overflow-hidden rounded-xl border border-black/5 bg-slate-100 flex items-center justify-center">
+          <img
+            src={attachment.data}
+            alt={attachment.name || attachment.fileName}
+            className={`h-full w-full object-cover transition-all duration-300 ${unblurred ? 'blur-0' : 'blur-xl select-none pointer-events-none'}`}
+          />
+          <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[0.5px]">
+            <button
+              type="button"
+              onClick={handleRevealImage}
+              disabled={revealing}
+              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition-all active:scale-95 ${unblurred ? 'bg-black/60 hover:bg-black/80' : 'bg-slate-900 hover:bg-slate-800'}`}
+            >
+              {revealing ? (
+                <span>Cargando...</span>
+              ) : unblurred ? (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                  </svg>
+                  Ocultar
+                </>
+              ) : (
+                <>
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                  </svg>
+                  Ver imagen
+                </>
+              )}
+            </button>
+          </div>
+        </div>
+      )}
+
       <div className="space-y-2">
         <input
           type="text"
@@ -415,6 +479,11 @@ export function AccountForm({
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
   const [isDragging, setIsDragging] = useState(false)
   const [ssoProviderQuery, setSsoProviderQuery] = useState('')
+  const [platformQuery, setPlatformQuery] = useState(() => account.name)
+
+  useEffect(() => {
+    setPlatformQuery(account.name)
+  }, [account.name])
 
   const downloadAttachment = (attachment: FileAttachment) => {
     try {
@@ -672,6 +741,7 @@ export function AccountForm({
   const saveCurrentAccount = async () => {
     setError(null)
 
+    const finalName = platformQuery.trim()
     const previousPassword = passwordValue(baselineAccount)
     const nextPassword = passwordValue(account)
     const shouldArchivePassword =
@@ -695,7 +765,8 @@ export function AccountForm({
         }
       : account
 
-    const normalized = normalizeAccount(accountForPersistence(accountWithHistory))
+    const updatedWithName = { ...accountWithHistory, name: finalName }
+    const normalized = normalizeAccount(accountForPersistence(updatedWithName))
     if (!normalized.name) {
       setError('Indica el nombre de la plataforma.')
       return
@@ -730,7 +801,7 @@ export function AccountForm({
 
   const isDirty =
     isEditing &&
-    JSON.stringify(normalizeAccount(accountForPersistence(account))) !== JSON.stringify(normalizeAccount(baselineAccount))
+    JSON.stringify(normalizeAccount(accountForPersistence({ ...account, name: platformQuery.trim() }))) !== JSON.stringify(normalizeAccount(baselineAccount))
 
   useEffect(() => {
     onUnsavedStateChange?.(isDirty, isDirty ? { save: saveCurrentAccount, discard: handleCancelEdit } : null)
@@ -972,9 +1043,13 @@ export function AccountForm({
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <Combobox
             label="Plataforma"
-            value={account.name}
+            value={platformQuery}
             options={PLATFORM_OPTIONS}
-            onChange={(value) => updateField('name', value)}
+            onInputChange={setPlatformQuery}
+            onChange={(value) => {
+              updateField('name', value)
+              setPlatformQuery(value)
+            }}
             placeholder="Amazon, GitHub, Stripe..."
           />
           <FormField

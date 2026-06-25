@@ -25,34 +25,127 @@ function ErrorMessage({ error }: { error: string }) {
   )
 }
 
-function GoogleIdentityStep({
+function NativeIdentityStep({
   error,
   loading,
   onGoogleAuth,
+  onEmailAuth,
 }: {
   error: string | null
   loading: boolean
   onGoogleAuth: () => void
+  onEmailAuth: (mode: 'login' | 'register', email: string, pass: string) => void
 }) {
+  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    if (mode === 'register' && password !== confirmPassword) {
+      alert('Las contraseñas no coinciden')
+      return
+    }
+    onEmailAuth(mode, email, password)
+  }
+
   return (
-    <div className="w-full space-y-6">
-      <div className="space-y-2">
-        <h1 className="text-xl font-bold tracking-tight text-text-primary">Sincronización en la Nube</h1>
+    <div className="w-full space-y-5 text-left animate-fade-in">
+      <div className="space-y-1 text-center">
+        <h1 className="text-xl font-bold tracking-tight text-text-primary">Accede a tu cuenta</h1>
         <p className="text-xs leading-relaxed text-text-secondary">
-          Inicia sesión con Google para identificarte y conectar tu bóveda cifrada.
+          Inicia sesión o crea una cuenta para sincronizar tu bóveda.
         </p>
       </div>
 
-      <SecurityNote />
-      {error && <ErrorMessage error={error} />}
+      <div className="flex gap-2 rounded-xl bg-surface p-1">
+        <button
+          type="button"
+          onClick={() => setMode('login')}
+          className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${mode === 'login' ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+        >
+          Iniciar Sesión
+        </button>
+        <button
+          type="button"
+          onClick={() => setMode('register')}
+          className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${mode === 'register' ? 'bg-white text-text-primary shadow-sm' : 'text-text-secondary hover:text-text-primary'}`}
+        >
+          Crear Cuenta
+        </button>
+      </div>
+
+      <form onSubmit={handleSubmit} className="space-y-4">
+        <div>
+          <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-text-secondary">
+            Correo Electrónico
+          </label>
+          <input
+            type="email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            required
+            placeholder="ejemplo@correo.com"
+            className="w-full rounded-xl border border-black/[0.06] bg-white/85 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 focus:ring-2 focus:ring-black/[0.035]"
+          />
+        </div>
+
+        <PasswordField
+          label="Contraseña"
+          value={password}
+          onChange={setPassword}
+          required
+          placeholder="Escribe tu contraseña de acceso"
+        />
+
+        {mode === 'register' && (
+          <PasswordField
+            label="Confirmar Contraseña"
+            value={confirmPassword}
+            onChange={setConfirmPassword}
+            required
+            placeholder="Repite tu contraseña de acceso"
+          />
+        )}
+
+        <SecurityNote />
+        {error && <ErrorMessage error={error} />}
+
+        <button
+          type="submit"
+          disabled={loading || !email || !password || (mode === 'register' && password !== confirmPassword)}
+          className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+        >
+          {loading
+            ? mode === 'login'
+              ? 'Iniciando sesión...'
+              : 'Creando cuenta...'
+            : mode === 'login'
+              ? 'Entrar con correo'
+              : 'Registrarse'}
+        </button>
+      </form>
+
+      <div className="relative flex py-2 items-center">
+        <div className="flex-grow border-t border-black/[0.06]"></div>
+        <span className="flex-shrink mx-4 text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">o continuar con</span>
+        <div className="flex-grow border-t border-black/[0.06]"></div>
+      </div>
 
       <button
         type="button"
         disabled={loading}
         onClick={onGoogleAuth}
-        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3.5 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
+        className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
       >
-        {loading ? 'Conectando con Google...' : 'Continuar con Google'}
+        <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24">
+          <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+          <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+          <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.06H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.94l2.85-2.22.81-.63z" fill="#FBBC05"/>
+          <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.06l3.66 2.84c.87-2.6 3.3-4.52 6.16-4.52z" fill="#EA4335"/>
+        </svg>
+        Google (Método secundario)
       </button>
     </div>
   )
@@ -81,6 +174,35 @@ function BiometricMasterPasswordShortcut({
           className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
         >
           {loading ? 'Verificando...' : 'Usar biometría'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
+function HardwareKeyMasterPasswordShortcut({
+  loading,
+  onUnlock,
+}: {
+  loading: boolean
+  onUnlock: () => void
+}) {
+  return (
+    <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-3 text-left shadow-sm">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <p className="text-xs font-bold text-blue-950">Llave física disponible</p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-blue-800">
+            Conecta tu YubiKey o llave FIDO2 compatible para desbloquear la bóveda.
+          </p>
+        </div>
+        <button
+          type="button"
+          onClick={onUnlock}
+          disabled={loading}
+          className="shrink-0 rounded-xl bg-blue-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+        >
+          {loading ? 'Verificando...' : 'Usar llave física'}
         </button>
       </div>
     </div>
@@ -123,6 +245,8 @@ export function UnlockScreen() {
     cloudSyncStatus,
     cloudVaultExists,
     loginWithGoogleCloud,
+    loginWithEmailAndPassword,
+    registerWithEmailAndPassword,
     logoutCloud,
     initializeNewVault,
     unlockOrRestoreVault,
@@ -131,6 +255,9 @@ export function UnlockScreen() {
     biometricAvailable,
     biometricRegistered,
     unlockWithBiometricSensor,
+    hardwareKeyAvailable,
+    hardwareKeyRegistered,
+    unlockWithHardwareKeySensor,
   } = useVault()
 
   const [masterPassword, setMasterPassword] = useState('')
@@ -154,6 +281,7 @@ export function UnlockScreen() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
+  const [hardwareKeyLoading, setHardwareKeyLoading] = useState(false)
 
   useEffect(() => {
     return () => {
@@ -165,6 +293,7 @@ export function UnlockScreen() {
       setNewMasterPassword('')
       setConfirmNewMasterPassword('')
       setNukeConfirmation('')
+      setError(null)
     }
   }, [])
 
@@ -220,6 +349,22 @@ export function UnlockScreen() {
     }
   }
 
+  const handleEmailAuth = async (mode: 'login' | 'register', emailInput: string, passwordInput: string) => {
+    setError(null)
+    setLoading(true)
+    try {
+      if (mode === 'login') {
+        await loginWithEmailAndPassword(emailInput, passwordInput)
+      } else {
+        await registerWithEmailAndPassword(emailInput, passwordInput)
+      }
+    } catch (caughtError) {
+      setError(getFriendlyErrorMessage(caughtError, mode === 'login' ? 'Error al iniciar sesión.' : 'Error al registrar la cuenta.'))
+    } finally {
+      setLoading(false)
+    }
+  }
+
   const handleBiometricVaultUnlock = async () => {
     setError(null)
     setBiometricLoading(true)
@@ -232,6 +377,21 @@ export function UnlockScreen() {
       if (!message.toLowerCase().includes('cancel')) setError(message)
     } finally {
       setBiometricLoading(false)
+    }
+  }
+
+  const handleHardwareKeyVaultUnlock = async () => {
+    setError(null)
+    setHardwareKeyLoading(true)
+    try {
+      await unlockWithHardwareKeySensor()
+      setMasterPassword('')
+      setConfirmMasterPassword('')
+    } catch (caughtError) {
+      const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación con la llave física.')
+      if (!message.toLowerCase().includes('cancel')) setError(message)
+    } finally {
+      setHardwareKeyLoading(false)
     }
   }
 
@@ -345,6 +505,7 @@ export function UnlockScreen() {
 
   const isCloudLoading = cloudSyncStatus === 'syncing'
   const canUseBiometricUnlock = cloudVaultExists !== false && biometricAvailable && biometricRegistered
+  const canUseHardwareKeyUnlock = cloudVaultExists !== false && hardwareKeyAvailable && hardwareKeyRegistered
   const recoveryWords = recoveryPhrase.split(' ').filter(Boolean)
   const seedChallengePassed =
     recoveryWords.length === 12 &&
@@ -369,10 +530,11 @@ export function UnlockScreen() {
     <div className="flex min-h-dvh items-center justify-center bg-surface px-4 py-8 select-none">
       <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
-          <GoogleIdentityStep
+          <NativeIdentityStep
             error={error}
             loading={loading || isCloudLoading}
             onGoogleAuth={handleGoogleAuth}
+            onEmailAuth={handleEmailAuth}
           />
         ) : (
           <div className="w-full space-y-5">
@@ -445,6 +607,13 @@ export function UnlockScreen() {
                       <BiometricMasterPasswordShortcut
                         loading={loading || biometricLoading || isCloudLoading}
                         onUnlock={handleBiometricVaultUnlock}
+                      />
+                    )}
+
+                    {canUseHardwareKeyUnlock && (
+                      <HardwareKeyMasterPasswordShortcut
+                        loading={loading || hardwareKeyLoading || isCloudLoading}
+                        onUnlock={handleHardwareKeyVaultUnlock}
                       />
                     )}
 

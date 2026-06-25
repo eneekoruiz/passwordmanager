@@ -10,3 +10,10 @@ export {
 } from './constants'
 export { bytesToBase64, base64ToBytes, stringToBytes, bytesToString } from './encoding'
 export type { EncryptedPayload, VaultMetadata, CryptoProtocolVersion } from './types'
+export {
+  isHardwareKeyAvailable,
+  registerHardwareKeyCredential,
+  unlockWithHardwareKey
+} from './hardwareKey'
+export type { HardwareKeyBundle } from './hardwareKey'
+

@@ -154,23 +154,49 @@ export function VaultItemForm({ item, onSave, onCancel, onDelete }: VaultItemFor
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                 </svg>
               </div>
-              <div className="flex-1">
-                <h3 className="text-sm font-bold text-red-900">Danger Zone</h3>
-                <p className="mt-1 text-xs leading-relaxed text-red-800/80">
-                  Si activas esta opción, este elemento <strong>nunca se subirá a la nube</strong> y solo existirá en este dispositivo.
-                  Si desinstalas la aplicación o formateas el dispositivo, perderás este dato para siempre.
-                </p>
-                <div className="mt-4 flex items-center justify-between rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
-                  <span className="text-sm font-semibold text-red-900">Modo Solo-Dispositivo</span>
-                  <label className="relative inline-flex cursor-pointer items-center">
-                    <input
-                      type="checkbox"
-                      className="peer sr-only"
-                      checked={Boolean(draft.isLocalOnly)}
-                      onChange={(e) => setDraft((prev) => ({ ...prev, isLocalOnly: e.target.checked }))}
-                    />
-                    <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-red-300"></div>
-                  </label>
+              <div className="flex-1 space-y-4">
+                <div>
+                  <h3 className="text-sm font-bold text-red-900">Danger Zone</h3>
+                  <p className="mt-1 text-xs leading-relaxed text-red-800/80">
+                    Opciones visibles siempre. Úsalas solo para secretos especialmente sensibles.
+                  </p>
+                </div>
+                <div className="grid gap-3 sm:grid-cols-2">
+                  <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-red-900">Modo Solo-Dispositivo</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-red-800/75">El secreto queda solo en este dispositivo y no se sube a Firebase.</p>
+                      </div>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input
+                          type="checkbox"
+                          className="peer sr-only"
+                          checked={Boolean(draft.isLocalOnly)}
+                          onChange={(e) => setDraft((prev) => ({ ...prev, isLocalOnly: e.target.checked }))}
+                        />
+                        <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-red-300"></div>
+                      </label>
+                    </div>
+                  </div>
+
+                  <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
+                    <div className="flex items-center justify-between gap-3">
+                      <div>
+                        <p className="text-sm font-semibold text-red-900">Ocultar en Modo Viaje</p>
+                        <p className="mt-1 text-[11px] leading-relaxed text-red-800/75">El secreto se oculta cuando el Modo Viaje está activo.</p>
+                      </div>
+                      <label className="relative inline-flex cursor-pointer items-center">
+                        <input
+                          type="checkbox"
+                          className="peer sr-only"
+                          checked={Boolean(draft.sensitive)}
+                          onChange={(e) => setDraft((prev) => ({ ...prev, sensitive: e.target.checked }))}
+                        />
+                        <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-red-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-red-300"></div>
+                      </label>
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>

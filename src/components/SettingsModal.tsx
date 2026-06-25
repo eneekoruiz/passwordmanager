@@ -34,6 +34,10 @@ interface SettingsModalProps {
   biometricRegistered?: boolean
   onRegisterBiometric?: (masterPassword: string) => Promise<void>
   onDisableBiometric?: () => Promise<void>
+  hardwareKeyAvailable?: boolean
+  hardwareKeyRegistered?: boolean
+  onRegisterHardwareKey?: (masterPassword: string) => Promise<void>
+  onDisableHardwareKey?: () => Promise<void>
 }
 
 /**
@@ -57,6 +61,10 @@ export function SettingsModal({
   biometricRegistered = false,
   onRegisterBiometric,
   onDisableBiometric,
+  hardwareKeyAvailable = false,
+  hardwareKeyRegistered = false,
+  onRegisterHardwareKey,
+  onDisableHardwareKey,
 }: SettingsModalProps) {
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
@@ -89,7 +97,11 @@ export function SettingsModal({
   const [biometricPassword, setBiometricPassword] = useState('')
   const [biometricMessage, setBiometricMessage] = useState<string | null>(null)
   const [biometricError, setBiometricError] = useState<string | null>(null)
-  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric'>('health')
+  const [loadingHardwareKey, setLoadingHardwareKey] = useState(false)
+  const [hardwareKeyPassword, setHardwareKeyPassword] = useState('')
+  const [hardwareKeyMessage, setHardwareKeyMessage] = useState<string | null>(null)
+  const [hardwareKeyError, setHardwareKeyError] = useState<string | null>(null)
+  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>('health')
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -102,6 +114,7 @@ export function SettingsModal({
       setRecoveryPhrase('')
       setTravelPassword('')
       setBiometricPassword('')
+      setHardwareKeyPassword('')
       setBackupFile(null)
     }
   }, [])
@@ -375,6 +388,7 @@ export function SettingsModal({
                 {view === 'exportBackup' && 'Crear Copia de Seguridad'}
                 {view === 'importBackup' && 'Restaurar Copia'}
                 {view === 'biometric' && 'Biometría'}
+                {view === 'hardwareKey' && 'Llave Física'}
               </h2>
               {view === 'health' && <p className="text-[10px] font-medium text-text-tertiary">Bóveda Cifrada Localmente</p>}
             </div>
@@ -465,6 +479,13 @@ export function SettingsModal({
                     title={biometricRegistered ? '🔒 Biometría Activada' : '🔓 Activar Biometría'}
                     subtitle={biometricRegistered ? 'Face ID · Huella · Windows Hello activos.' : 'Desbloquea sin contraseña con tu sensor biométrico.'}
                     onClick={() => { setBiometricMessage(null); setBiometricError(null); setBiometricPassword(''); setView('biometric') }}
+                  />
+                )}
+                {hardwareKeyAvailable && (
+                  <MenuItem
+                    title={hardwareKeyRegistered ? '🔒 Llave Física Activada' : '🔑 Activar Llave Física'}
+                    subtitle={hardwareKeyRegistered ? 'Llave de seguridad FIDO2 (YubiKey) activa.' : 'Registra una llave de seguridad física USB/NFC para desbloquear.'}
+                    onClick={() => { setHardwareKeyMessage(null); setHardwareKeyError(null); setHardwareKeyPassword(''); setView('hardwareKey') }}
                   />
                 )}
                 
@@ -878,6 +899,98 @@ export function SettingsModal({
                   {loadingImport ? 'Descifrando e importando...' : 'Importar y Restaurar'}
                 </button>
               </form>
+            </div>
+          )}
+
+          {view === 'hardwareKey' && (
+            <div className="space-y-4 animate-vault-morph">
+              <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
+                <p className="text-xs font-bold text-blue-900">¿Cómo funciona?</p>
+                <p className="mt-1 text-[11px] leading-relaxed text-blue-800">
+                  Tu Contraseña Maestra se cifra usando la extensión PRF de WebAuthn. La clave de descifrado se deriva localmente al conectar tu llave física (USB o NFC) e interactuar con ella. Este método garantiza un almacenamiento local ultra-seguro y zero-knowledge.
+                </p>
+              </div>
+              {hardwareKeyRegistered ? (
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4">
+                    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-600 text-white">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
+                    </div>
+                    <div>
+                      <p className="text-xs font-bold text-emerald-900">Llave física activa</p>
+                      <p className="text-[11px] text-emerald-700">Puedes desbloquear conectando tu llave de seguridad.</p>
+                    </div>
+                  </div>
+                  {hardwareKeyMessage && <p className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800">{hardwareKeyMessage}</p>}
+                  {hardwareKeyError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{hardwareKeyError}</p>}
+                  <button
+                    type="button"
+                    disabled={loadingHardwareKey}
+                    onClick={async () => {
+                      setLoadingHardwareKey(true)
+                      setHardwareKeyError(null)
+                      setHardwareKeyMessage(null)
+                      try {
+                        await onDisableHardwareKey?.()
+                        setHardwareKeyMessage('Llave física desactivada.')
+                        setView('health')
+                      } catch (err) {
+                        setHardwareKeyError(err instanceof Error ? err.message : 'Error al desactivar la llave física.')
+                      } finally {
+                        setLoadingHardwareKey(false)
+                      }
+                    }}
+                    className="flex w-full items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
+                  >
+                    {loadingHardwareKey ? 'Desactivando...' : 'Desactivar llave física'}
+                  </button>
+                </div>
+              ) : (
+                <form
+                  className="space-y-3"
+                  onSubmit={async (e) => {
+                    e.preventDefault()
+                    if (!hardwareKeyPassword) { setHardwareKeyError('Introduce tu Contraseña Maestra para continuar.'); return }
+                    setLoadingHardwareKey(true)
+                    setHardwareKeyError(null)
+                    setHardwareKeyMessage(null)
+                    try {
+                      await onRegisterHardwareKey?.(hardwareKeyPassword)
+                      setHardwareKeyPassword('')
+                      setHardwareKeyMessage('¡Llave física registrada! La próxima vez que abras la app, podrás desbloquear con tu llave.')
+                      setView('health')
+                    } catch (err) {
+                      const msg = err instanceof Error ? err.message : 'Error al registrar la llave física.'
+                      setHardwareKeyError(msg)
+                    } finally {
+                      setLoadingHardwareKey(false)
+                    }
+                  }}
+                >
+                  <div>
+                    <label className="mb-1.5 block text-[11px] font-bold uppercase tracking-[0.14em] text-text-tertiary">
+                      Confirma tu Contraseña Maestra
+                    </label>
+                    <input
+                      type="password"
+                      value={hardwareKeyPassword}
+                      onChange={(e) => setHardwareKeyPassword(e.target.value)}
+                      placeholder="Contraseña Maestra"
+                      className="w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 focus:ring-2 focus:ring-black/[0.035]"
+                      autoComplete="current-password"
+                    />
+                    <p className="mt-1.5 text-[11px] text-text-tertiary">Se te solicitará conectar y tocar tu llave de seguridad física (USB/NFC) compatible con FIDO2.</p>
+                  </div>
+                  {hardwareKeyError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{hardwareKeyError}</p>}
+                  <button
+                    type="submit"
+                    disabled={loadingHardwareKey || !hardwareKeyPassword}
+                    className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800 disabled:opacity-50"
+                  >
+                    {loadingHardwareKey ? 'Registrando llave física...' : 'Registrar mi llave de seguridad física'}
+                  </button>
+                </form>
+              )}
             </div>
           )}
         </div>

@@ -58,6 +58,10 @@ function VaultApp() {
     biometricRegistered,
     registerBiometricUnlock,
     disableBiometricUnlock,
+    hardwareKeyAvailable,
+    hardwareKeyRegistered,
+    registerHardwareKeyUnlock,
+    disableHardwareKeyUnlock,
     cloudUserEmail,
     localCategories,
   } = useVault()
@@ -396,6 +400,12 @@ function VaultApp() {
     })
   }, [identities, travelModeEnabled, sortMode])
 
+  const displayLocalItems = useMemo(() => {
+    return travelModeEnabled
+      ? localItems.filter((item) => !item.sensitive)
+      : localItems
+  }, [localItems, travelModeEnabled])
+
   const selectedIdentity = useMemo(
     () => displayIdentities.find((identity) => identity.id === selectedId) ?? null,
     [displayIdentities, selectedId],
@@ -544,6 +554,11 @@ function VaultApp() {
   const handleRegisterBiometric = async (masterPassword: string) => {
     await registerBiometricUnlock(masterPassword)
     showToast('Biometría activada correctamente. Ya puedes desbloquear con tu sensor.', 'info')
+  }
+
+  const handleRegisterHardwareKey = async (masterPassword: string) => {
+    await registerHardwareKeyUnlock(masterPassword)
+    showToast('Llave física registrada correctamente. Ya puedes desbloquear con tu llave.', 'info')
   }
 
   const handleManualSync = async () => {
@@ -951,7 +966,7 @@ function VaultApp() {
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
-              localItems={localItems}
+              localItems={displayLocalItems}
               groupMode={groupMode}
               selectedId={selectedId}
               selectedPlatformName={selectedPlatformName}
@@ -995,7 +1010,7 @@ function VaultApp() {
               groupMode={groupMode}
               selectedPlatformName={selectedPlatformName}
               localCategory={selectedLocalCategory}
-              localItems={localItems}
+              localItems={displayLocalItems}
               onOpenSidebar={() => {}}
               onRequestNavigation={requestNavigation}
               onUnsavedStateChange={(dirty, actions) => {
@@ -1091,6 +1106,10 @@ function VaultApp() {
           biometricRegistered={biometricRegistered}
           onRegisterBiometric={handleRegisterBiometric}
           onDisableBiometric={disableBiometricUnlock}
+          hardwareKeyAvailable={hardwareKeyAvailable}
+          hardwareKeyRegistered={hardwareKeyRegistered}
+          onRegisterHardwareKey={handleRegisterHardwareKey}
+          onDisableHardwareKey={disableHardwareKeyUnlock}
         />
 
         <ImportTextModal
@@ -1179,7 +1198,7 @@ function VaultApp() {
         {globalOverlays}
         <Sidebar
           identities={displayIdentities}
-          localItems={localItems}
+          localItems={displayLocalItems}
           groupMode={groupMode}
           selectedId={selectedId}
           selectedPlatformName={selectedPlatformName}
@@ -1226,7 +1245,7 @@ function VaultApp() {
             groupMode={groupMode}
             selectedPlatformName={selectedPlatformName}
             localCategory={selectedLocalCategory}
-            localItems={localItems}
+            localItems={displayLocalItems}
             onOpenSidebar={() => setSidebarOpen(true)}
             onRequestNavigation={requestNavigation}
             onUnsavedStateChange={(dirty, actions) => {
@@ -1274,6 +1293,14 @@ function VaultApp() {
         onDisableTravelMode={disableTravelMode}
         onImport={handleImportBackup}
         onOpenImportText={() => setImportTextOpen(true)}
+        biometricAvailable={biometricAvailable}
+        biometricRegistered={biometricRegistered}
+        onRegisterBiometric={handleRegisterBiometric}
+        onDisableBiometric={disableBiometricUnlock}
+        hardwareKeyAvailable={hardwareKeyAvailable}
+        hardwareKeyRegistered={hardwareKeyRegistered}
+        onRegisterHardwareKey={handleRegisterHardwareKey}
+        onDisableHardwareKey={disableHardwareKeyUnlock}
       />
 
       <ImportTextModal

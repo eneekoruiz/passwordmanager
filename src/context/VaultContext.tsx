@@ -14,6 +14,8 @@ import {
   onAuthStateChanged,
   signInWithPopup,
   signOut,
+  createUserWithEmailAndPassword,
+  signInWithEmailAndPassword,
   type Auth,
   type User,
 } from 'firebase/auth'
@@ -44,6 +46,12 @@ import {
   unlockWithBiometrics,
   type BiometricBundle,
 } from '../crypto/biometric'
+import {
+  isHardwareKeyAvailable,
+  registerHardwareKeyCredential,
+  unlockWithHardwareKey,
+  type HardwareKeyBundle,
+} from '../crypto'
 
 interface VaultContextValue {
   isReady: boolean
@@ -80,6 +88,8 @@ interface VaultContextValue {
   cloudVaultExists: boolean | null
   hasUnsyncedChanges: boolean
   loginWithGoogleCloud: () => Promise<void>
+  loginWithEmailAndPassword: (email: string, password: string) => Promise<void>
+  registerWithEmailAndPassword: (email: string, password: string) => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: (silent?: boolean) => Promise<CloudSyncResult>
   downloadLatestCloudVault: (resolutions?: Record<string, 'local' | 'cloud'>) => Promise<CloudSyncResult>
@@ -96,6 +106,12 @@ interface VaultContextValue {
   unlockWithBiometricSensor: () => Promise<void>
   authorizeSensitiveAction: () => Promise<void>
   disableBiometricUnlock: () => Promise<void>
+  // Hardware key unlock
+  hardwareKeyAvailable: boolean
+  hardwareKeyRegistered: boolean
+  registerHardwareKeyUnlock: (masterPassword: string) => Promise<void>
+  unlockWithHardwareKeySensor: () => Promise<void>
+  disableHardwareKeyUnlock: () => Promise<void>
 }
 
 export interface CloudSyncResult {
@@ -183,14 +199,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(false)
   const [biometricRegistered, setBiometricRegistered] = useState(false)
+  const [hardwareKeyAvailable, setHardwareKeyAvailable] = useState(false)
+  const [hardwareKeyRegistered, setHardwareKeyRegistered] = useState(false)
 
   const { showToast } = useToast()
 
-  // Check biometric availability on mount
+  // Check biometric & hardware key availability on mount
   useEffect(() => {
     void isBiometricAvailable()
       .then((available) => setBiometricAvailable(available))
       .catch(() => setBiometricAvailable(false))
+    void isHardwareKeyAvailable()
+      .then((available) => setHardwareKeyAvailable(available))
+      .catch(() => setHardwareKeyAvailable(false))
   }, [])
 
   // Escuchar degradación de almacenamiento (Safari/WebKit fallback)
@@ -272,6 +293,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       listProfiles(),
       storeRef.current.hasBiometricBundle('default').then((registered) => {
         if (mounted) setBiometricRegistered(registered)
+      }),
+      storeRef.current.hasHardwareKeyBundle('default').then((registered) => {
+        if (mounted) setHardwareKeyRegistered(registered)
       }),
     ]).finally(() => {
       if (mounted) setIsReady(true)
@@ -983,6 +1007,53 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       })
   }, [])
 
+  const loginWithEmailAndPassword = useCallback(
+    async (email: string, password: string): Promise<void> => {
+      const { authClient, dbClient } = getFirebaseClients()
+      setCloudSyncStatus('syncing')
+      try {
+        const credential = await signInWithEmailAndPassword(authClient, email, password)
+        firebaseUserRef.current = credential.user
+        setCloudUserEmail(credential.user.email ?? email)
+
+        try {
+          const snapshot = await withTimeout(
+            getDoc(doc(dbClient, 'vaults', credential.user.uid)),
+            10_000,
+            'Se inició la sesión, pero la comprobación de la bóveda superó el tiempo límite.',
+          )
+          setCloudVaultExists(Boolean(snapshot.exists() && snapshot.data()?.encrypted_vault_blob))
+          setCloudSyncStatus('idle')
+        } catch (cloudError) {
+          setCloudSyncStatus('error')
+          throw cloudError
+        }
+      } catch (authError: unknown) {
+        setCloudSyncStatus('error')
+        throw authError
+      }
+    },
+    [],
+  )
+
+  const registerWithEmailAndPassword = useCallback(
+    async (email: string, password: string): Promise<void> => {
+      const { authClient } = getFirebaseClients()
+      setCloudSyncStatus('syncing')
+      try {
+        const credential = await createUserWithEmailAndPassword(authClient, email, password)
+        firebaseUserRef.current = credential.user
+        setCloudUserEmail(credential.user.email ?? email)
+        setCloudVaultExists(false)
+        setCloudSyncStatus('idle')
+      } catch (authError: unknown) {
+        setCloudSyncStatus('error')
+        throw authError
+      }
+    },
+    [],
+  )
+
   const logoutCloud = useCallback(async () => {
     try {
       const { authClient } = getFirebaseClients()
@@ -1013,9 +1084,31 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [listProfiles, loadVaultDataForProfile],
   )
 
-  const restoreProfileFromCloud = useCallback(async () => {
-    throw new Error('El acceso por email y contraseña ya no esta soportado. Usa Google.')
-  }, [])
+  const restoreProfileFromCloud = useCallback(
+    async (email: string, password: string, masterPassword: string) => {
+      const { authClient, dbClient } = getFirebaseClients()
+      setCloudSyncStatus('syncing')
+      try {
+        let user = firebaseUserRef.current
+        if (!user || user.email !== email) {
+          const credential = await signInWithEmailAndPassword(authClient, email, password)
+          user = credential.user
+          firebaseUserRef.current = user
+          setCloudUserEmail(user.email ?? email)
+        }
+
+        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+        const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
+        if (!snapshot.exists() || !blob) throw new Error('No se encontró una bóveda válida en la nube.')
+        await restoreIntoDefaultProfile(blob, masterPassword, 'Bóveda Restaurada')
+      } catch (error) {
+        setCloudSyncStatus('error')
+        reportCloudError(error, 'No se pudo restaurar la bóveda.')
+        throw error
+      }
+    },
+    [reportCloudError, restoreIntoDefaultProfile],
+  )
 
   const restoreProfileFromGoogleCloud = useCallback(
     async (masterPassword: string) => {
@@ -1186,29 +1279,75 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await unlockOrRestoreVault(masterPassword)
   }, [unlockOrRestoreVault])
 
+  const registerHardwareKeyUnlock = useCallback(async (masterPassword: string) => {
+    if (!currentProfileId || !cloudUserEmail) throw new Error('No hay un perfil activo.')
+    if (!masterPassword) throw new Error('Introduce tu Contraseña Maestra.')
+    const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+    if (!passwordIsValid) throw new Error('La Contraseña Maestra no es correcta.')
+
+    const bundle = await registerHardwareKeyCredential(
+      masterPassword,
+      currentProfileId,
+      cloudUserEmail,
+    )
+    await storeRef.current.saveHardwareKeyBundle(bundle)
+    setHardwareKeyRegistered(true)
+  }, [currentProfileId, cloudUserEmail])
+
+  const unlockWithHardwareKeySensor = useCallback(async () => {
+    const profileId = 'default'
+    const bundle = await storeRef.current.loadHardwareKeyBundle(profileId)
+    if (!bundle) throw new Error('No hay llave física registrada.')
+    const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
+    await unlockOrRestoreVault(masterPassword)
+  }, [unlockOrRestoreVault])
+
   const authorizeSensitiveAction = useCallback(async () => {
     if (!currentProfileId || !isUnlocked) throw new Error('La bóveda está bloqueada.')
-    if (!biometricAvailable || !biometricRegistered) {
-      throw new Error('Activa la biometría en Ajustes para visualizar o copiar datos sensibles.')
+    
+    // Si tiene biometría activa, la preferimos.
+    if (biometricAvailable && biometricRegistered) {
+      const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
+      if (!bundle) {
+        setBiometricRegistered(false)
+        throw new Error('La credencial biométrica ya no está disponible. Vuelve a activarla en Ajustes.')
+      }
+      const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+      const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+      if (!passwordIsValid) {
+        throw new Error('La credencial biométrica está desactualizada. Vuelve a registrarla.')
+      }
+      return
     }
 
-    const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
-    if (!bundle) {
-      setBiometricRegistered(false)
-      throw new Error('La credencial biométrica ya no está disponible. Vuelve a activarla en Ajustes.')
+    // Si tiene llave física activa, la usamos.
+    if (hardwareKeyAvailable && hardwareKeyRegistered) {
+      const bundle = await storeRef.current.loadHardwareKeyBundle(currentProfileId)
+      if (!bundle) {
+        setHardwareKeyRegistered(false)
+        throw new Error('La llave de seguridad ya no está disponible. Vuelve a activarla en Ajustes.')
+      }
+      const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
+      const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+      if (!passwordIsValid) {
+        throw new Error('La llave de seguridad está desactualizada. Vuelve a registrarla.')
+      }
+      return
     }
 
-    const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
-    const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-    if (!passwordIsValid) {
-      throw new Error('La credencial biométrica está desactualizada. Vuelve a registrarla.')
-    }
-  }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
+    throw new Error('Activa la biometría o una llave física en Ajustes para visualizar o copiar datos sensibles.')
+  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked])
 
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return
     await storeRef.current.deleteBiometricBundle(currentProfileId)
     setBiometricRegistered(false)
+  }, [currentProfileId])
+
+  const disableHardwareKeyUnlock = useCallback(async () => {
+    if (!currentProfileId) return
+    await storeRef.current.deleteHardwareKeyBundle(currentProfileId)
+    setHardwareKeyRegistered(false)
   }, [currentProfileId])
 
   const nukeAccount = useCallback(async () => {
@@ -1357,6 +1496,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudVaultExists,
       hasUnsyncedChanges,
       loginWithGoogleCloud,
+      loginWithEmailAndPassword,
+      registerWithEmailAndPassword,
       logoutCloud,
       syncActiveProfileToCloud,
       downloadLatestCloudVault,
@@ -1372,6 +1513,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       unlockWithBiometricSensor,
       authorizeSensitiveAction,
       disableBiometricUnlock,
+      hardwareKeyAvailable,
+      hardwareKeyRegistered,
+      registerHardwareKeyUnlock,
+      unlockWithHardwareKeySensor,
+      disableHardwareKeyUnlock,
     }),
     [
       addIdentity,
@@ -1403,6 +1549,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       localCategories,
       listProfiles,
       loginWithGoogleCloud,
+      loginWithEmailAndPassword,
+      registerWithEmailAndPassword,
       logoutCloud,
       logoutProfile,
       profiles,
@@ -1423,6 +1571,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       unlockWithBiometricSensor,
       authorizeSensitiveAction,
       disableBiometricUnlock,
+      hardwareKeyAvailable,
+      hardwareKeyRegistered,
+      registerHardwareKeyUnlock,
+      unlockWithHardwareKeySensor,
+      disableHardwareKeyUnlock,
     ],
   )
 

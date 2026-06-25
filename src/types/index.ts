@@ -84,6 +84,7 @@ export interface BaseVaultItem {
   createdAt: string
   updatedAt: string
   isLocalOnly?: boolean
+  sensitive?: boolean
 }
 
 export type VaultDiffStatus = 'added' | 'modified' | 'deleted' | 'conflict'
