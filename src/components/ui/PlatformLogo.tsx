@@ -70,14 +70,16 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
     setHasError(false)
-    setSrc(`https://logo.clearbit.com/${domain}?size=512`)
+    setSrc(`https://logo.clearbit.com/${domain}?size=128`)
   }, [name, domain])
 
   const handleImageError = () => {
-    if (src === `https://logo.clearbit.com/${domain}?size=512`) {
-      setSrc(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=256`)
-    } else if (src === `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=256`) {
-      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`)
+    if (src === `https://logo.clearbit.com/${domain}?size=128`) {
+      setSrc(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`)
+    } else if (src === `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`) {
+      setSrc(`https://icons.duckduckgo.com/ip3/${domain}.ico`)
+    } else if (src === `https://icons.duckduckgo.com/ip3/${domain}.ico`) {
+      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
     } else {
       setHasError(true)
     }
@@ -100,6 +102,8 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
       src={src}
       alt={`Logo de ${name}`}
       onError={handleImageError}
+      loading="lazy"
+      decoding="async"
       style={{ imageRendering: 'auto' }}
       className={`${className} rounded-full shrink-0 object-contain bg-white border border-black/[0.05] p-[1px]`}
     />

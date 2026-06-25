@@ -84,6 +84,7 @@ export function createPlatform(name: string, defaults?: Partial<Platform>): Plat
     accountCreatedAt: defaults?.accountCreatedAt ?? null,
     linkedPhone: defaults?.linkedPhone ?? null,
     twoFactorAuth: defaults?.twoFactorAuth ?? null,
+    twoFactorAuths: defaults?.twoFactorAuths ?? [],
     notes: defaults?.notes,
     apiKeys: defaults?.apiKeys ?? [],
     recoveryCodes: defaults?.recoveryCodes,

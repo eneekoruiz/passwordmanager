@@ -21,6 +21,7 @@ interface AccountFormProps {
   onCancel: () => void
   onDelete?: () => Promise<void>
   onUnsavedStateChange?: (dirty: boolean, actions: UnsavedFormActions | null) => void
+  onRequestNavigation?: (action: () => void) => void
 }
 
 export interface UnsavedFormActions {
@@ -426,30 +427,17 @@ const AUTHENTICATOR_APP_OPTIONS = [
 const checkboxClassName =
   'h-5 w-5 shrink-0 cursor-pointer rounded-md border border-black/15 bg-white accent-slate-950 shadow-sm transition-transform duration-150 checked:scale-105 focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
 
-const TWO_FACTOR_LABELS: Record<TwoFactorType, string> = {
-  NONE: 'Ninguno',
-  PIN: 'PIN',
-  TOTP: 'App Authenticator (TOTP)',
-  SMS: 'SMS',
-}
-
 function getTwoFactorConfig(value: Account['twoFactorAuth']): TwoFactorConfig {
-  if (!value) return { type: 'NONE', pin: null, secret: null, authenticatorApp: null }
-  if (typeof value === 'string') return { type: 'TOTP', secret: value, pin: null, authenticatorApp: null }
+  if (!value) return { id: 'legacy', type: 'NONE', pin: null, secret: null, authenticatorApp: null, phone: null }
+  if (typeof value === 'string') return { id: 'legacy', type: 'TOTP', secret: value, pin: null, authenticatorApp: null, phone: null }
   return {
+    id: value.id || 'legacy',
     type: value.type,
     pin: value.pin ?? null,
     secret: value.secret ?? null,
     authenticatorApp: value.authenticatorApp ?? null,
+    phone: value.phone ?? null,
   }
-}
-
-function twoFactorDisplay(value: Account['twoFactorAuth']): string | null {
-  const config = getTwoFactorConfig(value)
-  if (config.type === 'NONE') return null
-  if (config.type === 'PIN') return config.pin ? `PIN: ${config.pin}` : 'PIN'
-  if (config.type === 'TOTP') return config.authenticatorApp ? `${config.authenticatorApp} · Clave guardada` : 'App Authenticator'
-  return 'SMS'
 }
 
 function passwordValue(account: Account): string {
@@ -464,6 +452,7 @@ export function AccountForm({
   onCancel,
   onDelete,
   onUnsavedStateChange,
+  onRequestNavigation,
 }: AccountFormProps) {
   const [account, setAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
   const [baselineAccount, setBaselineAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
@@ -525,13 +514,13 @@ export function AccountForm({
       } else if (e.key === 'Escape') {
         e.preventDefault()
         if (showDeleteModal) setShowDeleteModal(false)
-        else if (isEditing) handleCancelEdit()
+        else if (isEditing) handleCancelClick()
         else onCancel()
       }
     }
     window.addEventListener('keydown', handleKeyDown)
     return () => window.removeEventListener('keydown', handleKeyDown)
-  }, [isEditing, showDeleteModal])
+  }, [isEditing, showDeleteModal, account, baselineAccount, platformQuery])
 
   const handleCancelEdit = () => {
     onUnsavedStateChange?.(false, null)
@@ -542,6 +531,26 @@ export function AccountForm({
       setPasswordEnabled(baselineAccount.accessMethods.some((method) => method.type === 'PASSWORD'))
       setIsEditing(false)
       setError(null)
+    }
+  }
+
+  const handleCancelClick = () => {
+    const cancelAction = () => {
+      onUnsavedStateChange?.(false, null)
+      if (mode === 'create') {
+        onCancel()
+      } else {
+        setAccount(baselineAccount)
+        setPasswordEnabled(baselineAccount.accessMethods.some((method) => method.type === 'PASSWORD'))
+        setIsEditing(false)
+        setError(null)
+      }
+    }
+
+    if (isDirty && onRequestNavigation) {
+      onRequestNavigation(cancelAction)
+    } else {
+      cancelAction()
     }
   }
 
@@ -570,7 +579,7 @@ export function AccountForm({
         birthDate: null,
         accountCreatedAt: null,
         linkedPhone: null,
-        twoFactorAuth: { type: 'NONE', pin: null, secret: null, authenticatorApp: null },
+        twoFactorAuth: null,
         notes: undefined,
         apiKeys: [],
         recoveryCodes: undefined,
@@ -809,7 +818,6 @@ export function AccountForm({
   }, [isDirty, account, baselineAccount])
 
   const apiKeys = account.apiKeys ?? []
-  const twoFactorConfig = getTwoFactorConfig(account.twoFactorAuth)
   const passwordMethod = account.accessMethods.find((method) => method.type === 'PASSWORD')
   const passkeyEnabled = account.accessMethods.some((method) => method.type === 'PASSKEY')
   const magicLinkMethod = account.accessMethods.find((method) => method.type === 'MAGIC_LINK')
@@ -856,19 +864,42 @@ export function AccountForm({
     }))
   }
 
-  const updateTwoFactorType = (type: TwoFactorType) => {
-    const current = getTwoFactorConfig(account.twoFactorAuth)
-    updateField(
-      'twoFactorAuth',
-      type === 'NONE'
-        ? { ...current, type: 'NONE' }
-        : { ...current, type },
-    )
+  const addTwoFactorConfig = (type: TwoFactorType) => {
+    const list = account.twoFactorAuths || []
+    const newConfig: TwoFactorConfig = {
+      id: crypto.randomUUID(),
+      type,
+      pin: type === 'PIN' ? '' : null,
+      secret: type === 'TOTP' ? '' : null,
+      authenticatorApp: type === 'TOTP' ? '' : null,
+      phone: type === 'SMS' ? '' : null,
+    }
+    const nextList = [...list, newConfig]
+    setAccount((prev) => ({
+      ...prev,
+      twoFactorAuths: nextList,
+      twoFactorAuth: nextList[0] || { type: 'NONE', pin: null, secret: null, authenticatorApp: null },
+    }))
   }
 
-  const updateTwoFactorDetail = (field: 'pin' | 'secret' | 'authenticatorApp', value: string) => {
-    const next = { ...getTwoFactorConfig(account.twoFactorAuth), [field]: value }
-    updateField('twoFactorAuth', next)
+  const removeTwoFactorConfig = (id: string) => {
+    const list = account.twoFactorAuths || []
+    const nextList = list.filter(c => c.id !== id)
+    setAccount((prev) => ({
+      ...prev,
+      twoFactorAuths: nextList,
+      twoFactorAuth: nextList[0] || { type: 'NONE', pin: null, secret: null, authenticatorApp: null },
+    }))
+  }
+
+  const updateTwoFactorConfigDetail = (id: string, field: keyof TwoFactorConfig, value: any) => {
+    const list = account.twoFactorAuths || []
+    const nextList = list.map(c => c.id === id ? { ...c, [field]: value } : c)
+    setAccount((prev) => ({
+      ...prev,
+      twoFactorAuths: nextList,
+      twoFactorAuth: nextList[0] || { type: 'NONE', pin: null, secret: null, authenticatorApp: null },
+    }))
   }
 
   const updateSsoEmail = (email: string) => {
@@ -931,28 +962,50 @@ export function AccountForm({
           {account.hardwareKey && <ReadOnlyField label="Llave Física (YubiKey)" value="Activada" />}
         </div>
 
-        {(twoFactorDisplay(account.twoFactorAuth) || apiKeys.length > 0) && (
-          <div className="space-y-3 pt-2">
-            <div className="px-1">
-              <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary">Seguridad avanzada</h3>
-              <p className="mt-1 text-xs text-text-secondary">Los factores extra y secretos técnicos se presentan como activos protegidos, más claros y más fáciles de revisar.</p>
-            </div>
-            <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-              {twoFactorDisplay(account.twoFactorAuth) && (
-                <SecuritySummaryCard
-                  eyebrow="2FA"
-                  title={twoFactorConfig.type === 'TOTP' ? (twoFactorConfig.authenticatorApp || 'Authenticator configurado') : twoFactorDisplay(account.twoFactorAuth) || 'Segundo factor'}
-                  description={
-                    twoFactorConfig.type === 'TOTP'
-                      ? 'La app de autenticación y su clave manual quedan agrupadas en una ficha segura y legible.'
-                      : twoFactorConfig.type === 'SMS'
-                        ? 'El segundo factor depende del teléfono vinculado a esta cuenta.'
-                        : 'Protección adicional guardada junto a la plataforma.'
+        {(() => {
+          const list2FA = (account.twoFactorAuths && account.twoFactorAuths.length > 0)
+            ? account.twoFactorAuths
+            : (() => {
+                const legacy = getTwoFactorConfig(account.twoFactorAuth)
+                return legacy.type !== 'NONE' ? [{ ...legacy, phone: null }] : []
+              })()
+          
+          return (list2FA.length > 0 || apiKeys.length > 0) && (
+            <div className="space-y-3 pt-2">
+              <div className="px-1">
+                <h3 className="text-xs font-bold uppercase tracking-wider text-text-tertiary">Seguridad avanzada</h3>
+                <p className="mt-1 text-xs text-text-secondary">Los factores extra y secretos técnicos se presentan como activos protegidos, más claros y más fáciles de revisar.</p>
+              </div>
+              <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+                {list2FA.map((cfg) => {
+                  let displayTitle = 'Segundo factor'
+                  let displayDescription = ''
+                  let displaySecret = null
+                  if (cfg.type === 'TOTP') {
+                    displayTitle = cfg.authenticatorApp || 'Authenticator configurado'
+                    displayDescription = 'La app de autenticación y su clave manual quedan agrupadas en una ficha segura y legible.'
+                    displaySecret = cfg.secret
+                  } else if (cfg.type === 'SMS') {
+                    displayTitle = 'SMS de Respaldo'
+                    displayDescription = `El segundo factor depende del teléfono vinculado: ${cfg.phone || 'No especificado'}.`
+                    displaySecret = cfg.phone
+                  } else if (cfg.type === 'PIN') {
+                    displayTitle = 'PIN de Seguridad'
+                    displayDescription = 'PIN de seguridad configurado.'
+                    displaySecret = cfg.pin
                   }
-                  secret={twoFactorConfig.type === 'TOTP' ? twoFactorConfig.secret : twoFactorConfig.type === 'PIN' ? twoFactorConfig.pin : null}
-                  actionLabel={twoFactorConfig.type === 'TOTP' ? 'Authenticator' : 'Protegido'}
-                />
-              )}
+                  
+                  return (
+                    <SecuritySummaryCard
+                      key={cfg.id}
+                      eyebrow="2FA"
+                      title={displayTitle}
+                      description={displayDescription}
+                      secret={displaySecret}
+                      actionLabel={cfg.type === 'TOTP' ? 'Authenticator' : cfg.type === 'SMS' ? 'SMS' : 'PIN'}
+                    />
+                  )
+                })}
               {apiKeys.length > 0 && (
                 <div className="space-y-3 rounded-[24px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/90 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
                   <div className="flex items-start justify-between gap-3">
@@ -981,7 +1034,7 @@ export function AccountForm({
               )}
             </div>
           </div>
-        )}
+        ) })()}
         {account.recoveryCodes && (
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold text-text-tertiary px-1 uppercase tracking-wider">Códigos de Recuperación</h3>
@@ -1011,7 +1064,7 @@ export function AccountForm({
       {/* Sticky Header — Modo Edición */}
       <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
         <div className="flex items-center gap-3 min-w-0">
-          <button type="button" onClick={handleCancelEdit} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
+          <button type="button" onClick={handleCancelClick} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
@@ -1203,6 +1256,103 @@ export function AccountForm({
             Llave física de seguridad (FIDO2 / YubiKey)
           </label>
         </div>
+
+        {/* Segundos Factores (2FA) */}
+        <div className="space-y-4 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <span className="block text-sm font-semibold text-text-primary">Segundos factores (2FA)</span>
+              <p className="mt-1 text-xs text-text-secondary">Configura tus llaves OTP, PINs o SMS de verificación.</p>
+            </div>
+            {/* Botón para añadir un factor */}
+            <div className="relative inline-block text-left">
+              <select
+                value=""
+                onChange={(e) => {
+                  if (e.target.value) {
+                    addTwoFactorConfig(e.target.value as TwoFactorType)
+                    e.target.value = ''
+                  }
+                }}
+                className="rounded-lg border border-black/5 bg-surface px-3 py-1.5 text-xs font-bold text-text-primary transition-colors hover:bg-surface-hover outline-none cursor-pointer"
+              >
+                <option value="" disabled>+ Añadir 2FA</option>
+                <option value="TOTP">App Autenticadora (TOTP)</option>
+                <option value="PIN">PIN de Seguridad</option>
+                <option value="SMS">SMS de Respaldo</option>
+              </select>
+            </div>
+          </div>
+
+          {/* List of configured 2FA methods */}
+          <div className="space-y-3">
+            {(account.twoFactorAuths || []).length === 0 ? (
+              <p className="text-xs text-text-tertiary italic text-center py-2">Ningún segundo factor configurado.</p>
+            ) : (
+              (account.twoFactorAuths || []).map((cfg) => (
+                <div key={cfg.id} className="relative rounded-xl border border-black/[0.05] bg-white p-4 shadow-sm space-y-3">
+                  <div className="flex items-center justify-between border-b border-black/[0.03] pb-2">
+                    <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">
+                      {cfg.type === 'TOTP' && '🔒 App Autenticadora (TOTP)'}
+                      {cfg.type === 'PIN' && '🔑 PIN de Seguridad'}
+                      {cfg.type === 'SMS' && '📱 SMS de Respaldo'}
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => removeTwoFactorConfig(cfg.id)}
+                      className="text-xs font-semibold text-red-600 hover:text-red-800 transition-colors"
+                    >
+                      Eliminar
+                    </button>
+                  </div>
+
+                  {cfg.type === 'PIN' && (
+                    <FormField
+                      label="PIN"
+                      type="password"
+                      inputMode="numeric"
+                      value={cfg.pin ?? ''}
+                      onChange={(e) => updateTwoFactorConfigDetail(cfg.id, 'pin', e.target.value)}
+                      placeholder="Introduce tu PIN"
+                      autoComplete="off"
+                    />
+                  )}
+
+                  {cfg.type === 'SMS' && (
+                    <FormField
+                      label="Número de Teléfono"
+                      type="tel"
+                      value={cfg.phone ?? ''}
+                      onChange={(e) => updateTwoFactorConfigDetail(cfg.id, 'phone', e.target.value)}
+                      placeholder="+34 600 000 000"
+                      autoComplete="off"
+                    />
+                  )}
+
+                  {cfg.type === 'TOTP' && (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                      <Combobox
+                        label="¿Qué app de autenticación usas?"
+                        value={cfg.authenticatorApp ?? ''}
+                        options={AUTHENTICATOR_APP_OPTIONS}
+                        onChange={(value) => updateTwoFactorConfigDetail(cfg.id, 'authenticatorApp', value)}
+                        placeholder="Google Authenticator, Authy..."
+                        createLabel={(input) => `Usar "${input}"`}
+                      />
+                      <FormField
+                        label="Clave de configuración (Secreto)"
+                        value={cfg.secret ?? ''}
+                        onChange={(e) => updateTwoFactorConfigDetail(cfg.id, 'secret', e.target.value)}
+                        placeholder="Secreto TOTP (Base32)"
+                        autoComplete="off"
+                      />
+                    </div>
+                  )}
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </section>
 
       <section className="rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
@@ -1260,83 +1410,6 @@ export function AccountForm({
             placeholder="+34 600 000 000"
             autoComplete="off"
           />
-          <div className="rounded-[22px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/85 p-4 sm:col-span-2">
-            <div className="mb-4 flex flex-col gap-1 sm:flex-row sm:items-end sm:justify-between">
-              <div>
-                <span className="block text-sm font-semibold text-text-secondary">2FA / Segundo factor</span>
-                <p className="mt-1 text-xs leading-relaxed text-text-tertiary">Agrupa aquí tu app de autenticación, PIN o SMS de respaldo con una presentación más limpia y profesional.</p>
-              </div>
-              <span className="inline-flex w-fit rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">
-                {TWO_FACTOR_LABELS[twoFactorConfig.type]}
-              </span>
-            </div>
-            <select
-              value={twoFactorConfig.type}
-              onChange={(event) => updateTwoFactorType(event.target.value as TwoFactorType)}
-              className="min-h-11 w-full rounded-xl border border-black/[0.06] bg-white/90 px-3 py-2.5 text-base text-text-primary shadow-[0_8px_24px_rgba(0,0,0,0.025)] outline-none transition-all duration-150 focus:border-black/15 focus:bg-white focus:ring-2 focus:ring-black/[0.035]"
-            >
-              {(['NONE', 'PIN', 'TOTP', 'SMS'] as TwoFactorType[]).map((type) => (
-                <option key={type} value={type}>{TWO_FACTOR_LABELS[type]}</option>
-              ))}
-            </select>
-          </div>
-        </div>
-
-        <div className={`grid transition-all duration-200 ${twoFactorConfig.type === 'PIN' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-          <div className="overflow-hidden">
-            {twoFactorConfig.type === 'PIN' && (
-              <FormField
-                label="PIN"
-                type="password"
-                inputMode="numeric"
-                value={twoFactorConfig.pin ?? ''}
-                onChange={(e) => updateTwoFactorDetail('pin', e.target.value)}
-                placeholder="PIN de seguridad"
-                autoComplete="off"
-              />
-            )}
-          </div>
-        </div>
-        <div className={`grid transition-all duration-200 ${twoFactorConfig.type === 'TOTP' ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-          <div className="overflow-hidden">
-            {twoFactorConfig.type === 'TOTP' && (
-              <div className="mt-4 rounded-[22px] border border-emerald-100 bg-emerald-50/70 p-4">
-                <div className="mb-4 flex items-start gap-3">
-                  <div className="flex h-11 w-11 items-center justify-center rounded-2xl bg-white shadow-sm">
-                    <svg className="h-5 w-5 text-emerald-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6l4 2m5-2a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-text-primary">Authenticator configurado con respaldo manual</p>
-                    <p className="mt-1 text-xs leading-relaxed text-text-secondary">Guarda la app que usas y la clave larga que entrega la web para poder restaurar el 2FA sin depender solo del QR.</p>
-                  </div>
-                </div>
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Combobox
-                  label="¿Qué app de autenticación usas?"
-                  value={twoFactorConfig.authenticatorApp ?? ''}
-                  options={AUTHENTICATOR_APP_OPTIONS}
-                  onChange={(value) => updateTwoFactorDetail('authenticatorApp', value)}
-                  placeholder="Google Authenticator, Authy..."
-                  createLabel={(input) => `Usar "${input}"`}
-                />
-                <div>
-                  <FormField
-                    label="Clave de configuración"
-                    value={twoFactorConfig.secret ?? ''}
-                    onChange={(e) => updateTwoFactorDetail('secret', e.target.value)}
-                    placeholder="Texto largo proporcionado por la web"
-                    autoComplete="off"
-                  />
-                  <p className="mt-1.5 rounded-xl border border-blue-100 bg-blue-50 px-3 py-2 text-[11px] font-medium leading-relaxed text-blue-900">
-                    La web suele mostrarla al configurar 2FA, cerca del QR. Si solo ves un QR, busca la opción “introducir clave manualmente”.
-                  </p>
-                </div>
-              </div>
-              </div>
-            )}
-          </div>
         </div>
 
         <FormTextarea

@@ -21,6 +21,8 @@ export interface CustomFieldEntry {
   key: string
   value: string
   protected?: boolean
+  type?: 'text' | 'password' | 'textarea' | 'select'
+  options?: string[]
 }
 
 export interface PasswordHistoryEntry {
@@ -39,10 +41,12 @@ export type TwoFactorType = 'NONE' | 'PIN' | 'TOTP' | 'SMS'
 export type WifiSecurityType = 'WPA2' | 'WPA3' | 'WEP' | 'OPEN' | 'OTHER'
 
 export interface TwoFactorConfig {
+  id: string
   type: TwoFactorType
   pin?: string | null
   secret?: string | null
   authenticatorApp?: string | null
+  phone?: string | null
 }
 
 export interface PasswordAccessMethod {
@@ -85,6 +89,7 @@ export interface BaseVaultItem {
   updatedAt: string
   isLocalOnly?: boolean
   sensitive?: boolean
+  customFields?: CustomFieldEntry[]
 }
 
 export type VaultDiffStatus = 'added' | 'modified' | 'deleted' | 'conflict'
@@ -129,6 +134,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   accountCreatedAt: string | null
   linkedPhone: string | null
   twoFactorAuth: TwoFactorConfig | string | null
+  twoFactorAuths?: TwoFactorConfig[]
   notes?: string
   apiKeys?: ApiKeyEntry[]
   recoveryCodes?: string

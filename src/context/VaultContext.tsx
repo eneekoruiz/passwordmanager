@@ -16,6 +16,9 @@ import {
   signOut,
   createUserWithEmailAndPassword,
   signInWithEmailAndPassword,
+  setPersistence,
+  browserLocalPersistence,
+  sendPasswordResetEmail,
   type Auth,
   type User,
 } from 'firebase/auth'
@@ -90,6 +93,7 @@ interface VaultContextValue {
   loginWithGoogleCloud: () => Promise<void>
   loginWithEmailAndPassword: (email: string, password: string) => Promise<void>
   registerWithEmailAndPassword: (email: string, password: string) => Promise<void>
+  sendCloudPasswordResetEmail: (email: string) => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: (silent?: boolean) => Promise<CloudSyncResult>
   downloadLatestCloudVault: (resolutions?: Record<string, 'local' | 'cloud'>) => Promise<CloudSyncResult>
@@ -289,13 +293,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
+    const defaultBioRegistered = localStorage.getItem('contras.biometricRegistered.default') === 'true'
+    const defaultHwRegistered = localStorage.getItem('contras.hardwareKeyRegistered.default') === 'true'
     void Promise.all([
       listProfiles(),
       storeRef.current.hasBiometricBundle('default').then((registered) => {
-        if (mounted) setBiometricRegistered(registered)
+        if (mounted) setBiometricRegistered(defaultBioRegistered && registered)
       }),
       storeRef.current.hasHardwareKeyBundle('default').then((registered) => {
-        if (mounted) setHardwareKeyRegistered(registered)
+        if (mounted) setHardwareKeyRegistered(defaultHwRegistered && registered)
       }),
     ]).finally(() => {
       if (mounted) setIsReady(true)
@@ -956,10 +962,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider()
     provider.setCustomParameters({ prompt: 'select_account' })
 
-    // Fase 1: identidad pura. Esta línea debe ejecutarse directamente desde
-    // el onClick del botón; no debe mezclarse con contraseña maestra ni
-    // comprobaciones asíncronas previas que rompan el user gesture de Safari.
-    return signInWithPopup(authClient, provider)
+    // Force persistence before popup
+    return setPersistence(authClient, browserLocalPersistence)
+      .then(() => signInWithPopup(authClient, provider))
       .then(async (credential) => {
         firebaseUserRef.current = credential.user
         setCloudSyncStatus('syncing')
@@ -1012,6 +1017,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const { authClient, dbClient } = getFirebaseClients()
       setCloudSyncStatus('syncing')
       try {
+        await setPersistence(authClient, browserLocalPersistence)
         const credential = await signInWithEmailAndPassword(authClient, email, password)
         firebaseUserRef.current = credential.user
         setCloudUserEmail(credential.user.email ?? email)
@@ -1041,6 +1047,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       const { authClient } = getFirebaseClients()
       setCloudSyncStatus('syncing')
       try {
+        await setPersistence(authClient, browserLocalPersistence)
         const credential = await createUserWithEmailAndPassword(authClient, email, password)
         firebaseUserRef.current = credential.user
         setCloudUserEmail(credential.user.email ?? email)
@@ -1050,6 +1057,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setCloudSyncStatus('error')
         throw authError
       }
+    },
+    [],
+  )
+
+  const sendCloudPasswordResetEmail = useCallback(
+    async (email: string): Promise<void> => {
+      const { authClient } = getFirebaseClients()
+      await sendPasswordResetEmail(authClient, email)
     },
     [],
   )
@@ -1190,8 +1205,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setIsUnlocked(true)
           await loadVaultDataForProfile(profileId)
           setCloudSyncStatus('idle')
-          // Check if biometric is registered for this profile
-          void storeRef.current.hasBiometricBundle(profileId).then(setBiometricRegistered)
+          // Check if biometric/hardware key is registered for this profile locally
+          const bioReg = localStorage.getItem(`contras.biometricRegistered.${profileId}`) === 'true'
+          void storeRef.current.hasBiometricBundle(profileId).then((hasBundle) => {
+            setBiometricRegistered(bioReg && hasBundle)
+          })
+          const hwReg = localStorage.getItem(`contras.hardwareKeyRegistered.${profileId}`) === 'true'
+          void storeRef.current.hasHardwareKeyBundle(profileId).then((hasBundle) => {
+            setHardwareKeyRegistered(hwReg && hasBundle)
+          })
           triggerCloudSync()
           return
         }
@@ -1268,6 +1290,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudUserEmail,
     )
     await storeRef.current.saveBiometricBundle(bundle)
+    localStorage.setItem(`contras.biometricRegistered.${currentProfileId}`, 'true')
     setBiometricRegistered(true)
   }, [currentProfileId, cloudUserEmail])
 
@@ -1291,6 +1314,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       cloudUserEmail,
     )
     await storeRef.current.saveHardwareKeyBundle(bundle)
+    localStorage.setItem(`contras.hardwareKeyRegistered.${currentProfileId}`, 'true')
     setHardwareKeyRegistered(true)
   }, [currentProfileId, cloudUserEmail])
 
@@ -1309,6 +1333,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (biometricAvailable && biometricRegistered) {
       const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
       if (!bundle) {
+        localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
         setBiometricRegistered(false)
         throw new Error('La credencial biométrica ya no está disponible. Vuelve a activarla en Ajustes.')
       }
@@ -1324,6 +1349,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (hardwareKeyAvailable && hardwareKeyRegistered) {
       const bundle = await storeRef.current.loadHardwareKeyBundle(currentProfileId)
       if (!bundle) {
+        localStorage.removeItem(`contras.hardwareKeyRegistered.${currentProfileId}`)
         setHardwareKeyRegistered(false)
         throw new Error('La llave de seguridad ya no está disponible. Vuelve a activarla en Ajustes.')
       }
@@ -1341,12 +1367,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return
     await storeRef.current.deleteBiometricBundle(currentProfileId)
+    localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
     setBiometricRegistered(false)
   }, [currentProfileId])
 
   const disableHardwareKeyUnlock = useCallback(async () => {
     if (!currentProfileId) return
     await storeRef.current.deleteHardwareKeyBundle(currentProfileId)
+    localStorage.removeItem(`contras.hardwareKeyRegistered.${currentProfileId}`)
     setHardwareKeyRegistered(false)
   }, [currentProfileId])
 
@@ -1498,6 +1526,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       loginWithGoogleCloud,
       loginWithEmailAndPassword,
       registerWithEmailAndPassword,
+      sendCloudPasswordResetEmail,
       logoutCloud,
       syncActiveProfileToCloud,
       downloadLatestCloudVault,
@@ -1551,6 +1580,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       loginWithGoogleCloud,
       loginWithEmailAndPassword,
       registerWithEmailAndPassword,
+      sendCloudPasswordResetEmail,
       logoutCloud,
       logoutProfile,
       profiles,

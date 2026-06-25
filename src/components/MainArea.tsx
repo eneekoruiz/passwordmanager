@@ -602,6 +602,8 @@ export function MainArea({
               resetView()
             }}
             onCancel={resetView}
+            onUnsavedStateChange={onUnsavedStateChange}
+            onRequestNavigation={onRequestNavigation}
           />
         )}
 
@@ -613,6 +615,8 @@ export function MainArea({
               resetView()
             }}
             onCancel={resetView}
+            onUnsavedStateChange={onUnsavedStateChange}
+            onRequestNavigation={onRequestNavigation}
             onDelete={async () => {
               await onDeleteLocalItem(editingLocalItem.id)
               resetView()

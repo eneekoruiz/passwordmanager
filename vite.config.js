@@ -15,6 +15,22 @@ export default defineConfig({
         skipWaiting: true,
         maximumFileSizeToCacheInBytes: 4 * 1024 * 1024,
         navigateFallbackDenylist: [/^\/__/],
+        runtimeCaching: [
+          {
+            urlPattern: /^https:\/\/(?:logo\.clearbit\.com|t3\.gstatic\.com|icons\.duckduckgo\.com|www\.google\.com)\/.*$/,
+            handler: 'CacheFirst',
+            options: {
+              cacheName: 'platform-logos',
+              expiration: {
+                maxEntries: 1000,
+                maxAgeSeconds: 30 * 24 * 60 * 60, // 30 days
+              },
+              cacheableResponse: {
+                statuses: [0, 200],
+              },
+            },
+          },
+        ],
       },
     })
   ],

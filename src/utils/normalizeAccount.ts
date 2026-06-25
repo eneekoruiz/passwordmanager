@@ -41,20 +41,25 @@ function normalizeTwoFactor(twoFactorAuth: Account['twoFactorAuth']): TwoFactorC
   if (typeof twoFactorAuth === 'string') {
     const value = twoFactorAuth.trim()
     if (!value) return null
-    return { type: 'TOTP', secret: value, authenticatorApp: null }
+    return { id: crypto.randomUUID(), type: 'TOTP', secret: value, authenticatorApp: null, phone: null }
   }
+
+  const id = (twoFactorAuth as any).id || crypto.randomUUID()
 
   if (twoFactorAuth.type === 'NONE') return null
   if (twoFactorAuth.type === 'PIN') {
     const pin = twoFactorAuth.pin?.trim() || null
-    return pin ? { type: 'PIN', pin } : null
+    return pin ? { id, type: 'PIN', pin, phone: null } : null
   }
   if (twoFactorAuth.type === 'TOTP') {
     const secret = twoFactorAuth.secret?.trim() || null
     const authenticatorApp = twoFactorAuth.authenticatorApp?.trim() || null
-    return secret ? { type: 'TOTP', secret, authenticatorApp } : null
+    return secret ? { id, type: 'TOTP', secret, authenticatorApp, phone: null } : null
   }
-  if (twoFactorAuth.type === 'SMS') return { type: 'SMS' }
+  if (twoFactorAuth.type === 'SMS') {
+    const phone = twoFactorAuth.phone?.trim() || null
+    return { id, type: 'SMS', phone }
+  }
 
   return null
 }
@@ -78,6 +83,8 @@ export function normalizeAccount(account: Account): Account {
         key: field.key.trim(),
         value: field.value.trim(),
         protected: Boolean(field.protected),
+        type: (field as any).type || undefined,
+        options: (field as any).options || undefined,
       })) ?? []
 
   const passwordHistory: PasswordHistoryEntry[] =
@@ -90,6 +97,37 @@ export function normalizeAccount(account: Account): Account {
       }))
       .slice(-10) ?? []
 
+  let normalized2FAs: TwoFactorConfig[] = []
+  if (Array.isArray(account.twoFactorAuths)) {
+    normalized2FAs = account.twoFactorAuths
+      .map((cfg): TwoFactorConfig | null => {
+        if (!cfg || cfg.type === 'NONE') return null
+        const id = cfg.id || crypto.randomUUID()
+        if (cfg.type === 'PIN') {
+          const pin = cfg.pin?.trim() || null
+          return pin ? { id, type: 'PIN', pin, phone: null } : null
+        }
+        if (cfg.type === 'TOTP') {
+          const secret = cfg.secret?.trim() || null
+          const authenticatorApp = cfg.authenticatorApp?.trim() || null
+          return secret ? { id, type: 'TOTP', secret, authenticatorApp, phone: null } : null
+        }
+        if (cfg.type === 'SMS') {
+          const phone = cfg.phone?.trim() || null
+          return { id, type: 'SMS', phone }
+        }
+        return null
+      })
+      .filter((cfg): cfg is TwoFactorConfig => cfg !== null)
+  } else if (account.twoFactorAuth) {
+    const legacy = normalizeTwoFactor(account.twoFactorAuth)
+    if (legacy) {
+      normalized2FAs = [legacy]
+    }
+  }
+
+  const primary2FA = normalized2FAs[0] || null
+
   return {
     ...account,
     title: (account.title || account.name).trim(),
@@ -101,7 +139,8 @@ export function normalizeAccount(account: Account): Account {
     birthDate: account.birthDate?.trim() || null,
     accountCreatedAt: account.accountCreatedAt?.trim() || null,
     linkedPhone: account.linkedPhone?.trim() || null,
-    twoFactorAuth: normalizeTwoFactor(account.twoFactorAuth),
+    twoFactorAuth: primary2FA,
+    twoFactorAuths: normalized2FAs,
     notes: account.notes?.trim() || undefined,
     recoveryCodes: account.recoveryCodes?.trim() || undefined,
     apiKeys: apiKeys.length > 0 ? apiKeys : undefined,

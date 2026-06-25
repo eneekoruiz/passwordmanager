@@ -93,6 +93,18 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
   const categoryId = item.categoryId ?? item.type
   const categoryLabel = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
 
+  const customFields =
+    item.customFields
+      ?.filter((field) => field.key.trim() || field.value.trim())
+      .map((field) => ({
+        id: field.id || crypto.randomUUID(),
+        key: field.key.trim(),
+        value: field.value.trim(),
+        protected: Boolean(field.protected),
+        type: field.type || undefined,
+        options: field.options || undefined,
+      })) ?? []
+
   switch (item.type) {
     case 'WIFI':
       return {
@@ -103,6 +115,7 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         ssid: item.ssid.trim(),
         password: item.password?.trim() || null,
         securityType: item.securityType || 'WPA2',
+        customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
     case 'SOFTWARE_LICENSE':
@@ -113,6 +126,7 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         title: (item.title || item.softwareName || 'Licencia').trim(),
         softwareName: item.softwareName.trim(),
         licenseKey: item.licenseKey.trim(),
+        customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
     case 'FINANCE':
@@ -125,6 +139,7 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         pin: item.pin?.trim() || null,
         cvv: item.cvv?.trim() || null,
         expiry: item.expiry?.trim() || null,
+        customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
     case 'SECURE_NOTE':
@@ -134,6 +149,7 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         categoryLabel,
         title: (item.title || 'Nota segura').trim(),
         markdown: item.markdown.trim(),
+        customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
   }
