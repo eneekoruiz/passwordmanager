@@ -70,13 +70,14 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
     setHasError(false)
-    // Usamos Google Favicons directamente como primario porque es muy robusto
-    setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
+    // Usamos icon.horse como primario porque ofrece logos de muy alta calidad y maneja bien los fallbacks
+    setSrc(`https://icon.horse/icon/${domain}`)
   }, [name, domain])
 
   const handleImageError = () => {
-    if (src === `https://www.google.com/s2/favicons?domain=${domain}&sz=128`) {
-      setSrc(`https://icons.duckduckgo.com/ip3/${domain}.ico`)
+    if (src === `https://icon.horse/icon/${domain}`) {
+      // Fallback a Google Favicons si icon.horse falla o el dominio no es válido
+      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
     } else {
       setHasError(true)
     }
