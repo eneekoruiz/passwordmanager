@@ -70,13 +70,16 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
     setHasError(false)
-    // Usamos icon.horse como primario porque ofrece logos de muy alta calidad y maneja bien los fallbacks
-    setSrc(`https://icon.horse/icon/${domain}`)
+    // Usamos clearbit como primario por su altísima calidad de vector/png
+    setSrc(`https://logo.clearbit.com/${domain}?size=128`)
   }, [name, domain])
 
   const handleImageError = () => {
-    if (src === `https://icon.horse/icon/${domain}`) {
-      // Fallback a Google Favicons si icon.horse falla o el dominio no es válido
+    if (src.includes('clearbit.com')) {
+      // Fallback 1: icon.horse
+      setSrc(`https://icon.horse/icon/${domain}`)
+    } else if (src.includes('icon.horse')) {
+      // Fallback 2: Google Favicons
       setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
     } else {
       setHasError(true)

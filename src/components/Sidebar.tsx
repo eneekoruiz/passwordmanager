@@ -349,8 +349,8 @@ export const Sidebar = memo(function Sidebar({
                 {sidebarError}
               </div>
             )}
-            <div className="mb-3 grid grid-cols-2 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
-              {(['identity', 'platform'] as VaultGroupMode[]).map((mode) => (
+            <div className="mb-3 grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+              {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
                 <button
                   key={mode}
                   type="button"
@@ -361,7 +361,7 @@ export const Sidebar = memo(function Sidebar({
                       : 'text-text-secondary hover:bg-surface-hover'
                   }`}
                 >
-                  {mode === 'identity' ? 'Identidad' : 'Plataforma'}
+                  {mode === 'identity' ? 'Identidad' : mode === 'platform' ? 'Plataforma' : 'Locales'}
                 </button>
               ))}
             </div>
@@ -447,9 +447,11 @@ export const Sidebar = memo(function Sidebar({
             </div>
           ) : (
             <>
-              <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                {groupMode === 'identity' ? 'Identidades Cloud' : 'Plataformas Cloud'}
-              </div>
+              {groupMode !== 'local' && (
+                <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                  {groupMode === 'identity' ? 'Identidades Cloud' : 'Plataformas Cloud'}
+                </div>
+              )}
               {groupMode === 'platform' ? (
                 platformSummaries.length === 0 ? (
                   <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay plataformas.</p>
@@ -479,132 +481,137 @@ export const Sidebar = memo(function Sidebar({
                     })}
                   </ul>
                 )
-              ) : visibleIdentities.length === 0 ? (
-                <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
-              ) : (
-                <ul className="space-y-0.5 animate-vault-morph">
-                  {visibleIdentities.map((identity) => {
-                    const selected = identity.id === selectedId
-                    return (
-                      <li key={identity.id}>
-                        <div
-                          className={`group flex items-center rounded-lg transition-colors ${
-                            selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                          }`}
-                        >
-                          <button
-                            type="button"
-                            onClick={() => onSelect(identity.id)}
-                            className="min-w-0 flex-1 px-3 py-2.5 text-left"
+              ) : groupMode === 'identity' ? (
+                visibleIdentities.length === 0 ? (
+                  <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
+                ) : (
+                  <ul className="space-y-0.5 animate-vault-morph">
+                    {visibleIdentities.map((identity) => {
+                      const selected = identity.id === selectedId
+                      return (
+                        <li key={identity.id}>
+                          <div
+                            className={`group flex items-center rounded-lg transition-colors ${
+                              selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+                            }`}
                           >
-                            <span className="block truncate text-[15px] font-semibold text-text-primary/95">
-                              {identity.email}
-                            </span>
-                            {(identity?.platforms || []).length > 0 ? (
-                              <span className="mt-2 flex items-center gap-2">
-                                <span className="flex -space-x-2">
-                                  {(identity?.platforms || []).slice(0, 3).map((platform) => (
-                                    <PlatformLogo
-                                      key={`${identity.id}-${platform.id}`}
-                                      name={platform.name}
-                                      className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
-                                    />
-                                  ))}
-                                </span>
-                                <span className="truncate text-[11px] font-medium text-text-tertiary">
-                                  {(identity?.platforms || [])
-                                    .slice(0, 2)
-                                    .map((platform) => platform.name)
-                                    .join(' · ')}
-                                  {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
-                                </span>
-                              </span>
-                            ) : (
-                              <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
-                                Aún no hay plataformas vinculadas
-                              </span>
-                            )}
-                          </button>
-                          <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
-                            {(identity?.platforms || []).length}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() =>
-                              setPendingDeleteIdentityId(
-                                pendingDeleteIdentityId === identity.id ? null : identity.id,
-                              )
-                            }
-                            className="mr-1 rounded-md p-1.5 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
-                            aria-label="Eliminar identidad"
-                          >
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                            </svg>
-                          </button>
-                        </div>
-
-                        {pendingDeleteIdentityId === identity.id && (
-                          <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
-                            <p>Se eliminara la identidad y sus plataformas.</p>
                             <button
                               type="button"
-                              onClick={() => {
-                                void onDeleteIdentity(identity.id)
-                                setPendingDeleteIdentityId(null)
-                              }}
-                              className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white"
+                              onClick={() => onSelect(identity.id)}
+                              className="min-w-0 flex-1 px-3 py-2.5 text-left"
                             >
-                              Confirmar eliminacion
+                              <span className="block truncate text-[15px] font-semibold text-text-primary/95">
+                                {identity.email}
+                              </span>
+                              {(identity?.platforms || []).length > 0 ? (
+                                <span className="mt-2 flex items-center gap-2">
+                                  <span className="flex -space-x-2">
+                                    {(identity?.platforms || []).slice(0, 3).map((platform) => (
+                                      <PlatformLogo
+                                        key={`${identity.id}-${platform.id}`}
+                                        name={platform.name}
+                                        className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
+                                      />
+                                    ))}
+                                  </span>
+                                  <span className="truncate text-[11px] font-medium text-text-tertiary">
+                                    {(identity?.platforms || [])
+                                      .slice(0, 2)
+                                      .map((platform) => platform.name)
+                                      .join(' · ')}
+                                    {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
+                                  </span>
+                                </span>
+                              ) : (
+                                <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
+                                  Aún no hay plataformas vinculadas
+                                </span>
+                              )}
+                            </button>
+                            <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
+                              {(identity?.platforms || []).length}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() =>
+                                setPendingDeleteIdentityId(
+                                  pendingDeleteIdentityId === identity.id ? null : identity.id,
+                                )
+                              }
+                              className="mr-1 rounded-md p-1.5 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
+                              aria-label="Eliminar identidad"
+                            >
+                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                              </svg>
                             </button>
                           </div>
-                        )}
-                      </li>
-                    )
-                  })}
-                </ul>
-              )}
 
-              <div className="mt-5 flex items-center justify-between px-3 pb-2">
-                <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                  Categorías Locales
-                </span>
-                <button
-                  type="button"
-                  onClick={() => void handleAddLocalCategory()}
-                  className="rounded-lg border border-black/5 bg-white px-2 py-1 text-[10px] font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
-                >
-                  + Nueva Categoría
-                </button>
-              </div>
-              <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
-                Espacios privados personalizables para notas, documentos, tarjetas o cualquier dato sensible que no dependa de una plataforma.
-              </p>
-              <ul className="space-y-0.5">
-                {localCategoryOptions.map((category) => {
-                  const selected = selectedLocalCategory?.id === category.id
-                  const count = localItems.filter((item) => (item.categoryId ?? item.type) === category.id).length
-                  return (
-                    <li key={category.id}>
-                      <button
-                        type="button"
-                        onClick={() => onSelectLocalCategory(category)}
-                        className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
-                          selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                        }`}
-                      >
-                        <span className="truncate text-[15px] font-semibold text-text-primary/90">
-                          {category.label}
-                        </span>
-                        <span className="flex items-center gap-2 text-xs tabular-nums text-text-tertiary">
-                          {category.custom && <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold">Tag</span>}
-                          {count}
-                        </span>
-                      </button>
-                    </li>
-                  )
-                })}
-              </ul>
+                          {pendingDeleteIdentityId === identity.id && (
+                            <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
+                              <p>Se eliminara la identidad y sus plataformas.</p>
+                              <button
+                                type="button"
+                                onClick={() => {
+                                  void onDeleteIdentity(identity.id)
+                                  setPendingDeleteIdentityId(null)
+                                }}
+                                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white"
+                              >
+                                Confirmar eliminacion
+                              </button>
+                            </div>
+                          )}
+                        </li>
+                      )
+                    })}
+                  </ul>
+                )
+              ) : (
+                /* groupMode === 'local' */
+                <>
+                  <div className="mt-2 flex items-center justify-between px-3 pb-2">
+                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                      Categorías Locales
+                    </span>
+                    <button
+                      type="button"
+                      onClick={() => void handleAddLocalCategory()}
+                      className="rounded-lg border border-black/5 bg-white px-2 py-1 text-[10px] font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
+                    >
+                      + Nueva Categoría
+                    </button>
+                  </div>
+                  <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
+                    Espacios privados personalizables para notas, documentos, tarjetas o cualquier dato sensible que no dependa de una plataforma.
+                  </p>
+                  <ul className="space-y-0.5">
+                    {localCategoryOptions.map((category) => {
+                      const selected = selectedLocalCategory?.id === category.id
+                      const count = localItems.filter((item) => (item.categoryId ?? item.type) === category.id).length
+                      return (
+                        <li key={category.id}>
+                          <button
+                            type="button"
+                            onClick={() => onSelectLocalCategory(category)}
+                            className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                              selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+                            }`}
+                          >
+                            <span className="truncate text-[15px] font-semibold text-text-primary/90">
+                              {category.label}
+                            </span>
+                            <span className="flex items-center gap-2 text-xs tabular-nums text-text-tertiary">
+                              {category.custom && <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold">Tag</span>}
+                              {count}
+                            </span>
+                          </button>
+                        </li>
+                      )
+                    })}
+                  </ul>
+                </>
+              )}
             </>
           )}
         </nav>

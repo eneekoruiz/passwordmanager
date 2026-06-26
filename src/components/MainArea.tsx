@@ -204,14 +204,16 @@ export const MainArea = memo(function MainArea({
                 <section className="space-y-5">
                   <div>
                     <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
-                      {groupMode === 'platform' ? 'Vista por plataforma' : 'Tus Identidades'}
+                      {groupMode === 'platform' ? 'Vista por plataforma' : groupMode === 'local' ? 'Bóveda Local' : 'Tus Identidades'}
                     </p>
                     <h2 className="mt-2 text-2xl font-bold tracking-tight text-text-primary">
-                      {groupMode === 'platform' ? 'Explora tus accesos con una vista visual' : 'Gestiona tus cuentas por identidad'}
+                      {groupMode === 'platform' ? 'Explora tus accesos con una vista visual' : groupMode === 'local' ? 'Gestiona tus notas y secretos locales' : 'Gestiona tus cuentas por identidad'}
                     </h2>
                     <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
                       {groupMode === 'platform'
                         ? 'Selecciona una plataforma para ver todas las cuentas relacionadas, comparar accesos y entrar a editar sin perder contexto.'
+                        : groupMode === 'local'
+                        ? 'Selecciona una categoría local en la barra lateral para ver tus secretos que no dependen de una plataforma o identidad.'
                         : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas a ese correo o perfil.'}
                     </p>
                   </div>
@@ -246,6 +248,16 @@ export const MainArea = memo(function MainArea({
                         <p className="mt-1 max-w-sm text-sm text-text-secondary">Crea cuentas en tus identidades y aparecerán aquí agrupadas por plataforma.</p>
                       </div>
                     )
+                  ) : groupMode === 'local' ? (
+                    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
+                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+                        <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                        </svg>
+                      </div>
+                      <h3 className="text-base font-bold text-text-primary">Selecciona una categoría</h3>
+                      <p className="mt-1 max-w-sm text-sm text-text-secondary">Elige una categoría de la bóveda local en la barra lateral para ver o añadir secretos.</p>
+                    </div>
                   ) : identities.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {identities.map((idItem, index) => (

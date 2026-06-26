@@ -1101,8 +1101,10 @@ export function AccountForm({
             options={PLATFORM_OPTIONS}
             onInputChange={setPlatformQuery}
             onChange={(value) => {
-              updateField('name', value)
-              setPlatformQuery(value)
+              const known = POPULAR_SERVICES.find((s) => s.name.toLowerCase() === value.toLowerCase())
+              const finalValue = known ? known.name : value
+              updateField('name', finalValue)
+              setPlatformQuery(finalValue)
             }}
             placeholder="Amazon, GitHub, Stripe..."
           />
@@ -1166,7 +1168,8 @@ export function AccountForm({
         </div>
 
         {/* Otros métodos de inicio de sesión (SSO, Passkey, Magic Link) */}
-        <Accordion title="Otros métodos de inicio de sesión" defaultOpen={Boolean(ssoMethod || passkeyEnabled || magicLinkMethod)}>
+        <div className="mt-4 pt-4 border-t border-black/[0.08]">
+          <h3 className="text-lg font-bold text-text-primary mb-3">Otros métodos de inicio de sesión</h3>
           <div className="grid gap-4 mt-2 xl:grid-cols-[minmax(0,1fr)_minmax(340px,0.75fr)]">
             <div className="space-y-3 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
               <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
@@ -1244,7 +1247,7 @@ export function AccountForm({
               </div>
             </div>
           </div>
-        </Accordion>
+        </div>
 
         <div className="flex flex-wrap gap-4 rounded-2xl border border-black/[0.04] bg-surface/40 p-4">
           <label className="flex min-h-11 items-center gap-3 rounded-xl px-2 text-[15px] font-semibold text-text-primary transition-colors hover:bg-white/70">
@@ -1357,7 +1360,7 @@ export function AccountForm({
       </section>
 
       <section className="rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
-        <Accordion title="Información de la Cuenta">
+        <h3 className="text-lg font-bold text-text-primary mb-4">Información de la Cuenta</h3>
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
           <FormField
             label="Nombre completo"
@@ -1419,7 +1422,6 @@ export function AccountForm({
           onChange={(e) => updateField('notes', e.target.value)}
           placeholder="Notas libres, respuestas de recuperación, contexto operativo..."
         />
-        </Accordion>
       </section>
 
       <section className="rounded-2xl border border-black/[0.08] bg-slate-50/80 p-5 shadow-[0_12px_38px_rgba(15,23,42,0.04)]">

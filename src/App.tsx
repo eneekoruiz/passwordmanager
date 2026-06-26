@@ -145,7 +145,7 @@ function VaultApp() {
   }
 
   const [selectedId, setSelectedId] = useState<string | null>(null)
-  const [groupMode, setGroupMode] = useState<VaultGroupMode>('identity')
+  const [groupMode, setGroupMode] = useState<VaultGroupMode>('platform')
   const [selectedPlatformName, setSelectedPlatformName] = useState<string | null>(null)
   const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalCategory | null>(null)
   const [globalSearchTerm, setGlobalSearchTerm] = useState('')
@@ -812,8 +812,8 @@ function VaultApp() {
 
       {/* Row 3: Tabs selector (only on list view) */}
       {showExtraHeaderElements && (
-        <div className="grid grid-cols-2 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
-          {(['identity', 'platform'] as VaultGroupMode[]).map((mode) => (
+        <div className="grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+          {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -824,7 +824,7 @@ function VaultApp() {
                   : 'text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              {mode === 'identity' ? 'Identidad' : 'Plataforma'}
+              {mode === 'identity' ? 'Identidad' : mode === 'platform' ? 'Plataforma' : 'Locales'}
             </button>
           ))}
         </div>
