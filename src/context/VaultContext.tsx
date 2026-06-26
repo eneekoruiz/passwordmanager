@@ -645,7 +645,26 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           const filteredLocalIdns = filterIdentities(localIdns)
           const filteredCloudIdns = filterIdentities(decryptedCloud.identities)
 
-          const { computeSyncDiff } = await import('../utils/syncDiff')
+          let computeSyncDiff: any
+          try {
+            const module = await import('../utils/syncDiff')
+            computeSyncDiff = module.computeSyncDiff
+          } catch (err) {
+            const message = err instanceof Error ? err.message : String(err ?? '')
+            const isChunkError =
+              /failed to fetch/i.test(message) ||
+              /dynamically imported module/i.test(message) ||
+              /chunkloaderror/i.test(message) ||
+              /loading chunk/i.test(message)
+
+            if (isChunkError && typeof window !== 'undefined') {
+              console.warn('Chunk load error detected during syncDiff import. Reloading page...', err)
+              window.location.reload()
+              throw new Error('La aplicación se ha actualizado. Recargando para aplicar los cambios...')
+            }
+            throw err
+          }
+
           const diffResult = computeSyncDiff(
             filteredLocalIdns, [], [],
             filteredCloudIdns, [], []
