@@ -759,7 +759,7 @@ export function SettingsModal({
                     </button>
                   </div>
                   <div className="max-h-32 space-y-1 overflow-y-auto pr-1 scrollbar-thin">
-                    {identities.map((identity) => {
+                    {(identities || []).filter(Boolean).map((identity) => {
                       const checked = selectedIdentityIds.length === 0 || selectedIdentityIds.includes(identity.id)
                       return (
                         <label

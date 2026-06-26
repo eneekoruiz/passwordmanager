@@ -24,13 +24,17 @@ export interface HardwareKeyBundle {
  * Devuelve true si el navegador soporta WebAuthn básico.
  */
 export async function isHardwareKeyAvailable(): Promise<boolean> {
-  if (
-    typeof window === 'undefined' ||
-    !window.PublicKeyCredential
-  ) {
+  try {
+    if (
+      typeof window === 'undefined' ||
+      !window.PublicKeyCredential
+    ) {
+      return false
+    }
+    return true
+  } catch {
     return false
   }
-  return true
 }
 
 // ─── Registro (activar llave física) ──────────────────────────────────────────

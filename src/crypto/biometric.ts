@@ -37,15 +37,14 @@ export interface BiometricBundle {
  * (necesaria para derivar la clave de cifrado desde la biometría).
  */
 export async function isBiometricAvailable(): Promise<boolean> {
-  if (
-    typeof window === 'undefined' ||
-    !window.PublicKeyCredential ||
-    !window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable
-  ) {
-    return false
-  }
-
   try {
+    if (
+      typeof window === 'undefined' ||
+      !window.PublicKeyCredential ||
+      typeof window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable !== 'function'
+    ) {
+      return false
+    }
     const available = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
     return available
   } catch {

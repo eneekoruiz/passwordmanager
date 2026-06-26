@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent, type CSSProperties, type MouseEven
 import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType, FileAttachment } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
+import { generateId } from '../utils/id'
 import { Accordion } from './ui/Accordion'
 import { FormField, FormTextarea } from './ui/FormField'
 import { PasswordField } from './ui/PasswordField'
@@ -629,7 +630,7 @@ export function AccountForm({
       ...prev,
       customFields: [
         ...(prev.customFields ?? []),
-        { id: crypto.randomUUID(), key: '', value: '', protected: false },
+        { id: generateId(), key: '', value: '', protected: false },
       ],
     }))
   }
@@ -708,7 +709,7 @@ export function AccountForm({
         attachments: [
           ...(prev.attachments ?? []),
           {
-            id: crypto.randomUUID(),
+            id: generateId(),
             name: file.name.split('.')[0],
             description: compressed.data ? 'Imagen comprimida y cifrada dentro de la bóveda' : '',
             fileName: compressed.data ? file.name.replace(/\.[^.]+$/, '.webp') : file.name,
@@ -766,7 +767,7 @@ export function AccountForm({
           passwordHistory: [
             ...(account.passwordHistory ?? []),
             {
-              id: crypto.randomUUID(),
+              id: generateId(),
               password: previousPassword,
               changedAt: new Date().toISOString(),
             },
@@ -830,7 +831,7 @@ export function AccountForm({
   const togglePassword = (enabled: boolean) => {
     setPasswordEnabled(enabled)
     if (!enabled || passwordMethod) return
-    setAccessMethods((methods) => [...methods, { id: crypto.randomUUID(), type: 'PASSWORD', password: '' }])
+    setAccessMethods((methods) => [...methods, { id: generateId(), type: 'PASSWORD', password: '' }])
   }
 
   const updatePasswordMethod = (password: string) => {
@@ -845,7 +846,7 @@ export function AccountForm({
     setAccessMethods((methods) => {
       const filtered = methods.filter((m) => m.type !== 'SSO')
       if (enabled) {
-        return [...filtered, { id: crypto.randomUUID(), type: 'SSO', providers: [], email: identityEmail }]
+        return [...filtered, { id: generateId(), type: 'SSO', providers: [], email: identityEmail }]
       }
       setSsoProviderQuery('')
       return filtered
@@ -867,7 +868,7 @@ export function AccountForm({
   const addTwoFactorConfig = (type: TwoFactorType) => {
     const list = account.twoFactorAuths || []
     const newConfig: TwoFactorConfig = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       type,
       pin: type === 'PIN' ? '' : null,
       secret: type === 'TOTP' ? '' : null,
@@ -909,7 +910,7 @@ export function AccountForm({
   const togglePasskey = (enabled: boolean) => {
     setAccessMethods((methods) =>
       enabled
-        ? [...methods, { id: crypto.randomUUID(), type: 'PASSKEY' }]
+        ? [...methods, { id: generateId(), type: 'PASSKEY' }]
         : methods.filter((method) => method.type !== 'PASSKEY'),
     )
   }
@@ -917,7 +918,7 @@ export function AccountForm({
   const toggleMagicLink = (enabled: boolean) => {
     setAccessMethods((methods) =>
       enabled
-        ? [...methods, { id: crypto.randomUUID(), type: 'MAGIC_LINK', email: identityEmail }]
+        ? [...methods, { id: generateId(), type: 'MAGIC_LINK', email: identityEmail }]
         : methods.filter((method) => method.type !== 'MAGIC_LINK'),
     )
   }

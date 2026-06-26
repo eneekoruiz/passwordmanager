@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import type { Platform } from '../types'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { createPlatform, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
+import { generateId } from '../utils/id'
 
 const IMPORT_COLUMNS = 8
 
@@ -217,10 +218,10 @@ export function ImportTextModal({ isOpen, onClose, onImport }: ImportTextModalPr
           linkedPhone: phone || null,
           twoFactorAuth: twoFactor || null,
           accessMethods: [
-            ...(password ? [{ id: crypto.randomUUID(), type: 'PASSWORD' as const, password }] : []),
+            ...(password ? [{ id: generateId(), type: 'PASSWORD' as const, password }] : []),
             ...(hasGoogleSso
               ? [{
-                  id: crypto.randomUUID(),
+                  id: generateId(),
                   type: 'SSO' as const,
                   providers: ['Google'],
                   email: email || null,

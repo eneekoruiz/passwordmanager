@@ -97,7 +97,7 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
     item.customFields
       ?.filter((field) => field.key.trim() || field.value.trim())
       .map((field) => ({
-        id: field.id || crypto.randomUUID(),
+        id: field.id || generateId(),
         key: field.key.trim(),
         value: field.value.trim(),
         protected: Boolean(field.protected),

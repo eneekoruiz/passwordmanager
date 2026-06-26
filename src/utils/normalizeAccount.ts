@@ -1,4 +1,5 @@
 import type { Account, AccountAccessMethod, ApiKeyEntry, CustomFieldEntry, PasswordHistoryEntry, TwoFactorConfig } from '../types'
+import { generateId } from './id'
 
 export function normalizeAccessMethods(methods: AccountAccessMethod[]): AccountAccessMethod[] {
   return methods
@@ -41,10 +42,10 @@ function normalizeTwoFactor(twoFactorAuth: Account['twoFactorAuth']): TwoFactorC
   if (typeof twoFactorAuth === 'string') {
     const value = twoFactorAuth.trim()
     if (!value) return null
-    return { id: crypto.randomUUID(), type: 'TOTP', secret: value, authenticatorApp: null, phone: null }
+    return { id: generateId(), type: 'TOTP', secret: value, authenticatorApp: null, phone: null }
   }
 
-  const id = (twoFactorAuth as any).id || crypto.randomUUID()
+  const id = (twoFactorAuth as any).id || generateId()
 
   if (twoFactorAuth.type === 'NONE') return null
   if (twoFactorAuth.type === 'PIN') {
@@ -79,7 +80,7 @@ export function normalizeAccount(account: Account): Account {
     account.customFields
       ?.filter((field) => field.key.trim() || field.value.trim())
       .map((field) => ({
-        id: field.id || crypto.randomUUID(),
+        id: field.id || generateId(),
         key: field.key.trim(),
         value: field.value.trim(),
         protected: Boolean(field.protected),
@@ -91,7 +92,7 @@ export function normalizeAccount(account: Account): Account {
     account.passwordHistory
       ?.filter((entry) => entry.password.trim())
       .map((entry) => ({
-        id: entry.id || crypto.randomUUID(),
+        id: entry.id || generateId(),
         password: entry.password,
         changedAt: entry.changedAt || new Date().toISOString(),
       }))
@@ -102,7 +103,7 @@ export function normalizeAccount(account: Account): Account {
     normalized2FAs = account.twoFactorAuths
       .map((cfg): TwoFactorConfig | null => {
         if (!cfg || cfg.type === 'NONE') return null
-        const id = cfg.id || crypto.randomUUID()
+        const id = cfg.id || generateId()
         if (cfg.type === 'PIN') {
           const pin = cfg.pin?.trim() || null
           return pin ? { id, type: 'PIN', pin, phone: null } : null
@@ -152,7 +153,7 @@ export function normalizeAccount(account: Account): Account {
 
 export function createApiKeyEntry(): ApiKeyEntry {
   return {
-    id: crypto.randomUUID(),
+    id: generateId(),
     nombre: '',
     descripcion: '',
     valor: '',

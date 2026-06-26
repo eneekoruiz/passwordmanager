@@ -2,6 +2,7 @@ import { useState, useEffect, type FormEvent } from 'react'
 import type { LocalVaultItem, WifiSecurityType, CustomFieldEntry } from '../types'
 import { normalizeLocalVaultItem, WIFI_SECURITY_OPTIONS } from '../utils/vaultItem'
 import { getFriendlyErrorMessage } from '../utils/errors'
+import { generateId } from '../utils/id'
 import { FormField, FormTextarea } from './ui/FormField'
 import { SecretField } from './ui/SecretField'
 import { UnsavedFormActions } from './AccountForm'
@@ -54,7 +55,7 @@ function getInitialFields(item: LocalVaultItem): FormFieldItem[] {
   if (Array.isArray(item.customFields)) {
     item.customFields.forEach((cf) => {
       fields.push({
-        id: cf.id || crypto.randomUUID(),
+        id: cf.id || generateId(),
         key: cf.key,
         value: cf.value,
         type: cf.type || (cf.protected ? 'password' : 'text'),
@@ -170,7 +171,7 @@ export function VaultItemForm({
 
   const addField = (type: FormFieldItem['type']) => {
     const newField: FormFieldItem = {
-      id: crypto.randomUUID(),
+      id: generateId(),
       key: type === 'text' ? 'Campo nuevo' : type === 'password' ? 'Secreto nuevo' : type === 'textarea' ? 'Nota nueva' : 'Selector nuevo',
       value: '',
       type,

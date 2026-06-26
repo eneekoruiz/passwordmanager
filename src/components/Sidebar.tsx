@@ -6,6 +6,7 @@ import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { LOCAL_ITEM_LABELS, PRESET_LOCAL_CATEGORIES, normalizeLocalCategory } from '../utils/vaultItem'
 import { PlatformLogo } from './ui/PlatformLogo'
+import { generateId } from '../utils/id'
 
 interface SidebarProps {
   identities: Identity[]
@@ -190,7 +191,7 @@ export function Sidebar({
 
     try {
       const category = normalizeLocalCategory({
-        id: `custom-${crypto.randomUUID()}`,
+        id: `custom-${generateId()}`,
         label: cleanLabel,
         type: 'SECURE_NOTE',
         custom: true,
