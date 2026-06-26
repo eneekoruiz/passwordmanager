@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState, memo } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
@@ -50,7 +50,7 @@ interface PlatformQuickPick {
   count: number
 }
 
-export const MainArea = React.memo(function MainArea({
+export const MainArea = memo(function MainArea({
   identities,
   identity,
   groupMode,

@@ -1592,6 +1592,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       registerHardwareKeyUnlock,
       unlockWithHardwareKeySensor,
       disableHardwareKeyUnlock,
+      isPromptingMasterPassword,
+      resolveMasterPasswordPrompt,
     }),
     [
       addIdentity,

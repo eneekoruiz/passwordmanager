@@ -1407,6 +1407,7 @@ function VaultApp() {
           </div>
         </div>
       )}
+      <MasterPasswordPromptModal />
       </div>
     </div>
   )

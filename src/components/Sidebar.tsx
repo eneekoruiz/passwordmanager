@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo } from 'react'
+import { useEffect, useState, useMemo, memo } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode, SortMode } from '../types'
 import { SearchBar } from './SearchBar'
 import { useVault } from '../context/VaultContext'
@@ -49,7 +49,7 @@ const SORT_LABELS: Record<SortMode, string> = {
   'date-asc': 'Más antiguos primero',
 }
 
-export const Sidebar = React.memo(function Sidebar({
+export const Sidebar = memo(function Sidebar({
   identities,
   localItems,
   groupMode,
