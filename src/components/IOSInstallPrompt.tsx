@@ -41,8 +41,14 @@ export function IOSInstallPrompt() {
         </header>
 
         <p className="text-xs text-text-secondary leading-normal">
-          Para usar este gestor de contraseñas de forma segura y evitar que Safari elimine tus datos locales (IndexedDB / LocalStorage) debido a sus políticas de ITP, añade la aplicación a tu pantalla de inicio:
+          Para usar este gestor de contraseñas de forma segura y evitar que Safari elimine tus datos locales debido a sus políticas estrictas, añade la aplicación a tu pantalla de inicio:
         </p>
+
+        <div className="rounded-xl bg-amber-50 p-3 border border-amber-200">
+          <p className="text-xs text-amber-800 font-medium">
+            <strong className="font-bold">Aviso Crítico:</strong> Apple bloquea las funciones avanzadas en el navegador web. El desbloqueo con <strong className="font-bold">Face ID / Touch ID</strong> y el <strong className="font-bold">Modo Sin Conexión</strong> no funcionarán hasta que la instales.
+          </p>
+        </div>
 
         <div className="space-y-2.5 border-t border-black/[0.05] pt-3.5">
           <div className="flex items-center gap-3 text-xs text-text-primary font-medium">

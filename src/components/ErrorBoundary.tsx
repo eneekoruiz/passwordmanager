@@ -16,15 +16,31 @@ function isChunkLoadError(error: unknown): boolean {
     /failed to fetch dynamically imported module/i.test(message) ||
     /error loading dynamically imported module/i.test(message) ||
     /chunkloaderror/i.test(message) ||
-    /loading chunk [\d]+ failed/i.test(message)
+    /loading chunk [\d]+ failed/i.test(message) ||
+    /text\/html.*not a valid javascript/i.test(message) ||
+    /unexpected token '</i.test(message)
   )
 }
 
-function reloadOnceForChunkFailure(): void {
+async function reloadOnceForChunkFailure(): Promise<void> {
   if (typeof window === 'undefined') return
   const key = 'contras.chunk-reload-attempted'
   if (window.sessionStorage.getItem(key) === '1') return
   window.sessionStorage.setItem(key, '1')
+
+  try {
+    if ('serviceWorker' in navigator) {
+      const regs = await navigator.serviceWorker.getRegistrations()
+      for (const reg of regs) await reg.unregister()
+    }
+    if ('caches' in window) {
+      const keys = await caches.keys()
+      await Promise.all(keys.map((k) => caches.delete(k)))
+    }
+  } catch (err) {
+    console.error('Error limpiando caché:', err)
+  }
+
   const url = new URL(window.location.href)
   url.searchParams.set('v', Date.now().toString())
   window.location.replace(url.toString())
@@ -44,7 +60,7 @@ export class ErrorBoundary extends Component<ErrorBoundaryProps, ErrorBoundarySt
   public override componentDidCatch(error: Error, errorInfo: ErrorInfo) {
     console.error('Root ErrorBoundary caught an error:', error, errorInfo)
     if (isChunkLoadError(error)) {
-      reloadOnceForChunkFailure()
+      void reloadOnceForChunkFailure()
     }
   }
 
