@@ -109,6 +109,8 @@ interface VaultContextValue {
   registerBiometricUnlock: (masterPassword: string) => Promise<void>
   unlockWithBiometricSensor: () => Promise<void>
   authorizeSensitiveAction: () => Promise<void>
+  isPromptingMasterPassword: boolean
+  resolveMasterPasswordPrompt: (success: boolean) => void
   disableBiometricUnlock: () => Promise<void>
   // Hardware key unlock
   hardwareKeyAvailable: boolean
@@ -193,6 +195,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [identities, setIdentities] = useState<Identity[]>([])
   const [localItems, setLocalItems] = useState<LocalVaultItem[]>([])
   const [localCategories, setLocalCategories] = useState<LocalCategory[]>([])
+
+  const [isPromptingMasterPassword, setIsPromptingMasterPassword] = useState(false)
+  const masterPasswordResolver = useRef<((success: boolean) => void) | null>(null)
+
+  const promptMasterPassword = useCallback(() => {
+    return new Promise<boolean>((resolve) => {
+      setIsPromptingMasterPassword(true)
+      masterPasswordResolver.current = resolve
+    })
+  }, [])
+
+  const resolveMasterPasswordPrompt = useCallback((success: boolean) => {
+    setIsPromptingMasterPassword(false)
+    if (masterPasswordResolver.current) {
+      masterPasswordResolver.current(success)
+      masterPasswordResolver.current = null
+    }
+  }, [])
+
   const [profiles, setProfiles] = useState<{ id: string; name: string; createdAt: string }[]>([])
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
@@ -1380,8 +1401,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return
     }
 
-    throw new Error('Activa la biometría o una llave física en Ajustes para visualizar o copiar datos sensibles.')
-  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked])
+    // Fallback: Si no hay hardware ni biometría, pedimos la clave maestra
+    const authorized = await promptMasterPassword()
+    if (!authorized) {
+      throw new Error('Autorización cancelada o incorrecta.')
+    }
+    return
+  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword])
 
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return

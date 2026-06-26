@@ -49,7 +49,7 @@ const SORT_LABELS: Record<SortMode, string> = {
   'date-asc': 'Más antiguos primero',
 }
 
-export function Sidebar({
+export const Sidebar = React.memo(function Sidebar({
   identities,
   localItems,
   groupMode,
@@ -639,4 +639,4 @@ export function Sidebar({
       </aside>
     </>
   )
-}
+})

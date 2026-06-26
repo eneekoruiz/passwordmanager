@@ -70,16 +70,13 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
     setHasError(false)
-    setSrc(`https://logo.clearbit.com/${domain}?size=128`)
+    // Usamos Google Favicons directamente como primario porque es muy robusto
+    setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
   }, [name, domain])
 
   const handleImageError = () => {
-    if (src === `https://logo.clearbit.com/${domain}?size=128`) {
-      setSrc(`https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`)
-    } else if (src === `https://t3.gstatic.com/faviconV2?client=SOCIAL&type=FAVICON&fallback_opts=TYPE,SIZE,URL&url=https://${domain}&size=128`) {
+    if (src === `https://www.google.com/s2/favicons?domain=${domain}&sz=128`) {
       setSrc(`https://icons.duckduckgo.com/ip3/${domain}.ico`)
-    } else if (src === `https://icons.duckduckgo.com/ip3/${domain}.ico`) {
-      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
     } else {
       setHasError(true)
     }

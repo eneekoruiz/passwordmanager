@@ -50,7 +50,7 @@ interface PlatformQuickPick {
   count: number
 }
 
-export function MainArea({
+export const MainArea = React.memo(function MainArea({
   identities,
   identity,
   groupMode,
@@ -626,4 +626,4 @@ export function MainArea({
       </div>
     </div>
   )
-}
+})
