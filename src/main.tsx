@@ -62,4 +62,28 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   } else {
     window.addEventListener('load', registerSW, { once: true })
   }
+
+// Interceptar errores globales de carga de chunks (módulos dinámicos)
+// para forzar recarga cuando hay un despliegue nuevo y el cliente PWA tiene un hash antiguo.
+if (typeof window !== 'undefined') {
+  window.addEventListener('unhandledrejection', (event) => {
+    const isChunkLoadError = 
+      event.reason &&
+      (event.reason.name === 'ChunkLoadError' ||
+      /failed to fetch dynamically imported module/i.test(event.reason.message) ||
+      /loading chunk/i.test(event.reason.message))
+      
+    if (isChunkLoadError) {
+      console.warn('Chunk load error (PWA version mismatch). Force reloading...')
+      event.preventDefault()
+      window.location.reload()
+    }
+  })
+
+  // Evento específico de Vite
+  window.addEventListener('vite:preloadError', (event) => {
+    console.warn('Vite preload error. Force reloading...')
+    event.preventDefault()
+    window.location.reload()
+  })
 }
