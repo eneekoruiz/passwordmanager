@@ -62,6 +62,7 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   } else {
     window.addEventListener('load', registerSW, { once: true })
   }
+}
 
 // Interceptar errores globales de carga de chunks (módulos dinámicos)
 // para forzar recarga cuando hay un despliegue nuevo y el cliente PWA tiene un hash antiguo.
