@@ -119,8 +119,6 @@ export function SettingsModal({
     }
   }, [])
 
-  if (!isOpen) return null
-
   const selectedIdentities =
     selectedIdentityIds.length === 0
       ? identities
@@ -176,6 +174,8 @@ export function SettingsModal({
       securePasswordsCount: secureCount,
     }
   }, [identities])
+
+  if (!isOpen) return null
 
   const toggleIdentitySelection = (id: string) => {
     setSelectedIdentityIds((ids) =>
