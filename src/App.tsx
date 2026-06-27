@@ -514,7 +514,7 @@ function VaultApp() {
     }
   }
 
-  const handleSelect = (id: string) => {
+  const handleSelect = (id: string | null) => {
     requestNavigation(() => {
       setSelectedId(id)
       setSelectedPlatformName(null)
@@ -523,7 +523,7 @@ function VaultApp() {
     })
   }
 
-  const handleSelectPlatform = (platformName: string) => {
+  const handleSelectPlatform = (platformName: string | null) => {
     requestNavigation(() => {
       setSelectedPlatformName(platformName)
       setSelectedId(null)
@@ -543,7 +543,7 @@ function VaultApp() {
     })
   }
 
-  const handleSelectLocalCategory = (category: LocalCategory) => {
+  const handleSelectLocalCategory = (category: LocalCategory | null) => {
     requestNavigation(() => {
       setSelectedLocalCategory(category)
       setSelectedId(null)

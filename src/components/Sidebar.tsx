@@ -19,9 +19,9 @@ interface SidebarProps {
   searchQuery: string
   onSearchChange: (query: string) => void
   onGroupModeChange: (mode: VaultGroupMode) => void
-  onSelect: (id: string) => void
-  onSelectPlatform: (platformName: string) => void
-  onSelectLocalCategory: (category: LocalCategory) => void
+  onSelect: (id: string | null) => void
+  onSelectPlatform: (platformName: string | null) => void
+  onSelectLocalCategory: (category: LocalCategory | null) => void
   onAddIdentity: (email: string) => Promise<void>
   onDeleteIdentity: (id: string) => Promise<void>
   onLock: () => void
@@ -457,116 +457,164 @@ export const Sidebar = memo(function Sidebar({
                 platformSummaries.length === 0 ? (
                   <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay plataformas.</p>
                 ) : (
-                  <ul className="space-y-0.5 animate-vault-morph">
-                    {platformSummaries.map((platform) => {
-                      const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
-                      return (
-                        <li key={platform.name}>
-                          <button
-                            type="button"
-                            onClick={() => onSelectPlatform(platform.name)}
-                            className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
-                              selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                            }`}
-                          >
-                            <span className="flex min-w-0 items-center gap-3">
-                              <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
-                              <span className="truncate text-sm font-semibold text-text-primary/90">
-                                {getCanonicalPlatformName(platform.name)}
-                              </span>
-                            </span>
-                            <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                  <>
+                    <ul className="space-y-1 mb-4">
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => onSelectPlatform(null)}
+                          className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                            selectedPlatformName === null ? 'bg-surface-active font-bold text-text-primary' : 'hover:bg-surface-hover text-text-secondary font-medium'
+                          }`}
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-text-primary">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                            </svg>
+                          </div>
+                          <span className="truncate text-sm">Directorio de Plataformas</span>
+                        </button>
+                      </li>
+                    </ul>
+                    {(query || selectedPlatformName) ? (
+                      <ul className="space-y-0.5 animate-vault-morph">
+                        {platformSummaries
+                          .filter(p => query ? true : p.name.toLowerCase() === selectedPlatformName?.toLowerCase())
+                          .map((platform) => {
+                            const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
+                            return (
+                              <li key={platform.name}>
+                                <button
+                                  type="button"
+                                  onClick={() => onSelectPlatform(platform.name)}
+                                  className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+                                    selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+                                  }`}
+                                >
+                                  <span className="flex min-w-0 items-center gap-3">
+                                    <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
+                                    <span className="truncate text-sm font-semibold text-text-primary/90">
+                                      {getCanonicalPlatformName(platform.name)}
+                                    </span>
+                                  </span>
+                                  <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>
+                                </button>
+                              </li>
+                            )
+                          })}
+                      </ul>
+                    ) : null}
+                  </>
                 )
               ) : groupMode === 'identity' ? (
                 visibleIdentities.length === 0 ? (
                   <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
                 ) : (
-                  <ul className="space-y-0.5 animate-vault-morph">
-                    {visibleIdentities.map((identity) => {
-                      const selected = identity.id === selectedId
-                      return (
-                        <li key={identity.id}>
-                          <div
-                            className={`group flex items-center rounded-lg transition-colors ${
-                              selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                            }`}
-                          >
-                            <button
-                              type="button"
-                              onClick={() => onSelect(identity.id)}
-                              className="min-w-0 flex-1 px-3 py-2.5 text-left"
-                            >
-                              <span className="block truncate text-[15px] font-semibold text-text-primary/95">
-                                {identity.email}
-                              </span>
-                              {(identity?.platforms || []).length > 0 ? (
-                                <span className="mt-2 flex items-center gap-2">
-                                  <span className="flex -space-x-2">
-                                    {(identity?.platforms || []).slice(0, 3).map((platform) => (
-                                      <PlatformLogo
-                                        key={`${identity.id}-${platform.id}`}
-                                        name={platform.name}
-                                        className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
-                                      />
-                                    ))}
-                                  </span>
-                                  <span className="truncate text-[11px] font-medium text-text-tertiary">
-                                    {(identity?.platforms || [])
-                                      .slice(0, 2)
-                                      .map((platform) => platform.name)
-                                      .join(' · ')}
-                                    {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
-                                  </span>
-                                </span>
-                              ) : (
-                                <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
-                                  Aún no hay plataformas vinculadas
-                                </span>
-                              )}
-                            </button>
-                            <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
-                              {(identity?.platforms || []).length}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() =>
-                                setPendingDeleteIdentityId(
-                                  pendingDeleteIdentityId === identity.id ? null : identity.id,
-                                )
-                              }
-                              className="mr-1 rounded-md p-1.5 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
-                              aria-label="Eliminar identidad"
-                            >
-                              <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                              </svg>
-                            </button>
+                  <>
+                    <ul className="space-y-1 mb-4">
+                      <li>
+                        <button
+                          type="button"
+                          onClick={() => onSelect(null)}
+                          className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
+                            selectedId === null ? 'bg-surface-active font-bold text-text-primary' : 'hover:bg-surface-hover text-text-secondary font-medium'
+                          }`}
+                        >
+                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-text-primary">
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                            </svg>
                           </div>
-
-                          {pendingDeleteIdentityId === identity.id && (
-                            <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
-                              <p>Se eliminara la identidad y sus plataformas.</p>
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  void onDeleteIdentity(identity.id)
-                                  setPendingDeleteIdentityId(null)
-                                }}
-                                className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white"
-                              >
-                                Confirmar eliminacion
-                              </button>
-                            </div>
-                          )}
-                        </li>
-                      )
-                    })}
-                  </ul>
+                          <span className="truncate text-sm">Directorio de Identidades</span>
+                        </button>
+                      </li>
+                    </ul>
+                    {(query || selectedId) ? (
+                      <ul className="space-y-0.5 animate-vault-morph">
+                        {visibleIdentities
+                          .filter(idItem => query ? true : idItem.id === selectedId)
+                          .map((identity) => {
+                            const selected = identity.id === selectedId
+                            return (
+                              <li key={identity.id}>
+                                <div
+                                  className={`group flex items-center rounded-lg transition-colors ${
+                                    selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+                                  }`}
+                                >
+                                  <button
+                                    type="button"
+                                    onClick={() => onSelect(identity.id)}
+                                    className="min-w-0 flex-1 px-3 py-2.5 text-left"
+                                  >
+                                    <span className="block truncate text-[15px] font-semibold text-text-primary/95">
+                                      {identity.email}
+                                    </span>
+                                    {(identity?.platforms || []).length > 0 ? (
+                                      <span className="mt-2 flex items-center gap-2">
+                                        <span className="flex -space-x-2">
+                                          {(identity?.platforms || []).slice(0, 3).map((platform) => (
+                                            <PlatformLogo
+                                              key={`${identity.id}-${platform.id}`}
+                                              name={platform.name}
+                                              className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
+                                            />
+                                          ))}
+                                        </span>
+                                        <span className="truncate text-[11px] font-medium text-text-tertiary">
+                                          {(identity?.platforms || [])
+                                            .slice(0, 2)
+                                            .map((platform) => platform.name)
+                                            .join(' · ')}
+                                          {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
+                                        </span>
+                                      </span>
+                                    ) : (
+                                      <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
+                                        Aún no hay plataformas vinculadas
+                                      </span>
+                                    )}
+                                  </button>
+                                  <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
+                                    {(identity?.platforms || []).length}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      setPendingDeleteIdentityId(
+                                        pendingDeleteIdentityId === identity.id ? null : identity.id,
+                                      )
+                                    }
+                                    className="mr-1 rounded-md p-1.5 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
+                                    aria-label="Eliminar identidad"
+                                  >
+                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                                    </svg>
+                                  </button>
+                                </div>
+      
+                                {pendingDeleteIdentityId === identity.id && (
+                                  <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
+                                    <p>Se eliminara la identidad y sus plataformas.</p>
+                                    <button
+                                      type="button"
+                                      onClick={() => {
+                                        void onDeleteIdentity(identity.id)
+                                        setPendingDeleteIdentityId(null)
+                                      }}
+                                      className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white"
+                                    >
+                                      Confirmar eliminacion
+                                    </button>
+                                  </div>
+                                )}
+                              </li>
+                            )
+                          })}
+                      </ul>
+                    ) : null}
+                  </>
                 )
               ) : (
                 /* groupMode === 'local' */
