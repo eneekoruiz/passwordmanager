@@ -200,7 +200,7 @@ export const MainArea = memo(function MainArea({
             <span className="text-sm font-medium text-text-secondary">Contras</span>
           </header>
         )}
-        <div className="flex flex-1 items-center justify-center px-6">
+        <div className="flex flex-1 justify-center px-6 py-6 lg:py-12">
           <div className="w-full max-w-5xl">
             <div className="rounded-[28px] border border-black/[0.06] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92)_46%,_rgba(241,245,249,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-8">
               <div className="grid gap-6">

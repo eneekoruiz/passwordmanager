@@ -476,10 +476,9 @@ export const Sidebar = memo(function Sidebar({
                         </button>
                       </li>
                     </ul>
-                    {(query || selectedPlatformName) ? (
+                    {(true) ? (
                       <ul className="space-y-0.5 animate-vault-morph">
                         {platformSummaries
-                          .filter(p => query ? true : p.name.toLowerCase() === selectedPlatformName?.toLowerCase())
                           .map((platform) => {
                             const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
                             return (
@@ -529,10 +528,9 @@ export const Sidebar = memo(function Sidebar({
                         </button>
                       </li>
                     </ul>
-                    {(query || selectedId) ? (
+                    {(true) ? (
                       <ul className="space-y-0.5 animate-vault-morph">
                         {visibleIdentities
-                          .filter(idItem => query ? true : idItem.id === selectedId)
                           .map((identity) => {
                             const selected = identity.id === selectedId
                             return (
