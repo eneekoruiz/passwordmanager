@@ -179,7 +179,7 @@ export const MainArea = memo(function MainArea({
       }
       return 0
     })
-    return list.slice(0, 8)
+    return list
   }, [identities, sortMode])
 
   if (!hasVaultSelection) {
@@ -447,8 +447,8 @@ export const MainArea = memo(function MainArea({
                       <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                       <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-text-primary">
-                          {platform.username || identityEmail}
+                        <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px]">
+                          {platform.username}
                         </span>
                         <span className="mt-1 block truncate text-xs text-text-secondary">
                           {identityEmail}

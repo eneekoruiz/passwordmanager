@@ -35,9 +35,46 @@ function getDeterministicColor(str: string): string {
  * Componente que muestra el logotipo de una plataforma de forma dinámica utilizando
  * el servicio de favicons de Google con un fallback elegante a las iniciales de la plataforma.
  */
+const CUSTOM_ICONS: Record<string, string> = {
+  'google authenticator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleauthenticator.svg',
+  'google maps': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googlemaps.svg',
+  'google meet': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googlemeet.svg',
+  'google play': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
+  'google play store': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
+  'google playstore': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
+  'google translate': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
+  'google translator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
+  'google files': 'https://www.google.com/s2/favicons?domain=files.google.com&sz=256',
+  'google files go': 'https://www.google.com/s2/favicons?domain=files.google.com&sz=256',
+  'zoom': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/zoom.svg',
+  'chatgpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
+  'chat gpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
+  'openai': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
+  'booking.com': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
+  'booking': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
+}
+
+/**
+ * Componente que muestra el logotipo de una plataforma de forma dinámica utilizando
+ * el servicio de favicons de Google con un fallback elegante a las iniciales de la plataforma.
+ */
 export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
   const [hasError, setHasError] = useState(false)
   const [src, setSrc] = useState('')
+
+  const getCustomIcon = (n: string): string | null => {
+    const clean = n.trim().toLowerCase()
+    
+    // Exact or substring match in CUSTOM_ICONS
+    if (CUSTOM_ICONS[clean]) return CUSTOM_ICONS[clean]
+    
+    for (const key of Object.keys(CUSTOM_ICONS)) {
+      if (clean.includes(key) || key.includes(clean)) {
+        return CUSTOM_ICONS[key]
+      }
+    }
+    return null
+  }
 
   const getDomainFromName = (n: string): string => {
     const clean = n.trim().toLowerCase()
@@ -47,9 +84,16 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
     if (clean.includes('yubo')) return 'yubo.live'
     if (clean.includes('yuka')) return 'yuka.io'
     
-    const known = POPULAR_SERVICES.find((service) => service.name.toLowerCase() === clean)
+    // Check in POPULAR_SERVICES by name or aliases
+    const known = POPULAR_SERVICES.find((service) => {
+      const matchName = service.name.toLowerCase() === clean || clean.includes(service.name.toLowerCase())
+      const matchAlias = service.aliases?.some(alias => alias.toLowerCase() === clean || clean.includes(alias.toLowerCase()))
+      return matchName || matchAlias
+    })
+    
     if (known) return known.domain
     if (clean.includes('.')) return clean
+    
     // Remover caracteres especiales y espacios
     const sanitized = clean.replace(/[^a-z0-9]/g, '')
     return sanitized ? `${sanitized}.com` : 'example.com'
@@ -70,16 +114,23 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
     setHasError(false)
-    // Usamos clearbit como primario por su altísima calidad de vector/png
-    setSrc(`https://logo.clearbit.com/${domain}?size=512`)
+    const custom = getCustomIcon(name)
+    if (custom) {
+      setSrc(custom)
+    } else {
+      setSrc(`https://logo.clearbit.com/${domain}?size=512`)
+    }
   }, [name, domain])
 
   const handleImageError = () => {
-    if (src.includes('clearbit.com')) {
-      // Fallback 1: icon.horse
+    if (src.includes('walkxcode') || src.includes('jsdelivr.net')) {
+      // Fallback 1 for custom icons -> go to Clearbit
+      setSrc(`https://logo.clearbit.com/${domain}?size=512`)
+    } else if (src.includes('clearbit.com')) {
+      // Fallback 2: icon.horse
       setSrc(`https://icon.horse/icon/${domain}`)
     } else if (src.includes('icon.horse')) {
-      // Fallback 2: Google Favicons
+      // Fallback 3: Google Favicons with default=404 parameter to avoid the default globe icon
       setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`)
     } else {
       setHasError(true)

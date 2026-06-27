@@ -1377,6 +1377,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setBiometricRegistered(false)
         // Continuamos con el fallback
       } else {
+        showToast('Verifica tu identidad en el navegador...', 'info')
         try {
           const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
@@ -1394,6 +1395,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(`contras.hardwareKeyRegistered.${currentProfileId}`)
         setHardwareKeyRegistered(false)
       } else {
+        showToast('Verifica tu llave de seguridad en el navegador...', 'info')
         try {
           const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)

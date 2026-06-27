@@ -150,10 +150,7 @@ export function SettingsModal({
       return Number.isFinite(time) && Date.now() - time > 365 * 24 * 60 * 60 * 1000
     })
 
-    const score = Math.max(
-      0,
-      100 - (reused.length * 18) - (weak.length * 14) - (old.length * 8),
-    )
+    // El score se calcula abajo basado en el % de seguras
 
     const insecureIds = new Set([
       ...reused.map((r) => r?.platform?.id).filter(Boolean),
@@ -169,7 +166,7 @@ export function SettingsModal({
       reusedPasswords: reused,
       weakPasswords: weak,
       oldPasswords: old,
-      healthScore: isNaN(score) ? 100 : score,
+      healthScore: entries.length === 0 ? 100 : Math.round((secureCount / entries.length) * 100),
       totalPasswordsCount: total,
       securePasswordsCount: secureCount,
     }
