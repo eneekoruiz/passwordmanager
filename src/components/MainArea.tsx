@@ -6,6 +6,7 @@ import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { VaultItemForm } from './VaultItemForm'
+import { getCanonicalPlatformName } from '../utils/platformUtils'
 
 type ViewMode = 'grid' | 'create' | 'edit'
 
@@ -137,7 +138,8 @@ export const MainArea = memo(function MainArea({
     })
   }, [groupMode, identities, selectedPlatformName, sortMode])
 
-  const selectedPlatformDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName
+  const rawDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName ?? ''
+  const selectedPlatformDisplayName = getCanonicalPlatformName(rawDisplayName)
   const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
   const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
     const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
@@ -148,13 +150,14 @@ export const MainArea = memo(function MainArea({
         const key = name.toLowerCase()
         const date = platform.createdAt || new Date(0).toISOString()
         const existing = platformData.get(key)
+        const canonicalName = getCanonicalPlatformName(name)
         if (existing) {
           existing.count += 1
           if (date < existing.minDate) existing.minDate = date
           if (date > existing.maxDate) existing.maxDate = date
         } else {
           platformData.set(key, {
-            name,
+            name: canonicalName,
             count: 1,
             minDate: date,
             maxDate: date,
@@ -229,9 +232,9 @@ export const MainArea = memo(function MainArea({
                             className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
                             style={{ animationDelay: `${index * 40}ms` }}
                           >
-                            <PlatformLogo name={platform.name} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
+                            <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
                             <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold text-text-primary">{platform.name}</span>
+                              <span className="block truncate text-sm font-semibold text-text-primary">{getCanonicalPlatformName(platform.name)}</span>
                               <span className="mt-1 block text-xs text-text-secondary">
                                 {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registradas
                               </span>
@@ -425,7 +428,7 @@ export const MainArea = memo(function MainArea({
             ) : groupMode === 'platform' && selectedPlatformName ? (
               platformAccounts.length === 0 ? (
                 <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center animate-vault-morph">
-                  <p className="text-sm font-semibold text-text-primary">No hay cuentas para {selectedPlatformName}</p>
+                  <p className="text-sm font-semibold text-text-primary">No hay cuentas para {selectedPlatformDisplayName}</p>
                   <p className="mt-1 max-w-sm text-xs text-text-secondary">Cambia a la vista por identidad para crear una nueva cuenta desde su correo propietario.</p>
                 </div>
               ) : (
@@ -442,7 +445,7 @@ export const MainArea = memo(function MainArea({
                       className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                     >
                       <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-                      <PlatformLogo name={platform.name} className="h-9 w-9" />
+                      <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
                       <span className="min-w-0 flex-1">
                         <span className="block truncate text-sm font-semibold text-text-primary">
                           {platform.username || identityEmail}

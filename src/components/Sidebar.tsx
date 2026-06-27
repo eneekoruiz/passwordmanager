@@ -6,6 +6,7 @@ import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { LOCAL_ITEM_LABELS, PRESET_LOCAL_CATEGORIES, normalizeLocalCategory } from '../utils/vaultItem'
 import { PlatformLogo } from './ui/PlatformLogo'
+import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
 
 interface SidebarProps {
@@ -469,9 +470,9 @@ export const Sidebar = memo(function Sidebar({
                             }`}
                           >
                             <span className="flex min-w-0 items-center gap-3">
-                              <PlatformLogo name={platform.name} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
+                              <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
                               <span className="truncate text-sm font-semibold text-text-primary/90">
-                                {platform.name}
+                                {getCanonicalPlatformName(platform.name)}
                               </span>
                             </span>
                             <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>

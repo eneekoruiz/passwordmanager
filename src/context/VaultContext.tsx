@@ -108,7 +108,7 @@ interface VaultContextValue {
   biometricRegistered: boolean
   registerBiometricUnlock: (masterPassword: string) => Promise<void>
   unlockWithBiometricSensor: () => Promise<void>
-  authorizeSensitiveAction: () => Promise<void>
+  authorizeSensitiveAction: (actionName?: string) => Promise<boolean>
   isPromptingMasterPassword: boolean
   resolveMasterPasswordPrompt: (success: boolean) => void
   disableBiometricUnlock: () => Promise<void>
@@ -1366,8 +1366,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await unlockOrRestoreVault(masterPassword)
   }, [unlockOrRestoreVault])
 
-  const authorizeSensitiveAction = useCallback(async () => {
-    if (!currentProfileId || !isUnlocked) throw new Error('La bóveda está bloqueada.')
+  const authorizeSensitiveAction = useCallback(async (_actionName: string = 'Acción protegida') => {
+    if (!currentProfileId || !isUnlocked) return false
     
     // Si tiene biometría activa, la preferimos.
     if (biometricAvailable && biometricRegistered) {
@@ -1375,14 +1375,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!bundle) {
         localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
         setBiometricRegistered(false)
-        throw new Error('La credencial biométrica ya no está disponible. Vuelve a activarla en Ajustes.')
+        // Continuamos con el fallback
+      } else {
+        try {
+          const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+          const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+          if (passwordIsValid) return true
+        } catch (err) {
+          console.warn('Biometría cancelada o fallida, usando fallback.', err)
+        }
       }
-      const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
-      const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-      if (!passwordIsValid) {
-        throw new Error('La credencial biométrica está desactualizada. Vuelve a registrarla.')
-      }
-      return
     }
 
     // Si tiene llave física activa, la usamos.
@@ -1391,23 +1393,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!bundle) {
         localStorage.removeItem(`contras.hardwareKeyRegistered.${currentProfileId}`)
         setHardwareKeyRegistered(false)
-        throw new Error('La llave de seguridad ya no está disponible. Vuelve a activarla en Ajustes.')
+      } else {
+        try {
+          const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
+          const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+          if (passwordIsValid) return true
+        } catch (err) {
+          console.warn('Llave física cancelada o fallida, usando fallback.', err)
+        }
       }
-      const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
-      const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-      if (!passwordIsValid) {
-        throw new Error('La llave de seguridad está desactualizada. Vuelve a registrarla.')
-      }
-      return
     }
 
-    // Fallback: Si no hay hardware ni biometría, pedimos la clave maestra
+    // Fallback: Si no hay hardware ni biometría, o si fallaron/se cancelaron, pedimos la clave maestra
     const authorized = await promptMasterPassword()
     if (!authorized) {
-      throw new Error('Autorización cancelada o incorrecta.')
+      showToast('Autorización cancelada.', 'error')
+      return false
     }
-    return
-  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword])
+    return true
+  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword, showToast])
 
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return

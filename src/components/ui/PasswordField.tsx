@@ -21,6 +21,8 @@ interface PasswordFieldProps {
   disabled?: boolean
   /** Si es true, renderiza el botón sutil de generación de contraseñas y su panel */
   showGenerator?: boolean
+  /** Si es true, fuerza la visibilidad ignorando el estado interno (usado por desbloqueo global) */
+  forceVisible?: boolean
 }
 
 /**
@@ -105,8 +107,10 @@ export function PasswordField({
   required,
   disabled,
   showGenerator = false,
+  forceVisible = false,
 }: PasswordFieldProps) {
-  const [visible, setVisible] = useState(false)
+  const [internalVisible, setInternalVisible] = useState(false)
+  const visible = forceVisible || internalVisible
   const [copied, setCopied] = useState(false)
   
   // Estados de control del generador
@@ -204,9 +208,8 @@ export function PasswordField({
 
           <button
             type="button"
-            onClick={() => setVisible((v) => !v)}
-            disabled={disabled}
-            className="group relative rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150"
+            onClick={(e) => { e.preventDefault(); setInternalVisible(!internalVisible); }}
+            className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-black/10 ${visible ? 'text-black hover:bg-black/5' : 'text-text-tertiary hover:bg-surface-hover'} hover:text-text-secondary active:scale-95 transition-all duration-150`}
             aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >
             {visible ? (

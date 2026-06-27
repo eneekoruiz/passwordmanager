@@ -3,7 +3,6 @@ import { copyToClipboard } from '../../utils/clipboard'
 import { inputClassName } from './FormField'
 import { useVault } from '../../context/VaultContext'
 import { useToast } from './ToastProvider'
-import { getFriendlyErrorMessage } from '../../utils/errors'
 
 interface SecretFieldProps {
   label: string
@@ -32,13 +31,7 @@ export function SecretField({
   }, [visible])
 
   const authenticate = async () => {
-    try {
-      await authorizeSensitiveAction()
-      return true
-    } catch (error) {
-      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
-      return false
-    }
+    return await authorizeSensitiveAction()
   }
 
   const handleReveal = async () => {

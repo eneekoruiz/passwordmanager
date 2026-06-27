@@ -37,7 +37,7 @@ export type VaultGroupMode = 'identity' | 'platform' | 'local'
 export type SortMode = 'alpha-asc' | 'alpha-desc' | 'date-desc' | 'date-asc'
 export type AuthMethod = 'PASSWORD' | 'SSO' | 'PASSKEY' | 'MAGIC_LINK'
 export type SsoProvider = string
-export type TwoFactorType = 'NONE' | 'PIN' | 'TOTP' | 'SMS'
+export type TwoFactorType = 'NONE' | 'PIN' | 'TOTP' | 'SMS' | 'EMAIL'
 export type WifiSecurityType = 'WPA2' | 'WPA3' | 'WEP' | 'OPEN' | 'OTHER'
 
 export interface TwoFactorConfig {

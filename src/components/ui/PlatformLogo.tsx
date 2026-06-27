@@ -71,7 +71,7 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
   useEffect(() => {
     setHasError(false)
     // Usamos clearbit como primario por su altísima calidad de vector/png
-    setSrc(`https://logo.clearbit.com/${domain}?size=128`)
+    setSrc(`https://logo.clearbit.com/${domain}?size=512`)
   }, [name, domain])
 
   const handleImageError = () => {
@@ -80,7 +80,7 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
       setSrc(`https://icon.horse/icon/${domain}`)
     } else if (src.includes('icon.horse')) {
       // Fallback 2: Google Favicons
-      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=128`)
+      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`)
     } else {
       setHasError(true)
     }

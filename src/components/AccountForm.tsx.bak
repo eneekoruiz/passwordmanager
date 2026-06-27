@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
+import { useState, useEffect, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
 import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType, FileAttachment } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
@@ -18,7 +18,7 @@ interface AccountFormProps {
   mode: 'create' | 'edit'
   identityEmail: string
   initialAccount?: Account
-  onSave: (account: Account, targetIdentityId?: string) => Promise<void>
+  onSave: (account: Account) => Promise<void>
   onCancel: () => void
   onDelete?: () => Promise<void>
   onUnsavedStateChange?: (dirty: boolean, actions: UnsavedFormActions | null) => void
@@ -144,8 +144,8 @@ function AttachmentItem({
 
     setRevealing(true)
     try {
-      const ok = await authorizeSensitiveAction()
-      if (ok) setUnblurred(true)
+      await authorizeSensitiveAction()
+      setUnblurred(true)
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'No se pudo verificar tu identidad.'
       if (!msg.toLowerCase().includes('cancel')) {
@@ -242,7 +242,7 @@ const CopyIcon = () => (
   </svg>
 )
 
-function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
+function ReadOnlyField({ label, value, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
   const [copied, setCopied] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const { authorizeSensitiveAction } = useVault()
@@ -257,7 +257,13 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
   if (!value) return null
 
   const authenticate = async () => {
-    return await authorizeSensitiveAction()
+    try {
+      await authorizeSensitiveAction()
+      return true
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return false
+    }
   }
 
   const handleReveal = async () => {
@@ -270,7 +276,7 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
 
   const handleCopy = async (event?: MouseEvent) => {
     event?.stopPropagation()
-    if (isSecret && !(await authenticate())) return
+    if (!(await authenticate())) return
     const ok = await copyToClipboard(value)
     if (ok) {
       setCopied(true)
@@ -285,26 +291,24 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{label}</span>
         <div className="flex min-h-12 shrink-0 items-center gap-3">
-          {isSecret && (
-            <button
-              type="button"
-              onClick={() => void handleReveal()}
-              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none"
-            >
-              {revealed ? 'Ocultar' : 'Mostrar'}
-            </button>
-          )}
+          <button
+            type="button"
+            onClick={() => void handleReveal()}
+            className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none"
+          >
+            {revealed ? 'Ocultar' : 'Mostrar'}
+          </button>
           <button
             type="button"
             onClick={(event) => void handleCopy(event)}
             className={'inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-90 ' + (copied ? 'border-green-100 bg-green-50 text-green-600' : 'border-black/5 bg-surface text-text-tertiary hover:bg-surface-hover hover:text-text-primary')}
-            title="Copiar"
+            title="Autenticar y copiar"
           >
             {copied ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <CopyIcon />}
           </button>
         </div>
       </div>
-      {(!isSecret || revealed) ? (
+      {revealed ? (
         <div className={'mt-0.5 break-all font-mono text-base font-semibold text-text-primary leading-relaxed overflow-wrap-anywhere ' + (isMultiline ? 'whitespace-pre-wrap' : '')}>{value}</div>
       ) : (
         <div className="text-base font-semibold text-text-primary truncate tracking-widest font-mono">••••••••••••</div>
@@ -338,7 +342,13 @@ function SecuritySummaryCard({
   }, [revealed])
 
   const authenticate = async () => {
-    return await authorizeSensitiveAction()
+    try {
+      await authorizeSensitiveAction()
+      return true
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return false
+    }
   }
 
   const handleReveal = async () => {
@@ -454,15 +464,6 @@ export function AccountForm({
   const [passwordEnabled, setPasswordEnabled] = useState(() =>
     Boolean((initialAccount ?? createEmptyAccount()).accessMethods.some((method) => method.type === 'PASSWORD')),
   )
-  const { identities, addIdentity, authorizeSensitiveAction } = useVault()
-  const { showToast } = useToast()
-  const [targetIdentityId, setTargetIdentityId] = useState<string>(() => {
-    const id = identities.find(i => i.email === identityEmail)?.id
-    return id ?? (identities[0]?.id || '')
-  })
-  const [isUnlocked, setIsUnlocked] = useState(false)
-  const [showNewIdentityInput, setShowNewIdentityInput] = useState(false)
-  const [newIdentityEmail, setNewIdentityEmail] = useState('')
 
   const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
@@ -473,21 +474,6 @@ export function AccountForm({
   useEffect(() => {
     setPlatformQuery(account.name)
   }, [account.name])
-
-  useEffect(() => {
-    if (mode === 'edit') {
-      window.scrollTo({ top: 0, behavior: 'instant' })
-    }
-  }, [mode])
-
-  const handleGlobalUnlock = async () => {
-    if (isUnlocked) return
-    const ok = await authorizeSensitiveAction('Desbloquear secretos')
-    if (ok) {
-      setIsUnlocked(true)
-      showToast('Información sensible revelada', 'success')
-    }
-  }
 
   const downloadAttachment = (attachment: FileAttachment) => {
     try {
@@ -639,35 +625,31 @@ export function AccountForm({
     }))
   }
 
-  const addCustomField = useCallback(() => {
+  const addCustomField = () => {
     setAccount((prev) => ({
       ...prev,
       customFields: [
-        ...(prev.customFields || []),
+        ...(prev.customFields ?? []),
         { id: generateId(), key: '', value: '', protected: false },
       ],
     }))
-  }, [])
+  }
 
-  const updateCustomField = useCallback(<K extends keyof CustomFieldEntry>(id: string, key: K, value: CustomFieldEntry[K]) => {
-    setAccount((prev) => {
-      const current = prev.customFields || []
-      const index = current.findIndex((f) => f.id === id)
-      if (index === -1) return prev
-      if (current[index][key] === value) return prev // Avoid infinite loops if no actual change
-
-      const nextFields = [...current]
-      nextFields[index] = { ...nextFields[index], [key]: value }
-      return { ...prev, customFields: nextFields }
-    })
-  }, [])
-
-  const removeCustomField = useCallback((id: string) => {
+  const updateCustomField = <K extends keyof CustomFieldEntry>(id: string, key: K, value: CustomFieldEntry[K]) => {
     setAccount((prev) => ({
       ...prev,
-      customFields: (prev.customFields || []).filter((field) => field.id !== id),
+      customFields: (prev.customFields ?? []).map((field) =>
+        field.id === id ? { ...field, [key]: value } : field,
+      ),
     }))
-  }, [])
+  }
+
+  const removeCustomField = (id: string) => {
+    setAccount((prev) => ({
+      ...prev,
+      customFields: (prev.customFields ?? []).filter((field) => field.id !== id),
+    }))
+  }
 
   const readFileAsDataUrl = (file: File) =>
     new Promise<string>((resolve, reject) => {
@@ -799,19 +781,14 @@ export function AccountForm({
       setError('Indica el nombre de la plataforma.')
       return
     }
-    if (normalized.accessMethods.length === 0 && !normalized.linkedPhone) {
-      setError('Activa al menos una vía de acceso o provee un teléfono para esta cuenta.')
+    if (normalized.accessMethods.length === 0) {
+      setError('Activa al menos una vía de acceso para esta plataforma.')
       return
     }
 
     setSaving(true)
     try {
-      let finalIdentityId = targetIdentityId
-      if (showNewIdentityInput && newIdentityEmail.trim()) {
-        const newIdent = await addIdentity(newIdentityEmail.trim())
-        finalIdentityId = newIdent.id
-      }
-      await onSave(normalized, finalIdentityId)
+      await onSave(normalized)
       setBaselineAccount(normalized)
       setPasswordEnabled(normalized.accessMethods.some((method) => method.type === 'PASSWORD'))
       onUnsavedStateChange?.(false, null)
@@ -1112,59 +1089,12 @@ export function AccountForm({
 
       <div className="mx-auto flex w-full max-w-6xl flex-col gap-5 px-4 py-6 lg:px-8">
       <section className="space-y-5 rounded-2xl border border-black/[0.08] bg-gradient-to-b from-white to-slate-50/80 p-5 shadow-[0_18px_55px_rgba(15,23,42,0.07)] backdrop-blur">
-        <div className="flex flex-row justify-between items-end border-b border-border-subtle pb-3">
-          <div className="flex flex-col">
-            <h3 className="text-sm font-bold text-text-primary">Credenciales Principales</h3>
-            <p className="text-[10px] font-medium text-text-tertiary">Plataforma, usuario, contraseña y vías de acceso.</p>
-          </div>
-          {!isUnlocked && (
-            <button
-              type="button"
-              onClick={handleGlobalUnlock}
-              className="flex items-center gap-1.5 rounded-lg border border-black/[0.05] bg-surface-primary px-3 py-1.5 text-xs font-semibold text-text-primary shadow-sm hover:bg-surface-hover active:scale-95 transition-all"
-            >
-              <svg className="w-3.5 h-3.5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-              </svg>
-              Desbloquear Vista
-            </button>
-          )}
+        <div className="flex flex-col border-b border-border-subtle pb-3">
+          <h3 className="text-sm font-bold text-text-primary">Credenciales Principales</h3>
+          <p className="text-[10px] font-medium text-text-tertiary">Plataforma, usuario, contraseña y vías de acceso.</p>
         </div>
 
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-          <div className="flex flex-col gap-1.5">
-            <label className="text-sm font-semibold text-text-primary">Identidad (Email)</label>
-            <select
-              value={showNewIdentityInput ? 'NEW' : targetIdentityId}
-              onChange={(e) => {
-                if (e.target.value === 'NEW') {
-                  setShowNewIdentityInput(true)
-                } else {
-                  setShowNewIdentityInput(false)
-                  setTargetIdentityId(e.target.value)
-                }
-              }}
-              className="w-full rounded-xl border border-border-default bg-surface-primary px-3 py-2.5 text-sm font-medium text-text-primary outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
-            >
-              {identities.map((ident) => (
-                <option key={ident.id} value={ident.id}>{ident.email}</option>
-              ))}
-              <option value="NEW">+ Añadir nueva identidad</option>
-            </select>
-          </div>
-          {showNewIdentityInput && (
-            <div className="flex flex-col gap-1.5 animate-vault-morph">
-              <label className="text-sm font-semibold text-text-primary">Nuevo Correo</label>
-              <input
-                type="email"
-                placeholder="ejemplo@gmail.com"
-                value={newIdentityEmail}
-                onChange={(e) => setNewIdentityEmail(e.target.value)}
-                autoFocus
-                className="w-full rounded-xl border border-border-default bg-surface-primary px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
-              />
-            </div>
-          )}
           <Combobox
             label="Plataforma"
             value={platformQuery}
@@ -1209,7 +1139,6 @@ export function AccountForm({
                     placeholder="••••••••"
                     required
                     showGenerator
-                    forceVisible={isUnlocked}
                   />
                   {(account.passwordHistory ?? []).length > 0 && (
                     <Accordion title="Historial de contraseñas">
@@ -1331,17 +1260,13 @@ export function AccountForm({
             Llave física de seguridad (FIDO2 / YubiKey)
           </label>
         </div>
-      </section>
-
-      <section className="space-y-5 rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
-        <h3 className="text-lg font-bold text-text-primary mb-4">Seguridad Extra</h3>
 
         {/* Segundos Factores (2FA) */}
-        <div className="space-y-4 rounded-xl border border-black/[0.05] bg-surface-primary/30 p-4">
+        <div className="space-y-4 rounded-2xl border border-black/[0.05] bg-white/70 p-4">
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <span className="block text-sm font-semibold text-text-primary">Segundos factores (2FA)</span>
-              <p className="mt-1 text-xs text-text-secondary">Configura tus llaves OTP, PINs, SMS o Email de verificación.</p>
+              <p className="mt-1 text-xs text-text-secondary">Configura tus llaves OTP, PINs o SMS de verificación.</p>
             </div>
             {/* Botón para añadir un factor */}
             <div className="relative inline-block text-left">
@@ -1359,7 +1284,6 @@ export function AccountForm({
                 <option value="TOTP">App Autenticadora (TOTP)</option>
                 <option value="PIN">PIN de Seguridad</option>
                 <option value="SMS">SMS de Respaldo</option>
-                <option value="EMAIL">Correo Electrónico (Email)</option>
               </select>
             </div>
           </div>
@@ -1398,17 +1322,6 @@ export function AccountForm({
                     />
                   )}
 
-                  {cfg.type === 'EMAIL' && (
-                    <FormField
-                      label="Correo Electrónico (Email 2FA)"
-                      type="email"
-                      value={cfg.phone ?? ''}
-                      onChange={(e) => updateTwoFactorConfigDetail(cfg.id, 'phone', e.target.value)}
-                      placeholder="email@ejemplo.com"
-                      autoComplete="off"
-                    />
-                  )}
-
                   {cfg.type === 'SMS' && (
                     <FormField
                       label="Número de Teléfono"
@@ -1430,30 +1343,13 @@ export function AccountForm({
                         placeholder="Google Authenticator, Authy..."
                         createLabel={(input) => `Usar "${input}"`}
                       />
-                      <div className="relative">
-                        <label className="mb-1.5 block text-xs font-semibold text-text-secondary">
-                          Clave de configuración (Secreto)
-                          <span className="ml-1 cursor-help text-blue-500" title="Esta es la semilla base32 que enlaza tu app de autenticación (ej: Authenticator) para generar los códigos 2FA. Guárdala si quieres poder restaurar los códigos en el futuro sin escanear el QR." >
-                            ⓘ
-                          </span>
-                        </label>
-                        <div className="flex items-center">
-                          {isUnlocked ? (
-                            <input
-                              type="text"
-                              value={cfg.secret ?? ''}
-                              onChange={(e) => updateTwoFactorConfigDetail(cfg.id, 'secret', e.target.value)}
-                              placeholder="Secreto TOTP (Base32)"
-                              autoComplete="off"
-                              className="w-full rounded-xl border border-border-default bg-surface-primary px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black focus:ring-2 focus:ring-black/5"
-                            />
-                          ) : (
-                            <div className="flex h-10 w-full items-center rounded-xl border border-black/[0.05] bg-black/[0.02] px-3 font-mono text-sm tracking-[0.2em] text-text-secondary select-none">
-                              ••••••••••••
-                            </div>
-                          )}
-                        </div>
-                      </div>
+                      <FormField
+                        label="Clave de configuración (Secreto)"
+                        value={cfg.secret ?? ''}
+                        onChange={(e) => updateTwoFactorConfigDetail(cfg.id, 'secret', e.target.value)}
+                        placeholder="Secreto TOTP (Base32)"
+                        autoComplete="off"
+                      />
                     </div>
                   )}
                 </div>
@@ -1643,7 +1539,7 @@ export function AccountForm({
                         onChange={(event) => updateCustomField(field.id, 'value', event.target.value)}
                         placeholder="Valor"
                         className="mt-2 min-h-20 w-full resize-y rounded-xl border border-black/5 bg-surface px-3 py-2 text-base text-text-primary outline-none focus:border-border"
-                        style={(field.protected && !isUnlocked) ? ({ WebkitTextSecurity: 'disc' } as CSSProperties) : undefined}
+                        style={field.protected ? ({ WebkitTextSecurity: 'disc' } as CSSProperties) : undefined}
                       />
                       <label className="mt-2 flex items-center gap-2 text-[11px] font-semibold text-text-secondary">
                         <input
