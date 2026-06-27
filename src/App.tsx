@@ -1473,7 +1473,7 @@ function GlobalSearch({
           {results.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
           ) : (
-            results.slice(0, 8).map((result) => (
+            results.slice(0, 50).map((result) => (
               <button
                 key={result.id}
                 type="button"
