@@ -242,6 +242,109 @@ export const Sidebar = memo(function Sidebar({
     </div>
   ) : null)
 
+  const renderPlatformItem = (platform: { name: string; count: number }) => {
+    const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
+    return (
+      <li key={platform.name}>
+        <button
+          type="button"
+          onClick={() => onSelectPlatform(platform.name)}
+          className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
+            selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+          }`}
+        >
+          <span className="flex min-w-0 items-center gap-3">
+            <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
+            <span className="truncate text-sm font-semibold text-text-primary/90">
+              {getCanonicalPlatformName(platform.name)}
+            </span>
+          </span>
+          <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>
+        </button>
+      </li>
+    )
+  }
+
+  const renderIdentityItem = (identity: Identity) => {
+    const selected = identity.id === selectedId
+    return (
+      <li key={identity.id}>
+        <div
+          className={`group flex items-center rounded-lg transition-colors ${
+            selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
+          }`}
+        >
+          <button
+            type="button"
+            onClick={() => onSelect(identity.id)}
+            className="min-w-0 flex-1 px-3 py-2.5 text-left"
+          >
+            <span className="block truncate text-[15px] font-semibold text-text-primary/95">
+              {identity.email}
+            </span>
+            {(identity?.platforms || []).length > 0 ? (
+              <span className="mt-2 flex items-center gap-2">
+                <span className="flex -space-x-2">
+                  {(identity?.platforms || []).slice(0, 3).map((platform) => (
+                    <PlatformLogo
+                      key={`${identity.id}-${platform.id}`}
+                      name={platform.name}
+                      className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
+                    />
+                  ))}
+                </span>
+                <span className="truncate text-[11px] font-medium text-text-tertiary">
+                  {(identity?.platforms || [])
+                    .slice(0, 2)
+                    .map((platform) => platform.name)
+                    .join(' · ')}
+                  {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
+                </span>
+              </span>
+            ) : (
+              <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
+                Aún no hay plataformas vinculadas
+              </span>
+            )}
+          </button>
+          <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
+            {(identity?.platforms || []).length}
+          </span>
+          <button
+            type="button"
+            onClick={() =>
+              setPendingDeleteIdentityId(
+                pendingDeleteIdentityId === identity.id ? null : identity.id,
+              )
+            }
+            className="mr-1 rounded-md p-1.5 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
+            aria-label="Eliminar identidad"
+          >
+            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        {pendingDeleteIdentityId === identity.id && (
+          <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
+            <p>Se eliminara la identidad y sus plataformas.</p>
+            <button
+              type="button"
+              onClick={() => {
+                void onDeleteIdentity(identity.id)
+                setPendingDeleteIdentityId(null)
+              }}
+              className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white"
+            >
+              Confirmar eliminacion
+            </button>
+          </div>
+        )}
+      </li>
+    )
+  }
+
   return (
     <>
       {!isMobile && isOpen && (
@@ -476,33 +579,48 @@ export const Sidebar = memo(function Sidebar({
                         </button>
                       </li>
                     </ul>
-                    {(true) ? (
+                    {searchQuery ? (
                       <ul className="space-y-0.5 animate-vault-morph">
                         {platformSummaries
-                          .map((platform) => {
-                            const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
-                            return (
-                              <li key={platform.name}>
-                                <button
-                                  type="button"
-                                  onClick={() => onSelectPlatform(platform.name)}
-                                  className={`flex min-h-12 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
-                                    selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                                  }`}
-                                >
-                                  <span className="flex min-w-0 items-center gap-3">
-                                    <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-8 w-8 rounded-xl border border-black/[0.04] bg-white p-0.5 shadow-sm" />
-                                    <span className="truncate text-sm font-semibold text-text-primary/90">
-                                      {getCanonicalPlatformName(platform.name)}
-                                    </span>
-                                  </span>
-                                  <span className="text-xs tabular-nums text-text-tertiary">{platform.count}</span>
-                                </button>
-                              </li>
-                            )
-                          })}
+                          .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map(renderPlatformItem)}
                       </ul>
-                    ) : null}
+                    ) : (
+                      <div className="animate-vault-morph">
+                        <div className="mx-3 mb-6 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Plataformas</p>
+                            <p className="mt-1 text-xl font-bold text-text-primary">{platformSummaries.length}</p>
+                          </div>
+                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</p>
+                            <p className="mt-1 text-xl font-bold text-text-primary">{platformSummaries.reduce((acc, p) => acc + p.count, 0)}</p>
+                          </div>
+                        </div>
+
+                        {platformSummaries.length > 0 && (
+                          <>
+                            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                              Más Usadas
+                            </div>
+                            <ul className="space-y-0.5">
+                              {[...platformSummaries].sort((a, b) => b.count - a.count).slice(0, 5).map(renderPlatformItem)}
+                            </ul>
+                          </>
+                        )}
+                        
+                        {selectedPlatformName && ![...platformSummaries].sort((a, b) => b.count - a.count).slice(0, 5).find(p => p.name.toLowerCase() === selectedPlatformName.toLowerCase()) && (
+                          <>
+                            <div className="mt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                              Seleccionada
+                            </div>
+                            <ul className="space-y-0.5">
+                              {platformSummaries.filter(p => p.name.toLowerCase() === selectedPlatformName.toLowerCase()).map(renderPlatformItem)}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </>
                 )
               ) : groupMode === 'identity' ? (
@@ -528,90 +646,48 @@ export const Sidebar = memo(function Sidebar({
                         </button>
                       </li>
                     </ul>
-                    {(true) ? (
+                    {searchQuery ? (
                       <ul className="space-y-0.5 animate-vault-morph">
                         {visibleIdentities
-                          .map((identity) => {
-                            const selected = identity.id === selectedId
-                            return (
-                              <li key={identity.id}>
-                                <div
-                                  className={`group flex items-center rounded-lg transition-colors ${
-                                    selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                                  }`}
-                                >
-                                  <button
-                                    type="button"
-                                    onClick={() => onSelect(identity.id)}
-                                    className="min-w-0 flex-1 px-3 py-2.5 text-left"
-                                  >
-                                    <span className="block truncate text-[15px] font-semibold text-text-primary/95">
-                                      {identity.email}
-                                    </span>
-                                    {(identity?.platforms || []).length > 0 ? (
-                                      <span className="mt-2 flex items-center gap-2">
-                                        <span className="flex -space-x-2">
-                                          {(identity?.platforms || []).slice(0, 3).map((platform) => (
-                                            <PlatformLogo
-                                              key={`${identity.id}-${platform.id}`}
-                                              name={platform.name}
-                                              className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm"
-                                            />
-                                          ))}
-                                        </span>
-                                        <span className="truncate text-[11px] font-medium text-text-tertiary">
-                                          {(identity?.platforms || [])
-                                            .slice(0, 2)
-                                            .map((platform) => platform.name)
-                                            .join(' · ')}
-                                          {(identity?.platforms || []).length > 2 ? ` +${(identity?.platforms || []).length - 2}` : ''}
-                                        </span>
-                                      </span>
-                                    ) : (
-                                      <span className="mt-1 block text-[11px] font-medium text-text-tertiary">
-                                        Aún no hay plataformas vinculadas
-                                      </span>
-                                    )}
-                                  </button>
-                                  <span className="shrink-0 px-1 text-xs tabular-nums text-text-tertiary">
-                                    {(identity?.platforms || []).length}
-                                  </span>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      setPendingDeleteIdentityId(
-                                        pendingDeleteIdentityId === identity.id ? null : identity.id,
-                                      )
-                                    }
-                                    className="mr-1 rounded-md p-1.5 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
-                                    aria-label="Eliminar identidad"
-                                  >
-                                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                                    </svg>
-                                  </button>
-                                </div>
-      
-                                {pendingDeleteIdentityId === identity.id && (
-                                  <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
-                                    <p>Se eliminara la identidad y sus plataformas.</p>
-                                    <button
-                                      type="button"
-                                      onClick={() => {
-                                        void onDeleteIdentity(identity.id)
-                                        setPendingDeleteIdentityId(null)
-                                      }}
-                                      className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white"
-                                    >
-                                      Confirmar eliminacion
-                                    </button>
-                                  </div>
-                                )}
-                              </li>
-                            )
-                          })}
+                          .filter(idItem => idItem.email.toLowerCase().includes(searchQuery.toLowerCase()))
+                          .map(renderIdentityItem)}
                       </ul>
-                    ) : null}
+                    ) : (
+                      <div className="animate-vault-morph">
+                        <div className="mx-3 mb-6 grid grid-cols-2 gap-2">
+                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Identidades</p>
+                            <p className="mt-1 text-xl font-bold text-text-primary">{visibleIdentities.length}</p>
+                          </div>
+                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</p>
+                            <p className="mt-1 text-xl font-bold text-text-primary">{visibleIdentities.reduce((acc, idItem) => acc + (idItem.platforms || []).length, 0)}</p>
+                          </div>
+                        </div>
+
+                        {visibleIdentities.length > 0 && (
+                          <>
+                            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                              Más Usadas
+                            </div>
+                            <ul className="space-y-0.5">
+                              {[...visibleIdentities].sort((a, b) => (b.platforms || []).length - (a.platforms || []).length).slice(0, 5).map(renderIdentityItem)}
+                            </ul>
+                          </>
+                        )}
+
+                        {selectedId && ![...visibleIdentities].sort((a, b) => (b.platforms || []).length - (a.platforms || []).length).slice(0, 5).find(idItem => idItem.id === selectedId) && (
+                          <>
+                            <div className="mt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                              Seleccionada
+                            </div>
+                            <ul className="space-y-0.5">
+                              {visibleIdentities.filter(idItem => idItem.id === selectedId).map(renderIdentityItem)}
+                            </ul>
+                          </>
+                        )}
+                      </div>
+                    )}
                   </>
                 )
               ) : (
