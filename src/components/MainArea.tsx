@@ -21,8 +21,8 @@ interface MainAreaProps {
   onRequestNavigation: (action: () => void) => void
   onUnsavedStateChange: (dirty: boolean, actions: UnsavedFormActions | null) => void
   onSelectIdentity: (id: string | null) => void
-  onSelectPlatformName: (platformName: string) => void
-  onSelectLocalCategory: (category: LocalCategory) => void
+  onSelectPlatformName: (platformName: string | null) => void
+  onSelectLocalCategory: (category: LocalCategory | null) => void
   onOpenImportText: () => void
   onAddPlatform: (identityId: string, platform: Platform) => Promise<void>
   onUpdatePlatform: (identityId: string, platformId: string, platform: Platform) => Promise<void>
@@ -63,7 +63,7 @@ export const MainArea = memo(function MainArea({
   onUnsavedStateChange,
   onSelectIdentity,
   onSelectPlatformName,
-  /* onSelectLocalCategory */
+  onSelectLocalCategory,
   onOpenImportText,
   onAddPlatform,
   onUpdatePlatform,
@@ -133,6 +133,8 @@ export const MainArea = memo(function MainArea({
         const dateA = a.platform.createdAt ? new Date(a.platform.createdAt).getTime() : 0
         const dateB = b.platform.createdAt ? new Date(b.platform.createdAt).getTime() : 0
         return dateA - dateB
+      } else if (sortMode === 'usage-desc') {
+        return (b.platform.passwordHistory?.length || 0) - (a.platform.passwordHistory?.length || 0) || a.identityEmail.localeCompare(b.identityEmail)
       }
       return 0
     })
@@ -176,6 +178,8 @@ export const MainArea = memo(function MainArea({
         return b.maxDate.localeCompare(a.maxDate)
       } else if (sortMode === 'date-asc') {
         return a.minDate.localeCompare(b.minDate)
+      } else if (sortMode === 'usage-desc') {
+        return b.count - a.count || a.name.localeCompare(b.name)
       }
       return 0
     })
@@ -200,8 +204,9 @@ export const MainArea = memo(function MainArea({
             <span className="text-sm font-medium text-text-secondary">Contras</span>
           </header>
         )}
-        <div className="flex flex-1 justify-center px-6 py-6 lg:py-12">
-          <div className="w-full max-w-5xl">
+        <div className="flex-1 min-h-0 overflow-y-auto">
+          <div className="flex justify-center px-6 py-6 lg:py-12 min-h-full">
+            <div className="w-full max-w-5xl">
             <div className="rounded-[28px] border border-black/[0.06] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92)_46%,_rgba(241,245,249,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-8">
               <div className="grid gap-6">
                 <section className="space-y-5">
@@ -219,6 +224,19 @@ export const MainArea = memo(function MainArea({
                         ? 'Selecciona una categoría local en la barra lateral para ver tus secretos que no dependen de una plataforma o identidad.'
                         : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas a ese correo o perfil.'}
                     </p>
+                    {isMobile && groupMode === 'platform' && (
+                      <div className="mt-4 flex items-center gap-3 border-t border-black/[0.04] pt-4">
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Plataformas</span>
+                          <span className="text-sm font-semibold text-text-primary">{featuredPlatforms.length}</span>
+                        </div>
+                        <div className="h-6 w-px bg-black/[0.04]"></div>
+                        <div className="flex flex-col">
+                          <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</span>
+                          <span className="text-sm font-semibold text-text-primary">{identities.reduce((sum, id) => sum + (id.platforms?.length || 0), 0)}</span>
+                        </div>
+                      </div>
+                    )}
                   </div>
 
                   {groupMode === 'platform' ? (
@@ -303,6 +321,7 @@ export const MainArea = memo(function MainArea({
           </div>
         </div>
       </div>
+      </div>
     )
   }
 
@@ -318,7 +337,11 @@ export const MainArea = memo(function MainArea({
         {isMobile ? (
           <button
             type="button"
-            onClick={() => onRequestNavigation(() => onSelectIdentity(null))}
+            onClick={() => {
+              if (localCategory) onSelectLocalCategory(null)
+              else if (groupMode === 'platform') onSelectPlatformName(null)
+              else onSelectIdentity(null)
+            }}
             className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover"
             aria-label="Volver a identidades"
           >
@@ -335,6 +358,24 @@ export const MainArea = memo(function MainArea({
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M4 6h16M4 12h16M4 18h16" />
+            </svg>
+          </button>
+        )}
+
+        {/* Desktop Back Button */}
+        {!isMobile && (
+          <button
+            type="button"
+            onClick={() => {
+              if (localCategory) onSelectLocalCategory(null)
+              else if (groupMode === 'platform') onSelectPlatformName(null)
+              else onSelectIdentity(null)
+            }}
+            className="hidden rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary lg:block"
+            aria-label="Volver"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
           </button>
         )}
@@ -399,7 +440,7 @@ export const MainArea = memo(function MainArea({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 max-lg:max-h-80">
                   {selectedLocalItems.map((item, index) => (
                     <button
                       key={item.id}
@@ -432,7 +473,7 @@ export const MainArea = memo(function MainArea({
                   <p className="mt-1 max-w-sm text-xs text-text-secondary">Cambia a la vista por identidad para crear una nueva cuenta desde su correo propietario.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 max-lg:max-h-80">
                   {platformAccounts.map(({ identityId, identityEmail, platform }, index) => (
                     <button
                       key={`${identityId}-${platform.id}`}
@@ -495,7 +536,7 @@ export const MainArea = memo(function MainArea({
                 onImportText={onOpenImportText}
               />
             ) : (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 max-lg:max-h-80">
                 {(identity?.platforms || []).map((platform, index) => (
                   <button
                     key={platform.id}
@@ -642,3 +683,5 @@ export const MainArea = memo(function MainArea({
     </div>
   )
 })
+
+

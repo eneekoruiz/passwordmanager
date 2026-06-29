@@ -28,6 +28,21 @@ const SORT_LABELS: Record<SortMode, string> = {
   'alpha-desc': 'Alfabéticamente (Z-A)',
   'date-desc': 'Más recientes primero',
   'date-asc': 'Más antiguos primero',
+  'usage-desc': 'Más usadas primero',
+}
+
+const SORT_STORAGE_KEY = 'contras.sortMode'
+
+function readStoredSortMode(): SortMode {
+  if (typeof window === 'undefined') return 'alpha-asc'
+  const stored = window.localStorage.getItem(SORT_STORAGE_KEY)
+  return stored === 'alpha-asc' ||
+    stored === 'alpha-desc' ||
+    stored === 'date-desc' ||
+    stored === 'date-asc' ||
+    stored === 'usage-desc'
+    ? stored
+    : 'alpha-asc'
 }
 
 function VaultApp() {
@@ -150,7 +165,8 @@ function VaultApp() {
   const [selectedLocalCategory, setSelectedLocalCategory] = useState<LocalCategory | null>(null)
   const [globalSearchTerm, setGlobalSearchTerm] = useState('')
   const [localSearchTerm, setLocalSearchTerm] = useState('')
-  const [sortMode, setSortMode] = useState<SortMode>('alpha-asc')
+  const [sortMode, setSortMode] = useState<SortMode>(() => readStoredSortMode())
+  const [focusCsvExport, setFocusCsvExport] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
   const [showMobileSortMenu, setShowMobileSortMenu] = useState(false)
   const [createTrigger, setCreateTrigger] = useState(0)
@@ -375,6 +391,8 @@ function VaultApp() {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
         return dateA - dateB
+      } else if (sortMode === 'usage-desc') {
+        return (b.platforms?.length || 0) - (a.platforms?.length || 0) || a.email.localeCompare(b.email)
       }
       return 0
     })
@@ -394,12 +412,19 @@ function VaultApp() {
           const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return dateA - dateB
+        } else if (sortMode === 'usage-desc') {
+          return (b.passwordHistory?.length || 0) - (a.passwordHistory?.length || 0) || a.name.localeCompare(b.name)
         }
         return 0
       })
       return { ...identity, platforms: sortedPlatforms }
     })
   }, [identities, travelModeEnabled, sortMode])
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(SORT_STORAGE_KEY, sortMode)
+  }, [sortMode])
 
   const displayLocalItems = useMemo(() => {
     return travelModeEnabled
@@ -1170,11 +1195,11 @@ function VaultApp() {
               )}
               <div className="mt-6 flex flex-col gap-2">
                 {hasUnsyncedChanges ? (
-                  <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800">
+                  <button type="button" onClick={() => { setLockModalOpen(false); setFocusCsvExport(true); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800">
                     Descargar copia local (Cifrada/CSV) para no perder datos
                   </button>
                 ) : (
-                  <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800">
+                  <button type="button" onClick={() => { setLockModalOpen(false); setFocusCsvExport(true); setSettingsOpen(true) }} className="min-h-12 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800">
                     Descargar copia de seguridad (CSV) por si acaso
                   </button>
                 )}
@@ -1302,6 +1327,8 @@ function VaultApp() {
         hardwareKeyRegistered={hardwareKeyRegistered}
         onRegisterHardwareKey={handleRegisterHardwareKey}
         onDisableHardwareKey={disableHardwareKeyUnlock}
+        focusCsvExport={focusCsvExport}
+        onCsvExportFocused={() => setFocusCsvExport(false)}
       />
 
       <ImportTextModal
@@ -1505,3 +1532,6 @@ export default function App() {
     </ErrorBoundary>
   )
 }
+
+
+

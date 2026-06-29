@@ -1379,7 +1379,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else {
         showToast('Verifica tu identidad en el navegador...', 'info')
         try {
-          const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+          const masterPassword = await withTimeout(
+            unlockWithBiometrics(bundle as BiometricBundle),
+            20000,
+            'La verificación biométrica no respondió a tiempo.',
+          )
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
           if (passwordIsValid) return true
         } catch (err) {
@@ -1397,7 +1401,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else {
         showToast('Verifica tu llave de seguridad en el navegador...', 'info')
         try {
-          const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
+          const masterPassword = await withTimeout(
+            unlockWithHardwareKey(bundle as HardwareKeyBundle),
+            20000,
+            'La llave de seguridad no respondió a tiempo.',
+          )
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
           if (passwordIsValid) return true
         } catch (err) {
@@ -1670,3 +1678,4 @@ export function useVault(): VaultContextValue {
   if (!context) throw new Error('useVault debe usarse dentro de VaultProvider')
   return context
 }
+

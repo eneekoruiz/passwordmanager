@@ -1,5 +1,6 @@
 import { useEffect, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
+import { useToast } from './ui/ToastProvider'
 import { PasswordField } from './ui/PasswordField'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
@@ -14,25 +15,12 @@ function SecurityNote() {
   )
 }
 
-function ErrorMessage({ error }: { error: string }) {
-  return (
-    <div className="flex items-start gap-2 rounded-xl border border-red-100 bg-red-50 p-3 text-left text-xs font-medium leading-normal text-red-700 animate-shake">
-      <svg className="mt-0.5 h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-      </svg>
-      <span>{error}</span>
-    </div>
-  )
-}
-
 function NativeIdentityStep({
-  error,
   loading,
   onGoogleAuth,
   onEmailAuth,
   onPasswordReset,
 }: {
-  error: string | null
   loading: boolean
   onGoogleAuth: () => void
   onEmailAuth: (mode: 'login' | 'register', email: string, pass: string) => void
@@ -175,7 +163,6 @@ function NativeIdentityStep({
             <SecurityNote />
           )}
 
-          {error && <ErrorMessage error={error} />}
 
           <div className="space-y-2">
             <button
@@ -365,7 +352,7 @@ export function UnlockScreen() {
   const [confirmNewMasterPassword, setConfirmNewMasterPassword] = useState('')
   const [showNukeModal, setShowNukeModal] = useState(false)
   const [nukeConfirmation, setNukeConfirmation] = useState('')
-  const [error, setError] = useState<string | null>(null)
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
   const [hardwareKeyLoading, setHardwareKeyLoading] = useState(false)
@@ -380,7 +367,7 @@ export function UnlockScreen() {
       setNewMasterPassword('')
       setConfirmNewMasterPassword('')
       setNukeConfirmation('')
-      setError(null)
+      
     }
   }, [])
 
@@ -394,6 +381,13 @@ export function UnlockScreen() {
       setOnboardingRecoveryStep('display')
     }
   }, [cloudVaultExists, recoveryPhrase])
+
+
+  useEffect(() => {
+    if (cloudVaultExists !== false && biometricAvailable && biometricRegistered) {
+      handleBiometricVaultUnlock()
+    }
+  }, [cloudVaultExists, biometricAvailable, biometricRegistered])
 
   const handleCopyRecoveryPhrase = async () => {
     await navigator.clipboard.writeText(recoveryPhrase)
@@ -423,21 +417,21 @@ export function UnlockScreen() {
       // Debe ser la primera operación que inicia trabajo asíncrono. No añadir
       // awaits, timers ni validaciones antes de esta llamada.
       const loginAttempt = loginWithGoogleCloud()
-      setError(null)
+      
       setLoading(true)
       void loginAttempt
         .catch((caughtError) => {
-          setError(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
+          showToast(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
         })
         .finally(() => setLoading(false))
     } catch (caughtError) {
       setLoading(false)
-      setError(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
     }
   }
 
   const handleEmailAuth = async (mode: 'login' | 'register', emailInput: string, passwordInput: string) => {
-    setError(null)
+    
     setLoading(true)
     try {
       if (mode === 'login') {
@@ -446,19 +440,19 @@ export function UnlockScreen() {
         await registerWithEmailAndPassword(emailInput, passwordInput)
       }
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, mode === 'login' ? 'Error al iniciar sesión.' : 'Error al registrar la cuenta.'))
+      showToast(getFriendlyErrorMessage(caughtError, mode === 'login' ? 'Error al iniciar sesión.' : 'Error al registrar la cuenta.'), 'error')
     } finally {
       setLoading(false)
     }
   }
 
   const handlePasswordReset = async (emailInput: string) => {
-    setError(null)
+    
     setLoading(true)
     try {
       await sendCloudPasswordResetEmail(emailInput)
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'Error al enviar el correo de restablecimiento de contraseña.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'Error al enviar el correo de restablecimiento de contraseña.'))
       throw caughtError
     } finally {
       setLoading(false)
@@ -466,7 +460,7 @@ export function UnlockScreen() {
   }
 
   const handleBiometricVaultUnlock = async () => {
-    setError(null)
+    
     setBiometricLoading(true)
     try {
       await unlockWithBiometricSensor()
@@ -474,14 +468,14 @@ export function UnlockScreen() {
       setConfirmMasterPassword('')
     } catch (caughtError) {
       const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación biométrica.')
-      if (!message.toLowerCase().includes('cancel')) setError(message)
+      if (!message.toLowerCase().includes('cancel')) showToast(message, 'error')
     } finally {
       setBiometricLoading(false)
     }
   }
 
   const handleHardwareKeyVaultUnlock = async () => {
-    setError(null)
+    
     setHardwareKeyLoading(true)
     try {
       await unlockWithHardwareKeySensor()
@@ -489,7 +483,7 @@ export function UnlockScreen() {
       setConfirmMasterPassword('')
     } catch (caughtError) {
       const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación con la llave física.')
-      if (!message.toLowerCase().includes('cancel')) setError(message)
+      if (!message.toLowerCase().includes('cancel')) showToast(message, 'error')
     } finally {
       setHardwareKeyLoading(false)
     }
@@ -497,10 +491,10 @@ export function UnlockScreen() {
 
   const handleVaultAction = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
+    
 
     if (!masterPassword) {
-      setError('Introduce tu Contraseña Maestra para continuar.')
+      showToast('Introduce tu Contraseña Maestra para continuar.', 'error')
       return
     }
 
@@ -508,11 +502,11 @@ export function UnlockScreen() {
     try {
       if (cloudVaultExists === false) {
         if (masterPassword.length < 8) {
-          setError('La Contraseña Maestra debe tener al menos 8 caracteres.')
+          showToast('La Contraseña Maestra debe tener al menos 8 caracteres.', 'error')
           return
         }
         if (masterPassword !== confirmMasterPassword) {
-          setError('Las Contraseñas Maestras no coinciden.')
+          showToast('Las Contraseñas Maestras no coinciden.', 'error')
           return
         }
         const recoveryWords = recoveryPhrase.split(' ')
@@ -524,7 +518,7 @@ export function UnlockScreen() {
           responsibilityChecks.seedSaved &&
           responsibilityChecks.totalLoss
         if (!recoveryCopied || onboardingRecoveryStep !== 'verify' || !challengePassed || !responsibilitiesAccepted) {
-          setError('Completa la verificación de la Frase Semilla y acepta las responsabilidades antes de crear la bóveda.')
+          showToast('Completa la verificación de la Frase Semilla y acepta las responsabilidades antes de crear la bóveda.', 'error')
           return
         }
         await initializeNewVault(masterPassword, normalizeRecoveryPhrase(recoveryPhrase))
@@ -534,7 +528,7 @@ export function UnlockScreen() {
       setMasterPassword('')
       setConfirmMasterPassword('')
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'No se pudo abrir la Bóveda Local.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'No se pudo abrir la Bóveda Local.'))
     } finally {
       setLoading(false)
     }
@@ -542,18 +536,18 @@ export function UnlockScreen() {
 
   const handleRecovery = async (event: FormEvent) => {
     event.preventDefault()
-    setError(null)
+    
 
     if (!recoveryInput.trim()) {
-      setError('Introduce tu Frase Semilla de Recuperación.')
+      showToast('Introduce tu Frase Semilla de Recuperación.', 'error')
       return
     }
     if (newMasterPassword.length < 8) {
-      setError('La nueva Contraseña Maestra debe tener al menos 8 caracteres.')
+      showToast('La nueva Contraseña Maestra debe tener al menos 8 caracteres.', 'error')
       return
     }
     if (newMasterPassword !== confirmNewMasterPassword) {
-      setError('Las nuevas Contraseñas Maestras no coinciden.')
+      showToast('Las nuevas Contraseñas Maestras no coinciden.', 'error')
       return
     }
 
@@ -564,14 +558,14 @@ export function UnlockScreen() {
       setNewMasterPassword('')
       setConfirmNewMasterPassword('')
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'No se pudo recuperar la bóveda.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'No se pudo recuperar la bóveda.'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleNukeAccount = async () => {
-    setError(null)
+    
     setLoading(true)
     try {
       await nukeAccount()
@@ -583,21 +577,21 @@ export function UnlockScreen() {
       setNewMasterPassword('')
       setConfirmNewMasterPassword('')
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'No se pudo destruir la cuenta.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'No se pudo destruir la cuenta.'))
     } finally {
       setLoading(false)
     }
   }
 
   const handleLogout = async () => {
-    setError(null)
+    
     setLoading(true)
     try {
       await logoutCloud()
       setMasterPassword('')
       setConfirmMasterPassword('')
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'Error al cambiar la cuenta de sincronización.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'Error al cambiar la cuenta de sincronización.'))
     } finally {
       setLoading(false)
     }
@@ -631,7 +625,6 @@ export function UnlockScreen() {
       <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
           <NativeIdentityStep
-            error={error}
             loading={loading || isCloudLoading}
             onGoogleAuth={handleGoogleAuth}
             onEmailAuth={handleEmailAuth}
@@ -669,8 +662,7 @@ export function UnlockScreen() {
                   required
                   placeholder="Repite la nueva contraseña"
                 />
-                {error && <ErrorMessage error={error} />}
-                <button
+                      <button
                   type="submit"
                   disabled={loading || !recoveryInput || newMasterPassword.length < 8 || newMasterPassword !== confirmNewMasterPassword}
                   className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
@@ -681,7 +673,7 @@ export function UnlockScreen() {
                   type="button"
                   onClick={() => {
                     setShowRecoveryFlow(false)
-                    setError(null)
+                    
                   }}
                   className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
                 >
@@ -777,7 +769,7 @@ export function UnlockScreen() {
                               disabled={!recoveryCopied}
                               onClick={() => {
                                 setOnboardingRecoveryStep('verify')
-                                setError(null)
+                                
                               }}
                               className="min-h-11 w-full rounded-xl bg-amber-900 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-amber-950 disabled:opacity-40 active:scale-[0.98]"
                             >
@@ -846,8 +838,7 @@ export function UnlockScreen() {
                     )}
 
                     <SecurityNote />
-                    {error && <ErrorMessage error={error} />}
-
+          
                     <button
                       type="submit"
                       disabled={
@@ -872,7 +863,7 @@ export function UnlockScreen() {
                         type="button"
                         onClick={() => {
                           setShowRecoveryFlow(true)
-                          setError(null)
+                          
                         }}
                         className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
                       >
@@ -927,14 +918,13 @@ export function UnlockScreen() {
                 autoComplete="off"
               />
             </label>
-            {error && <div className="mt-4"><ErrorMessage error={error} /></div>}
             <div className="mt-6 grid grid-cols-2 gap-3">
               <button
                 type="button"
                 onClick={() => {
                   setShowNukeModal(false)
                   setNukeConfirmation('')
-                  setError(null)
+                  
                 }}
                 disabled={loading}
                 className="min-h-11 rounded-xl bg-surface-hover px-4 py-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-active disabled:opacity-50"
@@ -956,3 +946,4 @@ export function UnlockScreen() {
     </div>
   )
 }
+

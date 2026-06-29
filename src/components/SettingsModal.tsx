@@ -1,7 +1,9 @@
-import { useState, useEffect, useMemo, type FormEvent } from 'react'
+import { useState, useEffect, useMemo, useRef, type FormEvent }
+ from 'react'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
+import { useToast } from './ui/ToastProvider'
 
 type PlaintextExportFormat = 'csv' | 'json'
 
@@ -12,9 +14,17 @@ function passwordForPlatform(platform: Identity['platforms'][number] | undefined
   return platform?.accessMethods?.find((method) => method?.type === 'PASSWORD')?.password ?? ''
 }
 
+function passwordStrengthReasons(password: string): string[] {
+  const reasons: string[] = []
+  if (password.length < 8) reasons.push('Demasiado corta')
+  if (!/[A-Z]/.test(password)) reasons.push('Sin mayúsculas')
+  if (!/[0-9]/.test(password)) reasons.push('Faltan números')
+  if (!/[^A-Za-z0-9]/.test(password)) reasons.push('Sin caracteres especiales')
+  return reasons
+}
+
 function passwordStrengthIssue(password: string): boolean {
-  if (password.length < 8) return true
-  return !/[A-Z]/.test(password) || !/[0-9]/.test(password) || !/[^A-Za-z0-9]/.test(password)
+  return passwordStrengthReasons(password).length > 0
 }
 
 interface SettingsModalProps {
@@ -38,6 +48,8 @@ interface SettingsModalProps {
   hardwareKeyRegistered?: boolean
   onRegisterHardwareKey?: (masterPassword: string) => Promise<void>
   onDisableHardwareKey?: () => Promise<void>
+  focusCsvExport?: boolean
+  onCsvExportFocused?: () => void
 }
 
 /**
@@ -65,6 +77,8 @@ export function SettingsModal({
   hardwareKeyRegistered = false,
   onRegisterHardwareKey,
   onDisableHardwareKey,
+  focusCsvExport = false,
+  onCsvExportFocused,
 }: SettingsModalProps) {
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
@@ -77,17 +91,18 @@ export function SettingsModal({
   const [nextMasterPassword, setNextMasterPassword] = useState('')
   const [recoveryPhrase, setRecoveryPhrase] = useState('')
   const [travelPassword, setTravelPassword] = useState('')
+  const { showToast } = useToast()
   
+        const [exportSuccess, setExportSuccess] = useState<string | null>(null)
+  const [importSuccess, setImportSuccess] = useState<string | null>(null)
   const [exportError, setExportError] = useState<string | null>(null)
   const [importError, setImportError] = useState<string | null>(null)
   const [plaintextExportError, setPlaintextExportError] = useState<string | null>(null)
-  const [exportSuccess, setExportSuccess] = useState<string | null>(null)
-  const [importSuccess, setImportSuccess] = useState<string | null>(null)
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
-  const [credentialsMessage, setCredentialsMessage] = useState<string | null>(null)
-  const [credentialsError, setCredentialsError] = useState<string | null>(null)
-  const [travelError, setTravelError] = useState<string | null>(null)
-
+  const [weakPasswordsModalOpen, setWeakPasswordsModalOpen] = useState(false)
+  const [highlightCsvExport, setHighlightCsvExport] = useState(false)
+  const csvExportRef = useRef<HTMLDivElement>(null)
+      
   const [loadingExport, setLoadingExport] = useState(false)
   const [loadingImport, setLoadingImport] = useState(false)
   const [loadingPlaintextExport, setLoadingPlaintextExport] = useState(false)
@@ -95,13 +110,9 @@ export function SettingsModal({
   const [loadingTravelMode, setLoadingTravelMode] = useState(false)
   const [loadingBiometric, setLoadingBiometric] = useState(false)
   const [biometricPassword, setBiometricPassword] = useState('')
-  const [biometricMessage, setBiometricMessage] = useState<string | null>(null)
-  const [biometricError, setBiometricError] = useState<string | null>(null)
-  const [loadingHardwareKey, setLoadingHardwareKey] = useState(false)
+      const [loadingHardwareKey, setLoadingHardwareKey] = useState(false)
   const [hardwareKeyPassword, setHardwareKeyPassword] = useState('')
-  const [hardwareKeyMessage, setHardwareKeyMessage] = useState<string | null>(null)
-  const [hardwareKeyError, setHardwareKeyError] = useState<string | null>(null)
-  const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>('health')
+      const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>('health')
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -131,14 +142,16 @@ export function SettingsModal({
     healthScore,
     totalPasswordsCount,
     securePasswordsCount,
+    totalAccountsCount,
   } = useMemo(() => {
-    const entries = (identities || []).flatMap((identity) =>
+    const allAccounts = (identities || []).flatMap((identity) =>
       (identity?.platforms || []).map((platform) => ({
         identityEmail: identity?.email,
         platform,
         password: passwordForPlatform(platform),
       })),
-    ).filter((entry) => entry?.password)
+    )
+    const entries = allAccounts.filter((entry) => entry?.password)
 
     const reused = entries.filter((entry, _, all) =>
       all.some((other) => other !== entry && other?.password === entry?.password),
@@ -169,8 +182,22 @@ export function SettingsModal({
       healthScore: entries.length === 0 ? 100 : Math.round((secureCount / entries.length) * 100),
       totalPasswordsCount: total,
       securePasswordsCount: secureCount,
+      totalAccountsCount: allAccounts.length,
     }
   }, [identities])
+
+  useEffect(() => {
+    if (!isOpen || !focusCsvExport) return
+    setView('exportPlaintext')
+    setPlaintextFormat('csv')
+    setHighlightCsvExport(true)
+    window.setTimeout(() => {
+      csvExportRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      onCsvExportFocused?.()
+    }, 120)
+    const timer = window.setTimeout(() => setHighlightCsvExport(false), 2200)
+    return () => window.clearTimeout(timer)
+  }, [focusCsvExport, isOpen, onCsvExportFocused])
 
   if (!isOpen) return null
 
@@ -185,7 +212,7 @@ export function SettingsModal({
     setExportError(null)
     setExportSuccess(null)
     if (!exportPassword) {
-      setExportError('Se requiere la contraseña maestra para cifrar la exportación.')
+      showToast('Se requiere la contraseña maestra para cifrar la exportación.', 'error')
       return
     }
 
@@ -207,7 +234,7 @@ export function SettingsModal({
     setPlaintextExportSuccess(null)
 
     if (selectedIdentities.length === 0) {
-      setPlaintextExportError('Selecciona al menos una identidad para exportar.')
+      showToast('Selecciona al menos una identidad para exportar.', 'error')
       return
     }
 
@@ -221,7 +248,7 @@ export function SettingsModal({
     setPlaintextExportSuccess(null)
 
     if (!securityPassword) {
-      setPlaintextExportError('Introduce tu Contraseña Maestra para autorizar la exportación.')
+      showToast('Introduce tu Contraseña Maestra para autorizar la exportación.', 'error')
       return
     }
 
@@ -230,7 +257,7 @@ export function SettingsModal({
     try {
       const verified = await onVerifyMasterPassword(securityPassword)
       if (!verified) {
-        setPlaintextExportError('Contraseña Maestra incorrecta.')
+        showToast('Contraseña Maestra incorrecta.', 'error')
         return
       }
 
@@ -258,11 +285,11 @@ export function SettingsModal({
     setImportError(null)
     setImportSuccess(null)
     if (!backupFile) {
-      setImportError('Selecciona un archivo de copia de seguridad.')
+      showToast('Selecciona un archivo de copia de seguridad.', 'error')
       return
     }
     if (!importPassword) {
-      setImportError('Introduce la contraseña maestra para descifrar el backup.')
+      showToast('Introduce la contraseña maestra para descifrar el backup.', 'error')
       return
     }
 
@@ -296,26 +323,26 @@ export function SettingsModal({
 
   const handleChangeMasterPassword = async (event: FormEvent) => {
     event.preventDefault()
-    setCredentialsError(null)
-    setCredentialsMessage(null)
+    
+    
     if (nextMasterPassword.length < 8) {
-      setCredentialsError('La nueva Contraseña Maestra debe tener al menos 8 caracteres.')
+      showToast('La nueva Contraseña Maestra debe tener al menos 8 caracteres.', 'error')
       return
     }
     if (!recoveryPhrase.trim()) {
-      setCredentialsError('Introduce tu frase de recuperación para regenerar el kit de emergencia.')
+      showToast('Introduce tu frase de recuperación para regenerar el kit de emergencia.', 'error')
       return
     }
 
     setLoadingPasswordChange(true)
     try {
       await onChangeMasterPassword(currentMasterPassword, nextMasterPassword, recoveryPhrase)
-      setCredentialsMessage('Contraseña Maestra actualizada y bóveda re-cifrada correctamente.')
+      showToast('Contraseña Maestra actualizada y bóveda re-cifrada correctamente.', 'success')
       setCurrentMasterPassword('')
       setNextMasterPassword('')
       setRecoveryPhrase('')
     } catch (error) {
-      setCredentialsError(getFriendlyErrorMessage(error, 'No se pudo cambiar la Contraseña Maestra.'))
+      showToast(getFriendlyErrorMessage(error, 'No se pudo cambiar la Contraseña Maestra.'))
     } finally {
       setLoadingPasswordChange(false)
     }
@@ -323,14 +350,14 @@ export function SettingsModal({
 
   const handleDisableTravelMode = async (event: FormEvent) => {
     event.preventDefault()
-    setTravelError(null)
+    
     setLoadingTravelMode(true)
     try {
       await onDisableTravelMode(travelPassword)
       setTravelPassword('')
       setBiometricPassword('')
     } catch (error) {
-      setTravelError(getFriendlyErrorMessage(error, 'No se pudo desactivar el Modo Viaje.'))
+      showToast(getFriendlyErrorMessage(error, 'No se pudo desactivar el Modo Viaje.'))
     } finally {
       setLoadingTravelMode(false)
     }
@@ -426,7 +453,7 @@ export function SettingsModal({
                 <div>
                   <h4 className="text-xs font-bold text-emerald-950">Tu Bóveda está protegida</h4>
                   <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
-                    Tienes <span className="font-bold">{totalPasswordsCount}</span> contraseñas guardadas. <span className="font-bold">{securePasswordsCount} contraseñas seguras y a salvo</span>.
+                    Tienes <span className="font-bold">{totalAccountsCount}</span> cuentas totales. <span className="font-bold">{totalPasswordsCount}</span> usan contraseña, de las cuales <span className="font-bold">{securePasswordsCount}</span> son seguras.
                   </p>
                 </div>
               </div>
@@ -447,16 +474,19 @@ export function SettingsModal({
                 </div>
               </div>
 
-              {/* Listado de problemas */}
-              {reusedPasswords.length > 0 || weakPasswords.length > 0 || oldPasswords.length > 0 ? (
-                <div className="overflow-y-auto rounded-2xl border border-black/[0.04] bg-white/80 p-2 max-h-32 scrollbar-thin">
-                  {[...new Set([...reusedPasswords, ...weakPasswords, ...oldPasswords].map((entry) => `${entry?.platform?.name || 'Desconocida'} · ${entry?.identityEmail || 'Sin email'}`))]
-                    .map((label) => (
-                      <div key={label} className="rounded-xl px-2 py-1.5 text-[11px] font-semibold text-text-secondary">{label}</div>
-                    ))}
-                </div>
+              {weakPasswords.length > 0 ? (
+                <button
+                  type="button"
+                  onClick={() => setWeakPasswordsModalOpen(true)}
+                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-left transition-all hover:bg-amber-100 active:scale-[0.99]"
+                >
+                  <span>
+                    <span className="block text-sm font-black text-amber-900">{weakPasswords.length} Contraseñas Débiles Detectadas</span>
+                    <span className="mt-0.5 block text-[11px] font-medium text-amber-800">Revisar plataformas, identidades y motivo de debilidad.</span>
+                  </span>
+                  <span className="shrink-0 rounded-xl bg-white/80 px-3 py-1.5 text-[11px] font-bold text-amber-900 shadow-sm">Revisar</span>
+                </button>
               ) : null}
-
               {/* Ajustes de Configuración */}
               <div className="pt-2 space-y-2">
                 <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Ajustes de Bóveda</h3>
@@ -475,14 +505,14 @@ export function SettingsModal({
                   <MenuItem
                     title={biometricRegistered ? '🔒 Biometría Activada' : '🔓 Activar Biometría'}
                     subtitle={biometricRegistered ? 'Face ID · Huella · Windows Hello activos.' : 'Desbloquea sin contraseña con tu sensor biométrico.'}
-                    onClick={() => { setBiometricMessage(null); setBiometricError(null); setBiometricPassword(''); setView('biometric') }}
+                    onClick={() => { ; ; setBiometricPassword(''); setView('biometric') }}
                   />
                 )}
                 {hardwareKeyAvailable && (
                   <MenuItem
                     title={hardwareKeyRegistered ? '🔒 Llave Física Activada' : '🔑 Activar Llave Física'}
                     subtitle={hardwareKeyRegistered ? 'Llave de seguridad FIDO2 (YubiKey) activa.' : 'Registra una llave de seguridad física USB/NFC para desbloquear.'}
-                    onClick={() => { setHardwareKeyMessage(null); setHardwareKeyError(null); setHardwareKeyPassword(''); setView('hardwareKey') }}
+                    onClick={() => { ; ; setHardwareKeyPassword(''); setView('hardwareKey') }}
                   />
                 )}
                 
@@ -545,21 +575,21 @@ export function SettingsModal({
                       <p className="text-[11px] text-emerald-700">Puedes desbloquear con tu sensor en este dispositivo.</p>
                     </div>
                   </div>
-                  {biometricMessage && <p className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800">{biometricMessage}</p>}
-                  {biometricError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{biometricError}</p>}
+                  
+                  
                   <button
                     type="button"
                     disabled={loadingBiometric}
                     onClick={async () => {
                       setLoadingBiometric(true)
-                      setBiometricError(null)
-                      setBiometricMessage(null)
+                      
+                      
                       try {
                         await onDisableBiometric?.()
-                        setBiometricMessage('Biometría desactivada. Elimina el acceso biométrico de los ajustes del dispositivo si lo deseas.')
+                        showToast('Biometría desactivada. Elimina el acceso biométrico de los ajustes del dispositivo si lo deseas.', 'success')
                         setView('health')
                       } catch (err) {
-                        setBiometricError(err instanceof Error ? err.message : 'Error al desactivar la biometría.')
+                        showToast(err instanceof Error ? err.message : 'Error al desactivar la biometría.', 'error')
                       } finally {
                         setLoadingBiometric(false)
                       }
@@ -574,18 +604,18 @@ export function SettingsModal({
                   className="space-y-3"
                   onSubmit={async (e) => {
                     e.preventDefault()
-                    if (!biometricPassword) { setBiometricError('Introduce tu Contraseña Maestra para continuar.'); return }
+                    if (!biometricPassword) { showToast('Introduce tu Contraseña Maestra para continuar.', 'error'); return }
                     setLoadingBiometric(true)
-                    setBiometricError(null)
-                    setBiometricMessage(null)
+                    
+                    
                     try {
                       await onRegisterBiometric?.(biometricPassword)
                       setBiometricPassword('')
-                      setBiometricMessage('¡Biometría activada! La próxima vez que abras la app, podrás desbloquear con tu sensor.')
+                      showToast('¡Biometría activada! La próxima vez que abras la app, podrás desbloquear con tu sensor.', 'success')
                       setView('health')
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : 'Error al activar la biometría.'
-                      setBiometricError(msg)
+                      showToast(msg, 'error')
                     } finally {
                       setLoadingBiometric(false)
                     }
@@ -605,7 +635,7 @@ export function SettingsModal({
                     />
                     <p className="mt-1.5 text-[11px] text-text-tertiary">Solo se usa para cifrar tu clave en este dispositivo. No se guarda en ningún servidor.</p>
                   </div>
-                  {biometricError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{biometricError}</p>}
+                  
                   <button
                     type="submit"
                     disabled={loadingBiometric || !biometricPassword}
@@ -621,7 +651,7 @@ export function SettingsModal({
 
 
           {view === 'travel' && (
-            <div className="space-y-3 animate-vault-morph">
+            <div ref={csvExportRef} className={`space-y-3 animate-vault-morph rounded-2xl transition-all duration-300 ${highlightCsvExport ? 'ring-4 ring-amber-300 bg-amber-50/50 p-3' : ''}`}>
               <p className="text-[11px] leading-relaxed text-text-secondary">
                 Oculta visualmente plataformas marcadas como sensibles hasta verificar la Contraseña Maestra. Útil en pasos fronterizos.
               </p>
@@ -653,7 +683,7 @@ export function SettingsModal({
                       className="w-full rounded-lg border border-border-subtle bg-white px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
                       autoComplete="current-password"
                     />
-                    {travelError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{travelError}</div>}
+                    
                     <button
                       type="submit"
                       disabled={loadingTravelMode || !travelPassword}
@@ -668,7 +698,7 @@ export function SettingsModal({
           )}
 
           {view === 'credentials' && (
-            <div className="space-y-3 animate-vault-morph">
+            <div ref={csvExportRef} className={`space-y-3 animate-vault-morph rounded-2xl transition-all duration-300 ${highlightCsvExport ? 'ring-4 ring-amber-300 bg-amber-50/50 p-3' : ''}`}>
               <p className="text-[11px] leading-relaxed text-text-secondary">
                 Cambia la Contraseña Maestra local re-cifrando toda la bóveda. La contraseña de Google Cloud se gestiona en tu cuenta de Google.
               </p>
@@ -698,8 +728,8 @@ export function SettingsModal({
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-[11px] font-medium leading-relaxed text-blue-900">
                   Salvavidas correcto: guarda la frase de recuperación creada en onboarding. Si olvidas la Contraseña Maestra y no tienes esa frase, la app no puede descifrar tus datos sin romper el modelo zero-knowledge.
                 </div>
-                {credentialsError && <div className="rounded-lg border border-red-100 bg-red-50 p-2 text-[10px] font-medium text-red-700">{credentialsError}</div>}
-                {credentialsMessage && <div className="rounded-lg border border-green-100 bg-green-50 p-2 text-[10px] font-medium text-green-700">{credentialsMessage}</div>}
+                
+                
                 <button
                   type="submit"
                   disabled={loadingPasswordChange || !currentMasterPassword || !nextMasterPassword}
@@ -720,7 +750,7 @@ export function SettingsModal({
           )}
 
           {view === 'exportPlaintext' && (
-            <div className="space-y-3 animate-vault-morph">
+            <div ref={csvExportRef} className={`space-y-3 animate-vault-morph rounded-2xl transition-all duration-300 ${highlightCsvExport ? 'ring-4 ring-amber-300 bg-amber-50/50 p-3' : ''}`}>
               <p className="text-[11px] leading-relaxed text-text-secondary">
                 Genera CSV compatible con gestores de contraseñas o JSON completo con todos los metadatos.
               </p>
@@ -804,7 +834,7 @@ export function SettingsModal({
           )}
 
           {view === 'exportBackup' && (
-            <div className="space-y-3 animate-vault-morph">
+            <div ref={csvExportRef} className={`space-y-3 animate-vault-morph rounded-2xl transition-all duration-300 ${highlightCsvExport ? 'ring-4 ring-amber-300 bg-amber-50/50 p-3' : ''}`}>
               <p className="text-[11px] leading-relaxed text-text-secondary">
                 Descarga un archivo JSON cifrado localmente con AES-256-GCM que contiene todas tus credenciales.
               </p>
@@ -846,7 +876,7 @@ export function SettingsModal({
           )}
 
           {view === 'importBackup' && (
-            <div className="space-y-3 animate-vault-morph">
+            <div ref={csvExportRef} className={`space-y-3 animate-vault-morph rounded-2xl transition-all duration-300 ${highlightCsvExport ? 'ring-4 ring-amber-300 bg-amber-50/50 p-3' : ''}`}>
               <p className="text-[11px] leading-relaxed text-text-secondary">
                 Sube un archivo de backup JSON y proporciona la contraseña maestra original del backup para restaurar.
                 <span className="mt-1 block font-semibold text-red-600">¡Sobrescribirá todos tus datos locales actuales!</span>
@@ -918,21 +948,21 @@ export function SettingsModal({
                       <p className="text-[11px] text-emerald-700">Puedes desbloquear conectando tu llave de seguridad.</p>
                     </div>
                   </div>
-                  {hardwareKeyMessage && <p className="rounded-xl bg-emerald-50 border border-emerald-100 p-3 text-xs font-semibold text-emerald-800">{hardwareKeyMessage}</p>}
-                  {hardwareKeyError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{hardwareKeyError}</p>}
+                  
+                  
                   <button
                     type="button"
                     disabled={loadingHardwareKey}
                     onClick={async () => {
                       setLoadingHardwareKey(true)
-                      setHardwareKeyError(null)
-                      setHardwareKeyMessage(null)
+                      
+                      
                       try {
                         await onDisableHardwareKey?.()
-                        setHardwareKeyMessage('Llave física desactivada.')
+                        showToast('Llave física desactivada.', 'success')
                         setView('health')
                       } catch (err) {
-                        setHardwareKeyError(err instanceof Error ? err.message : 'Error al desactivar la llave física.')
+                        showToast(err instanceof Error ? err.message : 'Error al desactivar la llave física.', 'error')
                       } finally {
                         setLoadingHardwareKey(false)
                       }
@@ -947,18 +977,18 @@ export function SettingsModal({
                   className="space-y-3"
                   onSubmit={async (e) => {
                     e.preventDefault()
-                    if (!hardwareKeyPassword) { setHardwareKeyError('Introduce tu Contraseña Maestra para continuar.'); return }
+                    if (!hardwareKeyPassword) { showToast('Introduce tu Contraseña Maestra para continuar.', 'error'); return }
                     setLoadingHardwareKey(true)
-                    setHardwareKeyError(null)
-                    setHardwareKeyMessage(null)
+                    
+                    
                     try {
                       await onRegisterHardwareKey?.(hardwareKeyPassword)
                       setHardwareKeyPassword('')
-                      setHardwareKeyMessage('¡Llave física registrada! La próxima vez que abras la app, podrás desbloquear con tu llave.')
+                      showToast('¡Llave física registrada! La próxima vez que abras la app, podrás desbloquear con tu llave.', 'success')
                       setView('health')
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : 'Error al registrar la llave física.'
-                      setHardwareKeyError(msg)
+                      showToast(msg, 'error')
                     } finally {
                       setLoadingHardwareKey(false)
                     }
@@ -978,7 +1008,7 @@ export function SettingsModal({
                     />
                     <p className="mt-1.5 text-[11px] text-text-tertiary">Se te solicitará conectar y tocar tu llave de seguridad física (USB/NFC) compatible con FIDO2.</p>
                   </div>
-                  {hardwareKeyError && <p className="rounded-xl bg-red-50 border border-red-100 p-3 text-xs font-semibold text-red-700">{hardwareKeyError}</p>}
+                  
                   <button
                     type="submit"
                     disabled={loadingHardwareKey || !hardwareKeyPassword}
@@ -992,6 +1022,47 @@ export function SettingsModal({
           )}
         </div>
       </div>
+      {weakPasswordsModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
+          <div className="flex max-h-[82vh] w-full max-w-lg flex-col rounded-3xl border border-amber-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight text-text-primary">Contraseñas débiles</h2>
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">Revisa estas cuentas y actualiza cada contraseña con una clave más larga y única.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setWeakPasswordsModalOpen(false)}
+                className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
+                aria-label="Cerrar análisis de contraseñas débiles"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </div>
+            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
+              {weakPasswords.map((entry) => {
+                const reasons = passwordStrengthReasons(entry?.password || '')
+                return (
+                  <div key={entry?.platform?.id || `${entry?.identityEmail}-${entry?.platform?.name}`} className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
+                    <div className="flex items-start justify-between gap-3">
+                      <div className="min-w-0">
+                        <p className="truncate text-sm font-bold text-amber-950">{entry?.platform?.name || 'Plataforma desconocida'}</p>
+                        <p className="mt-0.5 truncate text-[11px] font-medium text-amber-800">{entry?.identityEmail || 'Identidad sin email'}</p>
+                      </div>
+                      <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-amber-900 shadow-sm">Débil</span>
+                    </div>
+                    <p className="mt-2 text-[11px] font-medium leading-relaxed text-amber-900">
+                      {reasons.length > 0 ? reasons.join(', ') : 'No cumple la política mínima de seguridad'}.
+                    </p>
+                  </div>
+                )
+              })}
+            </div>
+          </div>
+        </div>
+      )}
       {securityModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-950/25 p-4 backdrop-blur-md animate-vault-morph">
           <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white/95 p-6 text-left shadow-[0_30px_90px_rgba(146,64,14,0.22)]">
@@ -1046,3 +1117,8 @@ export function SettingsModal({
     </div>
   )
 }
+
+
+
+
+

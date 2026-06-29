@@ -447,7 +447,6 @@ export function AccountForm({
 }: AccountFormProps) {
   const [account, setAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
   const [baselineAccount, setBaselineAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
-  const [error, setError] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(mode === 'create')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
@@ -508,7 +507,7 @@ export function AccountForm({
       document.body.removeChild(link)
       URL.revokeObjectURL(url)
     } catch (e) {
-      setError('Error al descargar el archivo: Formato inválido.')
+      showToast('Error al descargar el archivo: Formato inválido.', 'error')
     }
   }
 
@@ -545,7 +544,6 @@ export function AccountForm({
       setAccount(baselineAccount)
       setPasswordEnabled(baselineAccount.accessMethods.some((method) => method.type === 'PASSWORD'))
       setIsEditing(false)
-      setError(null)
     }
   }
 
@@ -558,7 +556,6 @@ export function AccountForm({
         setAccount(baselineAccount)
         setPasswordEnabled(baselineAccount.accessMethods.some((method) => method.type === 'PASSWORD'))
         setIsEditing(false)
-        setError(null)
       }
     }
 
@@ -604,7 +601,6 @@ export function AccountForm({
         createdAt: '',
         updatedAt: '',
       })
-      setError(null)
     }
   }, [])
 
@@ -712,7 +708,7 @@ export function AccountForm({
 
   const addAttachmentFromFile = async (file: File) => {
     if (file.size > 10 * 1024 * 1024) {
-      setError(`El archivo ${file.name} es demasiado grande. El límite es 10MB.`)
+      showToast(`El archivo ${file.name} es demasiado grande. El límite es 10MB.`, 'error')
       return
     }
 
@@ -739,7 +735,7 @@ export function AccountForm({
         ]
       }))
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, `No se pudo leer el archivo ${file.name}.`))
+      showToast(getFriendlyErrorMessage(caughtError, `No se pudo leer el archivo ${file.name}.`))
     }
   }
 
@@ -767,7 +763,6 @@ export function AccountForm({
   })
 
   const saveCurrentAccount = async () => {
-    setError(null)
 
     const finalName = platformQuery.trim()
     const previousPassword = passwordValue(baselineAccount)
@@ -796,11 +791,11 @@ export function AccountForm({
     const updatedWithName = { ...accountWithHistory, name: finalName }
     const normalized = normalizeAccount(accountForPersistence(updatedWithName))
     if (!normalized.name) {
-      setError('Indica el nombre de la plataforma.')
+      showToast('Indica el nombre de la plataforma.', 'error')
       return
     }
     if (normalized.accessMethods.length === 0 && !normalized.linkedPhone) {
-      setError('Activa al menos una vía de acceso o provee un teléfono para esta cuenta.')
+      showToast('Activa al menos una vía de acceso o provee un teléfono para esta cuenta.', 'error')
       return
     }
 
@@ -816,7 +811,7 @@ export function AccountForm({
       setPasswordEnabled(normalized.accessMethods.some((method) => method.type === 'PASSWORD'))
       onUnsavedStateChange?.(false, null)
     } catch (error) {
-      setError(getFriendlyErrorMessage(error, 'No se pudo guardar la cuenta.'))
+      showToast(getFriendlyErrorMessage(error, 'No se pudo guardar la cuenta.'))
       throw error
     } finally {
       setSaving(false)
@@ -1801,14 +1796,7 @@ export function AccountForm({
         </div>
       </section>
 
-      {error && (
-        <div className="p-3 bg-red-50 border border-red-100 text-red-700 text-xs rounded-xl flex items-start gap-2 text-left font-medium leading-normal animate-shake">
-          <svg className="h-4 w-4 text-red-500 shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-          </svg>
-          <span>{error}</span>
-        </div>
-      )}
+      
 
       </div>
 

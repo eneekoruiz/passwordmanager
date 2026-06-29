@@ -1,10 +1,11 @@
 import { useState } from 'react'
 import { useVault } from '../context/VaultContext'
+import { useToast } from './ui/ToastProvider'
 
 export function MasterPasswordPromptModal() {
   const { isPromptingMasterPassword, resolveMasterPasswordPrompt, verifyCurrentMasterPassword } = useVault()
   const [password, setPassword] = useState('')
-  const [error, setError] = useState(false)
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
 
   if (!isPromptingMasterPassword) return null
@@ -12,20 +13,18 @@ export function MasterPasswordPromptModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    setError(false)
     const valid = await verifyCurrentMasterPassword(password)
     setLoading(false)
     if (valid) {
       resolveMasterPasswordPrompt(true)
       setPassword('')
     } else {
-      setError(true)
+      showToast('Contraseña incorrecta.', 'error')
     }
   }
 
   const handleCancel = () => {
     setPassword('')
-    setError(false)
     resolveMasterPasswordPrompt(false)
   }
 
@@ -54,14 +53,10 @@ export function MasterPasswordPromptModal() {
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value)
-                  setError(false)
                 }}
-                className={`w-full rounded-2xl border ${error ? 'border-red-300 bg-red-50 focus:border-red-500 focus:ring-red-500/20' : 'border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20'} px-4 py-3 text-sm font-medium shadow-sm transition-all outline-none focus:ring-4`}
+                className={`w-full rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20 px-4 py-3 text-sm font-medium shadow-sm transition-all outline-none focus:ring-4`}
                 placeholder="Contraseña Maestra..."
               />
-              {error && (
-                <p className="mt-2 text-center text-xs font-medium text-red-500">Contraseña incorrecta.</p>
-              )}
             </div>
 
             <div className="flex gap-3 pt-2">

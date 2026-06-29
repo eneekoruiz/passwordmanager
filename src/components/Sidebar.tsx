@@ -1,6 +1,7 @@
 import { useEffect, useState, useMemo, memo } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode, SortMode } from '../types'
 import { SearchBar } from './SearchBar'
+import { useToast } from './ui/ToastProvider'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
@@ -48,6 +49,7 @@ const SORT_LABELS: Record<SortMode, string> = {
   'alpha-desc': 'Alfabéticamente (Z-A)',
   'date-desc': 'Más recientes primero',
   'date-asc': 'Más antiguos primero',
+  'usage-desc': 'Más usadas primero',
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -83,13 +85,14 @@ export const Sidebar = memo(function Sidebar({
   isGlobalSearching = false,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
+  const { showToast } = useToast()
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [showSortMenu, setShowSortMenu] = useState(false)
-  const [sidebarError, setSidebarError] = useState<string | null>(null)
   const [adding, setAdding] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
+  const [sidebarError, setSidebarError] = useState<string | null>(null)
   const query = searchQuery.trim().toLowerCase()
   const localLooksEmpty = (identities.length === 0 || (identities.length === 1 && (identities[0]?.platforms || []).length === 0 && !identities[0]?.email)) && localItems.length === 0
   const cloudIdentities = identities.filter((identity) => identity?.email !== LOCAL_IDENTITY_EMAIL)
@@ -135,6 +138,8 @@ export const Sidebar = memo(function Sidebar({
           return b.maxDate.localeCompare(a.maxDate)
         case 'date-asc':
           return a.minDate.localeCompare(b.minDate)
+        case 'usage-desc':
+          return b.count - a.count || a.name.localeCompare(b.name)
         default:
           return 0
       }
@@ -200,9 +205,12 @@ export const Sidebar = memo(function Sidebar({
         updatedAt: new Date().toISOString(),
       })
       await saveLocalCategory(category)
+      setSidebarError(null)
       onSelectLocalCategory(category)
     } catch (error) {
-      setSidebarError(getFriendlyErrorMessage(error, 'No se pudo crear la sección local.'))
+      const message = getFriendlyErrorMessage(error, 'No se pudo crear la sección local.')
+      setSidebarError(message)
+      showToast(message, 'error')
     }
   }
 
@@ -217,13 +225,15 @@ export const Sidebar = memo(function Sidebar({
   const handleAddIdentity = async () => {
     const email = newIdentityEmail.trim() || LOCAL_IDENTITY_EMAIL
     setAdding(true)
-    setSidebarError(null)
     try {
       await onAddIdentity(email)
+      setSidebarError(null)
       setNewIdentityEmail('')
       onToggleAddForm(false)
     } catch (error) {
-      setSidebarError(getFriendlyErrorMessage(error, 'No se pudo crear la identidad.'))
+      const message = getFriendlyErrorMessage(error, 'No se pudo crear la identidad.')
+      setSidebarError(message)
+      showToast(message, 'error')
     } finally {
       setAdding(false)
     }
@@ -533,7 +543,7 @@ export const Sidebar = memo(function Sidebar({
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
+        <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3 max-lg:max-h-[calc(100dvh-13rem)]">
           {syncing && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4 animate-pulse">
               <div className="h-3 bg-black/10 rounded w-1/3 dark:bg-white/10 mb-6"></div>
@@ -601,15 +611,15 @@ export const Sidebar = memo(function Sidebar({
                         {platformSummaries.length > 0 && (
                           <>
                             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Más Usadas
+                              Recientes
                             </div>
                             <ul className="space-y-0.5">
-                              {[...platformSummaries].sort((a, b) => b.count - a.count).slice(0, 5).map(renderPlatformItem)}
+                              {[...platformSummaries].sort((a, b) => b.maxDate.localeCompare(a.maxDate)).slice(0, 5).map(renderPlatformItem)}
                             </ul>
                           </>
                         )}
                         
-                        {selectedPlatformName && ![...platformSummaries].sort((a, b) => b.count - a.count).slice(0, 5).find(p => p.name.toLowerCase() === selectedPlatformName.toLowerCase()) && (
+                        {selectedPlatformName && ![...platformSummaries].sort((a, b) => b.maxDate.localeCompare(a.maxDate)).slice(0, 5).find(p => p.name.toLowerCase() === selectedPlatformName.toLowerCase()) && (
                           <>
                             <div className="mt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
                               Seleccionada
@@ -668,15 +678,23 @@ export const Sidebar = memo(function Sidebar({
                         {visibleIdentities.length > 0 && (
                           <>
                             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Más Usadas
+                              Recientes
                             </div>
                             <ul className="space-y-0.5">
-                              {[...visibleIdentities].sort((a, b) => (b.platforms || []).length - (a.platforms || []).length).slice(0, 5).map(renderIdentityItem)}
+                              {[...visibleIdentities].sort((a, b) => {
+                                const maxA = Math.max(...(a.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
+                                const maxB = Math.max(...(b.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
+                                return maxB - maxA
+                              }).slice(0, 5).map(renderIdentityItem)}
                             </ul>
                           </>
                         )}
 
-                        {selectedId && ![...visibleIdentities].sort((a, b) => (b.platforms || []).length - (a.platforms || []).length).slice(0, 5).find(idItem => idItem.id === selectedId) && (
+                        {selectedId && ![...visibleIdentities].sort((a, b) => {
+                          const maxA = Math.max(...(a.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
+                          const maxB = Math.max(...(b.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
+                          return maxB - maxA
+                        }).slice(0, 5).find(idItem => idItem.id === selectedId) && (
                           <>
                             <div className="mt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
                               Seleccionada
@@ -770,3 +788,5 @@ export const Sidebar = memo(function Sidebar({
     </>
   )
 })
+
+
