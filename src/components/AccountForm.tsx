@@ -245,6 +245,7 @@ const CopyIcon = () => (
 function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
   const [copied, setCopied] = useState(false)
   const [revealed, setRevealed] = useState(false)
+  const [authenticating, setAuthenticating] = useState(false)
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
 
@@ -261,11 +262,17 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
   }
 
   const handleReveal = async () => {
+    if (authenticating) return
     if (revealed) {
       setRevealed(false)
       return
     }
-    if (await authenticate()) setRevealed(true)
+    setAuthenticating(true)
+    try {
+      if (await authenticate()) setRevealed(true)
+    } finally {
+      setAuthenticating(false)
+    }
   }
 
   const handleCopy = async (event?: MouseEvent) => {
@@ -289,9 +296,10 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
             <button
               type="button"
               onClick={() => void handleReveal()}
-              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none"
+              disabled={authenticating}
+              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none disabled:cursor-wait disabled:opacity-60"
             >
-              {revealed ? 'Ocultar' : 'Mostrar'}
+              {authenticating ? 'Verificando...' : revealed ? 'Ocultar' : 'Mostrar'}
             </button>
           )}
           <button
@@ -328,6 +336,7 @@ function SecuritySummaryCard({
 }) {
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
+  const [authenticating, setAuthenticating] = useState(false)
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
 
@@ -342,11 +351,17 @@ function SecuritySummaryCard({
   }
 
   const handleReveal = async () => {
+    if (authenticating) return
     if (revealed) {
       setRevealed(false)
       return
     }
-    if (await authenticate()) setRevealed(true)
+    setAuthenticating(true)
+    try {
+      if (await authenticate()) setRevealed(true)
+    } finally {
+      setAuthenticating(false)
+    }
   }
 
   const handleCopy = async () => {
@@ -377,8 +392,8 @@ function SecuritySummaryCard({
               <p className="break-all whitespace-pre-wrap font-mono text-xs text-text-primary overflow-wrap-anywhere">{revealed ? secret : '••••••••••••••••'}</p>
             </div>
             <div className="flex items-center gap-2">
-              <button type="button" onClick={() => void handleReveal()} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover">
-                {revealed ? 'Ocultar' : 'Mostrar'}
+              <button type="button" onClick={() => void handleReveal()} disabled={authenticating} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover disabled:cursor-wait disabled:opacity-60">
+                {authenticating ? 'Verificando...' : revealed ? 'Ocultar' : 'Mostrar'}
               </button>
               <button type="button" onClick={() => void handleCopy()} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover">
                 {copied ? 'Copiado' : 'Copiar'}
