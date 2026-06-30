@@ -561,7 +561,7 @@ export function SettingsModal({
               <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
                 <p className="text-xs font-bold text-blue-900">¿Cómo funciona?</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-blue-800">
-                  Tu Contraseña Maestra se cifra con una clave derivada de una llave de acceso local protegida por Face ID, huella o Windows Hello y se guarda <strong>solo en este dispositivo</strong>. Nunca sale de él.
+                  Tu Contraseña Maestra se cifra con una clave derivada de una llave de acceso local protegida por Face ID, huella o Windows Hello y se guarda <strong>solo en este dispositivo</strong>. En Apple debería aparecer como una llave de acceso de Contras en Contraseñas.
                 </p>
               </div>
               {biometricRegistered ? (
@@ -572,7 +572,7 @@ export function SettingsModal({
                     </div>
                     <div>
                       <p className="text-xs font-bold text-emerald-900">Llave local activa</p>
-                      <p className="text-[11px] text-emerald-700">Puedes desbloquear con esta llave de acceso en este dispositivo.</p>
+                      <p className="text-[11px] text-emerald-700">Puedes desbloquear con esta llave de acceso en este dispositivo. En Apple Passwords debe aparecer como Contras.</p>
                     </div>
                   </div>
                   
@@ -611,7 +611,7 @@ export function SettingsModal({
                     try {
                       await onRegisterBiometric?.(biometricPassword)
                       setBiometricPassword('')
-                      showToast('Llave local activada. La próxima vez podrás desbloquear con Face ID, huella o Windows Hello en este dispositivo.', 'success')
+                      showToast('Llave local activada. La próxima vez Apple Passwords/Face ID podrá mostrar la llave de Contras para desbloquear este dispositivo.', 'success')
                       setView('health')
                     } catch (err) {
                       const msg = err instanceof Error ? err.message : 'Error al activar la llave local.'

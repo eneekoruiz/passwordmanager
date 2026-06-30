@@ -17,6 +17,8 @@ export interface BiometricBundleRecord {
   credentialId: string
   encryptedPassword: EncryptedPayload
   createdAt: string
+  discoverable?: boolean
+  rpId?: string
 }
 
 export interface HardwareKeyBundleRecord {

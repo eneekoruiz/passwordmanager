@@ -958,6 +958,8 @@ export class VaultStore {
     credentialId: string
     encryptedPassword: import('../crypto/types').EncryptedPayload
     createdAt: string
+    discoverable?: boolean
+    rpId?: string
   }): Promise<void> {
     const db = await getVaultDb()
     await db.put('biometric_bundles', bundle, bundle.profileId)
@@ -971,6 +973,8 @@ export class VaultStore {
     credentialId: string
     encryptedPassword: import('../crypto/types').EncryptedPayload
     createdAt: string
+    discoverable?: boolean
+    rpId?: string
   } | null> {
     const db = await getVaultDb()
     const bundle = await db.get('biometric_bundles', profileId)

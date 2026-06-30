@@ -1330,10 +1330,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
     if (!passwordIsValid) throw new Error('La Contraseña Maestra no es correcta.')
 
+    const existingBundle = await storeRef.current.loadBiometricBundle(currentProfileId)
     const bundle = await registerBiometricCredential(
       masterPassword,
       currentProfileId,
       cloudUserEmail,
+      existingBundle?.credentialId,
     )
     await storeRef.current.saveBiometricBundle(bundle)
     localStorage.setItem(`contras.biometricRegistered.${currentProfileId}`, 'true')

@@ -25,6 +25,8 @@ export interface BiometricBundle {
   credentialId: string
   encryptedPassword: EncryptedPayload
   createdAt: string
+  discoverable?: boolean
+  rpId?: string
 }
 
 function getRpId(): string {
@@ -93,6 +95,7 @@ export async function registerBiometricCredential(
   masterPassword: string,
   profileId: string,
   userName: string,
+  existingCredentialId?: string | null,
 ): Promise<BiometricBundle> {
   if (!(await isBiometricAvailable())) {
     throw new Error(getBiometricUnavailableMessage())
@@ -105,12 +108,23 @@ export async function registerBiometricCredential(
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
 
+  const excludeCredentials = existingCredentialId
+    ? [
+        {
+          type: 'public-key' as const,
+          id: bytesToArrayBuffer(new Uint8Array(base64ToBytes(existingCredentialId))),
+          transports: ['internal'] as AuthenticatorTransport[],
+        },
+      ]
+    : undefined
+  const rpId = getRpId()
+
   const createOptions: PublicKeyCredentialCreationOptions = {
-    rp: { id: getRpId(), name: BIOMETRIC_RP_NAME },
+    rp: { id: rpId, name: BIOMETRIC_RP_NAME },
     user: {
       id: userIdPadded,
       name: userName,
-      displayName: userName,
+      displayName: `Contras - ${userName}`,
     },
     pubKeyCredParams: [
       { type: 'public-key', alg: -7 },
@@ -118,13 +132,14 @@ export async function registerBiometricCredential(
     ],
     authenticatorSelection: {
       authenticatorAttachment: 'platform',
-      residentKey: 'discouraged',
-      requireResidentKey: false,
+      residentKey: 'required',
+      requireResidentKey: true,
       userVerification: 'required',
     },
     challenge,
     timeout: 60_000,
     attestation: 'none',
+    excludeCredentials,
     extensions: {
       prf: {
         eval: { first: BIOMETRIC_PRF_SALT },
@@ -132,9 +147,17 @@ export async function registerBiometricCredential(
     } as any,
   }
 
-  const credential = await navigator.credentials.create({
-    publicKey: createOptions,
-  }) as PublicKeyCredential | null
+  let credential: PublicKeyCredential | null = null
+  try {
+    credential = await navigator.credentials.create({
+      publicKey: createOptions,
+    }) as PublicKeyCredential | null
+  } catch (error) {
+    if (error instanceof DOMException && error.name === 'InvalidStateError') {
+      throw new Error('Apple Passwords ya tiene una llave de acceso para Contras en este dispositivo. Usa esa llave para entrar o desactiva la llave local en Ajustes antes de crear una nueva.')
+    }
+    throw error
+  }
 
   if (!credential) throw new Error('El registro de la llave de acceso local fue cancelado.')
 
@@ -154,6 +177,8 @@ export async function registerBiometricCredential(
     credentialId,
     encryptedPassword,
     createdAt: new Date().toISOString(),
+    discoverable: true,
+    rpId,
   }
 }
 
@@ -161,17 +186,21 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
 
+  const rpId = bundle.rpId || getRpId()
   const credentialIdBytes = new Uint8Array(base64ToBytes(bundle.credentialId))
+  const allowCredentials = bundle.discoverable
+    ? undefined
+    : [
+        {
+          type: 'public-key' as const,
+          id: bytesToArrayBuffer(credentialIdBytes),
+          transports: ['internal'] as AuthenticatorTransport[],
+        },
+      ]
 
   const getOptions: PublicKeyCredentialRequestOptions = {
-    rpId: getRpId(),
-    allowCredentials: [
-      {
-        type: 'public-key',
-        id: bytesToArrayBuffer(credentialIdBytes),
-        transports: ['internal'] as AuthenticatorTransport[],
-      },
-    ],
+    rpId,
+    allowCredentials,
     userVerification: 'required',
     challenge,
     timeout: 60_000,
@@ -184,9 +213,15 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
 
   const assertion = await navigator.credentials.get({
     publicKey: getOptions,
+    mediation: 'optional',
   }) as PublicKeyCredential | null
 
   if (!assertion) throw new Error('La autenticacion con la llave de acceso local fue cancelada.')
+
+  const assertionCredentialId = bytesToBase64(new Uint8Array((assertion as any).rawId))
+  if (assertionCredentialId !== bundle.credentialId) {
+    throw new Error('Has seleccionado otra llave de acceso de Apple Passwords. Elige la llave de Contras guardada para esta bóveda o vuelve a activarla desde Ajustes.')
+  }
 
   const extResults = (assertion as any).getClientExtensionResults?.() ?? {}
   const prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first

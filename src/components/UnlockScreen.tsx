@@ -4,6 +4,8 @@ import { useToast } from './ui/ToastProvider'
 import { PasswordField } from './ui/PasswordField'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
+import { useOnboarding } from '../hooks/useOnboarding'
+import { useRecovery } from '../hooks/useRecovery'
 
 function SecurityNote() {
   return (
@@ -397,7 +399,7 @@ export function UnlockScreen() {
   const handleDownloadRecoveryPhrase = () => {
     const blob = new Blob(
       [
-        `Contras Emergency Recovery Kit\n\n${recoveryPhrase}\n\nSi olvidas tu Contraseña Maestra, esta es la UNICA forma de recuperar tus datos.`,
+        `Contras - Kit de Recuperación de Emergencia\n\n${recoveryPhrase}\n\nSi olvidas tu Contraseña Maestra, esta es la UNICA forma de recuperar tus datos.`,
       ],
       { type: 'text/plain' },
     )
@@ -509,15 +511,7 @@ export function UnlockScreen() {
           showToast('Las Contraseñas Maestras no coinciden.', 'error')
           return
         }
-        const recoveryWords = recoveryPhrase.split(' ')
-        const challengePassed = seedChallengeIndices.every(
-          (index) => seedChallengeAnswers[index]?.trim().toLowerCase() === recoveryWords[index],
-        )
-        const responsibilitiesAccepted =
-          responsibilityChecks.masterPassword &&
-          responsibilityChecks.seedSaved &&
-          responsibilityChecks.totalLoss
-        if (!recoveryCopied || onboardingRecoveryStep !== 'verify' || !challengePassed || !responsibilitiesAccepted) {
+        if (!canCreateVault) {
           showToast('Completa la verificación de la Frase Semilla y acepta las responsabilidades antes de crear la bóveda.', 'error')
           return
         }
@@ -553,7 +547,7 @@ export function UnlockScreen() {
 
     setLoading(true)
     try {
-      await recoverVaultWithSeed(normalizeRecoveryPhrase(recoveryInput), newMasterPassword)
+      await recoverVaultWithSeed(normalizedRecoveryPhrase, newMasterPassword)
       setRecoveryInput('')
       setNewMasterPassword('')
       setConfirmNewMasterPassword('')
@@ -600,25 +594,23 @@ export function UnlockScreen() {
   const isCloudLoading = cloudSyncStatus === 'syncing'
   const canUseBiometricUnlock = cloudVaultExists !== false && biometricAvailable && biometricRegistered
   const canUseHardwareKeyUnlock = cloudVaultExists !== false && hardwareKeyAvailable && hardwareKeyRegistered
-  const recoveryWords = recoveryPhrase.split(' ').filter(Boolean)
-  const seedChallengePassed =
-    recoveryWords.length === 12 &&
-    seedChallengeIndices.length === 3 &&
-    seedChallengeIndices.every(
-      (index) => seedChallengeAnswers[index]?.trim().toLowerCase() === recoveryWords[index],
-    )
-  const responsibilitiesAccepted =
-    responsibilityChecks.masterPassword &&
-    responsibilityChecks.seedSaved &&
-    responsibilityChecks.totalLoss
-  const canCreateVault =
-    cloudVaultExists === false &&
-    masterPassword.length >= 8 &&
-    masterPassword === confirmMasterPassword &&
-    recoveryCopied &&
-    onboardingRecoveryStep === 'verify' &&
-    seedChallengePassed &&
-    responsibilitiesAccepted
+  const { recoveryWords, canCreateVault } = useOnboarding({
+    cloudVaultExists,
+    masterPassword,
+    confirmMasterPassword,
+    recoveryPhrase,
+    recoveryCopied,
+    onboardingRecoveryStep,
+    seedChallengeIndices,
+    seedChallengeAnswers,
+    responsibilityChecks,
+  })
+  const { normalizedRecoveryPhrase, canSubmitRecovery } = useRecovery({
+    recoveryInput,
+    newMasterPassword,
+    confirmNewMasterPassword,
+    loading,
+  })
 
   return (
     <div className="flex min-h-dvh items-center justify-center bg-surface px-4 py-8 select-none">
@@ -639,13 +631,13 @@ export function UnlockScreen() {
                 <div className="space-y-1">
                   <h1 className="text-xl font-bold tracking-tight text-text-primary">Recuperar acceso</h1>
                   <p className="text-xs leading-relaxed text-text-secondary">
-                    Introduce tu Frase Semilla y crea una nueva Contraseña Maestra para re-cifrar la bóveda.
+                    Este es el salvavidas de la bóveda. Pega tu Frase Semilla para demostrar que eres el propietario y define una nueva Contraseña Maestra.
                   </p>
                 </div>
                 <textarea
                   value={recoveryInput}
                   onChange={(event) => setRecoveryInput(event.target.value)}
-                  placeholder="pega aqui tu codigo de recuperacion"
+                  placeholder="pega aquí tus 12 palabras de recuperación"
                   className="min-h-[92px] w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 focus:ring-2 focus:ring-black/[0.035]"
                 />
                 <PasswordField
@@ -664,7 +656,7 @@ export function UnlockScreen() {
                 />
                       <button
                   type="submit"
-                  disabled={loading || !recoveryInput || newMasterPassword.length < 8 || newMasterPassword !== confirmNewMasterPassword}
+                  disabled={!canSubmitRecovery}
                   className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
                 >
                   {loading ? 'Recuperando y re-cifrando...' : 'Recuperar bóveda'}
@@ -684,7 +676,7 @@ export function UnlockScreen() {
                   onClick={() => setShowNukeModal(true)}
                   className="min-h-11 rounded-xl px-4 py-2 text-[11px] font-semibold text-red-500/80 transition-colors hover:bg-red-50 hover:text-red-700"
                 >
-                  ¿Has perdido todas tus claves? Empezar de cero
+                  ¿Has perdido también tu Frase Semilla? Resetear cuenta
                 </button>
               </form>
             ) : (
@@ -692,7 +684,7 @@ export function UnlockScreen() {
                     <div className="space-y-1">
                       <h1 className="text-xl font-bold tracking-tight text-text-primary">Desbloquea tu Bóveda Local</h1>
                       <p className="text-xs leading-relaxed text-text-secondary">
-                        Introduce tu <strong>Contraseña Maestra</strong> para abrirla. Nunca se envía a nuestros servidores.
+                        Introduce tu <strong>Contraseña Maestra</strong>. Es la llave criptográfica de tu bóveda: no se envía a nuestros servidores, no la conocemos y no podemos recuperarla por ti.
                       </p>
                     </div>
 
@@ -733,9 +725,9 @@ export function UnlockScreen() {
                     {cloudVaultExists === false && recoveryPhrase && (
                       <div className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 text-left shadow-sm animate-vault-morph">
                         <div>
-                          <p className="text-xs font-bold text-amber-900">Emergency Recovery Kit</p>
+                          <p className="text-xs font-bold text-amber-900">Kit de Recuperación de Emergencia</p>
                           <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
-                            Si olvidas tu Contraseña Maestra, esta es la UNICA forma de recuperar tus datos. Guarda estas 12 palabras fuera de este dispositivo.
+                            Esta Frase Semilla es tu único salvavidas zero-knowledge. Si olvidas la Contraseña Maestra, estas 12 palabras son la única forma de recuperar y re-cifrar la bóveda. Guárdalas fuera de este dispositivo.
                           </p>
                         </div>
                         {onboardingRecoveryStep === 'display' ? (
@@ -780,7 +772,7 @@ export function UnlockScreen() {
                           <div className="space-y-4 animate-vault-morph">
                             <div className="rounded-xl border border-amber-200 bg-white/80 p-3">
                               <p className="mb-3 text-[11px] font-bold uppercase tracking-[0.14em] text-amber-800">
-                                Examen de Semilla
+                                Verificación obligatoria
                               </p>
                               <div className="space-y-3">
                                 {seedChallengeIndices.map((index) => (
@@ -870,15 +862,6 @@ export function UnlockScreen() {
                         ¿Olvidaste tu contraseña?
                       </button>
                     )}
-                    {cloudVaultExists !== false && (
-                      <button
-                        type="button"
-                        onClick={() => setShowNukeModal(true)}
-                        className="min-h-11 rounded-xl px-4 py-2 text-[11px] font-semibold text-red-500/80 transition-colors hover:bg-red-50 hover:text-red-700"
-                      >
-                        ¿Has perdido todas tus claves? Empezar de cero
-                      </button>
-                    )}
               </form>
             )}
 
@@ -903,9 +886,9 @@ export function UnlockScreen() {
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v4m0 4h.01M4.93 19.07h14.14c1.54 0 2.5-1.67 1.73-3L13.73 3.93c-.77-1.33-2.69-1.33-3.46 0L3.2 16.07c-.77 1.33.19 3 1.73 3z" />
               </svg>
             </div>
-            <h2 className="text-lg font-bold tracking-tight text-red-950">Peligro: Destrucción Total de Bóveda</h2>
+            <h2 className="text-lg font-bold tracking-tight text-red-950">Danger Zone: reset irreversible</h2>
             <p className="mt-3 text-sm leading-relaxed text-red-900">
-              Si no recuerdas tu Contraseña Maestra ni tu Frase Semilla, tus datos son matemáticamente irrecuperables. Esta acción eliminará permanentemente tu bóveda encriptada y cerrará tu sesión para que puedas crear una cuenta nueva.
+              Si has perdido tanto la Contraseña Maestra como la Frase Semilla, tus datos son matemáticamente irrecuperables. Esta acción elimina la bóveda cifrada y empieza desde cero. No hay soporte, backend ni administrador que pueda revertirlo.
             </p>
             <label className="mt-5 block">
               <span className="mb-1.5 block text-xs font-bold uppercase tracking-[0.14em] text-red-700">

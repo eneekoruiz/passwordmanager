@@ -610,7 +610,7 @@ function VaultApp() {
     }
     setBiometricPromptOpen(false)
     setBiometricPromptPassword('')
-    showToast('Llave local activada correctamente. Ya puedes desbloquear con Face ID, huella o Windows Hello en este dispositivo.', 'info')
+    showToast('Llave local activada correctamente. Apple Passwords/Face ID podrá mostrar la llave de Contras al desbloquear.', 'info')
   }
 
   const submitBiometricPrompt = async () => {
@@ -988,7 +988,7 @@ function VaultApp() {
           </svg>
         </div>
         <h3 className="text-xl font-bold tracking-tight text-text-primary">¿Quieres activar una llave local para entrar más rápido?</h3>
-        <p className="mt-2 text-sm leading-6 text-text-secondary">Tu dispositivo parece compatible. Crearemos una llave de acceso local protegida por Face ID, huella o Windows Hello; no se sube a la nube.</p>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">Crearemos una llave de acceso local para Contras protegida por Face ID, huella o Windows Hello. En Apple se guarda en Contraseñas y no se sube a nuestra nube.</p>
         <input
           type="password"
           value={biometricPromptPassword}
