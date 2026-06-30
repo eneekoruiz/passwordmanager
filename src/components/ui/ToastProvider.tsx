@@ -1,4 +1,4 @@
-import { createContext, useContext, useState, useCallback, ReactNode, useEffect, useRef } from 'react'
+import { createContext, useCallback, useContext, useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'
@@ -13,6 +13,10 @@ interface ToastContextValue {
   showToast: (message: string, type?: ToastType) => void
 }
 
+const MAX_VISIBLE_TOASTS = 3
+const TOAST_DURATION_MS = 5200
+const DISMISS_DRAG_DISTANCE = 72
+
 const ToastContext = createContext<ToastContextValue | null>(null)
 
 const TOAST_PRIORITY: Record<ToastType, number> = {
@@ -23,7 +27,24 @@ const TOAST_PRIORITY: Record<ToastType, number> = {
 }
 
 function normalizeToastMessage(message: string) {
-  return message.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+  return message
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/[¡!¿?.,;:()\[\]{}"']/g, ' ')
+    .replace(/\s+/g, ' ')
+    .toLowerCase()
+}
+
+function areSimilarToastMessages(a: string, b: string) {
+  const first = normalizeToastMessage(a)
+  const second = normalizeToastMessage(b)
+  if (!first || !second) return false
+  if (first === second) return true
+
+  const shorter = first.length <= second.length ? first : second
+  const longer = first.length > second.length ? first : second
+  return shorter.length >= 18 && longer.includes(shorter) && shorter.length / longer.length > 0.68
 }
 
 function strongestToastType(current: ToastType, incoming: ToastType) {
@@ -40,25 +61,27 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    const normalizedMessage = normalizeToastMessage(message)
-    if (!normalizedMessage) return
+    const cleanMessage = message.trim()
+    if (!normalizeToastMessage(cleanMessage)) return
 
     const id = `toast_${Date.now()}_${Math.random().toString(16).slice(2)}`
 
     setToasts((prev) => {
-      const duplicateIndex = prev.findIndex((toast) => normalizeToastMessage(toast.message) === normalizedMessage)
-      if (duplicateIndex === -1) {
-        return [...prev, { id, type, message: message.trim() }]
+      const duplicateIndex = prev.findIndex((toast) => areSimilarToastMessages(toast.message, cleanMessage))
+      if (duplicateIndex !== -1) {
+        const duplicate = prev[duplicateIndex]
+        const next = prev.filter((_, index) => index !== duplicateIndex)
+        return [
+          ...next,
+          {
+            ...duplicate,
+            type: strongestToastType(duplicate.type, type),
+            message: duplicate.message.length >= cleanMessage.length ? duplicate.message : cleanMessage,
+          },
+        ].slice(-MAX_VISIBLE_TOASTS)
       }
 
-      const next = [...prev]
-      const duplicate = next[duplicateIndex]
-      next[duplicateIndex] = {
-        ...duplicate,
-        type: strongestToastType(duplicate.type, type),
-        message: duplicate.message || message.trim(),
-      }
-      return next
+      return [...prev, { id, type, message: cleanMessage }].slice(-MAX_VISIBLE_TOASTS)
     })
   }, [])
 
@@ -71,12 +94,12 @@ export function ToastProvider({ children }: { children: ReactNode }) {
       {children}
       {typeof document !== 'undefined' &&
         createPortal(
-          <div className="fixed top-6 left-1/2 z-[9999] flex -translate-x-1/2 flex-col items-center gap-2 pointer-events-none">
+          <div className="fixed left-1/2 top-4 z-[9999] flex w-[min(92vw,420px)] -translate-x-1/2 flex-col items-stretch gap-2 pointer-events-none sm:top-6">
             {toasts.map((toast) => (
               <ToastItem key={toast.id} toast={toast} onRemove={() => removeToast(toast.id)} />
             ))}
           </div>,
-          document.body
+          document.body,
         )}
     </ToastContext.Provider>
   )
@@ -84,55 +107,116 @@ export function ToastProvider({ children }: { children: ReactNode }) {
 
 function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) {
   const [isExiting, setIsExiting] = useState(false)
+  const [dragX, setDragX] = useState(0)
+  const [dragY, setDragY] = useState(0)
+  const [dragging, setDragging] = useState(false)
   const timerRef = useRef<number | undefined>(undefined)
+  const startRef = useRef<{ x: number; y: number } | null>(null)
+
+  const dismiss = useCallback(() => {
+    if (isExiting) return
+    setIsExiting(true)
+    window.setTimeout(onRemove, 220)
+  }, [isExiting, onRemove])
 
   useEffect(() => {
-    timerRef.current = window.setTimeout(() => {
-      setIsExiting(true)
-      setTimeout(onRemove, 300) // tiempo de animación
-    }, 4000)
-    return () => clearTimeout(timerRef.current)
-  }, [onRemove])
+    timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)
+    return () => window.clearTimeout(timerRef.current)
+  }, [dismiss])
 
-  const typeStyles = {
-    success: 'bg-green-50/95 border-green-200 text-green-800 shadow-green-900/10',
-    error: 'bg-red-50/95 border-red-200 text-red-800 shadow-red-900/10',
-    info: 'bg-white/95 border-black/5 text-text-primary shadow-black/10',
-    warning: 'bg-amber-50/95 border-amber-200 text-amber-800 shadow-amber-900/10',
+  const typeStyles: Record<ToastType, string> = {
+    success: 'border-emerald-200 text-emerald-950 shadow-emerald-900/10 before:bg-emerald-500',
+    error: 'border-red-200 text-red-950 shadow-red-900/10 before:bg-red-500',
+    info: 'border-slate-200 text-slate-950 shadow-slate-900/10 before:bg-slate-400',
+    warning: 'border-amber-200 text-amber-950 shadow-amber-900/10 before:bg-amber-500',
   }
 
-  const icons = {
+  const iconStyles: Record<ToastType, string> = {
+    success: 'bg-emerald-50 text-emerald-600',
+    error: 'bg-red-50 text-red-600',
+    info: 'bg-slate-100 text-slate-600',
+    warning: 'bg-amber-50 text-amber-600',
+  }
+
+  const icons: Record<ToastType, ReactNode> = {
     success: (
-      <svg className="h-4 w-4 shrink-0 text-green-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" />
       </svg>
     ),
     error: (
-      <svg className="h-4 w-4 shrink-0 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
       </svg>
     ),
     warning: (
-      <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0Z" />
       </svg>
     ),
     info: (
-      <svg className="h-4 w-4 shrink-0 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+        <path strokeLinecap="round" strokeLinejoin="round" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" />
       </svg>
     ),
   }
 
-  const animationClass = isExiting ? 'animate-fade-out-up scale-95 opacity-0' : 'animate-fade-in-down'
+  const opacity = dragging ? Math.max(0.35, 1 - (Math.abs(dragX) + Math.abs(dragY)) / 180) : 1
+  const transform = isExiting
+    ? `translate3d(${dragX}px, -18px, 0) scale(0.96)`
+    : `translate3d(${dragX}px, ${dragY}px, 0)`
 
   return (
     <div
-      className={`pointer-events-auto flex w-max max-w-[90vw] sm:max-w-md items-center gap-2.5 rounded-2xl border px-4 py-3 shadow-[0_12px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl transition-all duration-300 ${typeStyles[toast.type]} ${animationClass}`}
-      role="alert"
+      className={`pointer-events-auto relative flex min-h-14 w-full touch-pan-y select-none items-start gap-3 overflow-hidden rounded-2xl border bg-white/95 px-3.5 py-3 shadow-[0_14px_44px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[opacity,transform] before:absolute before:inset-y-0 before:left-0 before:w-1 ${typeStyles[toast.type]} ${isExiting ? 'opacity-0' : 'animate-fade-in-down'}`}
+      style={{ transform, opacity, transitionDuration: dragging ? '0ms' : '220ms' }}
+      role="status"
+      aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
+      onPointerDown={(event) => {
+        startRef.current = { x: event.clientX, y: event.clientY }
+        setDragging(true)
+        window.clearTimeout(timerRef.current)
+        event.currentTarget.setPointerCapture(event.pointerId)
+      }}
+      onPointerMove={(event) => {
+        if (!startRef.current) return
+        setDragX(event.clientX - startRef.current.x)
+        setDragY(Math.min(0, event.clientY - startRef.current.y))
+      }}
+      onPointerUp={(event) => {
+        event.currentTarget.releasePointerCapture(event.pointerId)
+        setDragging(false)
+        if (Math.abs(dragX) > DISMISS_DRAG_DISTANCE || dragY < -DISMISS_DRAG_DISTANCE) {
+          dismiss()
+          return
+        }
+        setDragX(0)
+        setDragY(0)
+        timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)
+      }}
+      onPointerCancel={() => {
+        setDragging(false)
+        setDragX(0)
+        setDragY(0)
+        timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)
+      }}
     >
-      {icons[toast.type]}
-      <span className="text-[13px] font-semibold leading-snug">{toast.message}</span>
+      <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${iconStyles[toast.type]}`}>
+        {icons[toast.type]}
+      </span>
+      <span className="min-w-0 flex-1 pt-0.5 text-[13px] font-semibold leading-snug">
+        {toast.message}
+      </span>
+      <button
+        type="button"
+        onClick={dismiss}
+        className="-mr-1 -mt-1 flex h-8 w-8 shrink-0 items-center justify-center rounded-xl text-slate-400 transition-colors hover:bg-slate-100 hover:text-slate-700"
+        aria-label="Cerrar notificación"
+      >
+        <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M6 18 18 6M6 6l12 12" />
+        </svg>
+      </button>
     </div>
   )
 }
