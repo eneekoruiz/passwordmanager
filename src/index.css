@@ -7,10 +7,23 @@
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   body {
     @apply bg-surface text-text-primary font-sans;
+    height: 100%;
+    overflow: hidden;
+    overscroll-behavior: none;
+    touch-action: manipulation;
+  }
+
+  #root {
+    height: 100dvh;
+    overflow: hidden;
+    overscroll-behavior: none;
   }
 
   ::selection {
@@ -84,3 +97,4 @@
     border-radius: 3px;
   }
 }
+

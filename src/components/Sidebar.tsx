@@ -475,7 +475,7 @@ export const Sidebar = memo(function Sidebar({
                       : 'text-text-secondary hover:bg-surface-hover'
                   }`}
                 >
-                  {mode === 'identity' ? 'Identidad' : mode === 'platform' ? 'Plataforma' : 'Locales'}
+                  {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
                 </button>
               ))}
             </div>
@@ -543,7 +543,7 @@ export const Sidebar = memo(function Sidebar({
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3 max-lg:max-h-[calc(100dvh-13rem)]">
+        <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
           {syncing && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4 animate-pulse">
               <div className="h-3 bg-black/10 rounded w-1/3 dark:bg-white/10 mb-6"></div>
@@ -597,38 +597,24 @@ export const Sidebar = memo(function Sidebar({
                       </ul>
                     ) : (
                       <div className="animate-vault-morph">
-                        <div className="mx-3 mb-6 grid grid-cols-2 gap-2">
+                        <div className="mx-3 mb-5">
                           <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Plataformas</p>
-                            <p className="mt-1 text-xl font-bold text-text-primary">{platformSummaries.length}</p>
-                          </div>
-                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</p>
-                            <p className="mt-1 text-xl font-bold text-text-primary">{platformSummaries.reduce((acc, p) => acc + p.count, 0)}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Directorio de Plataformas</p>
+                            <p className="mt-1 text-sm font-bold text-text-primary">{platformSummaries.length} plataforma{platformSummaries.length !== 1 ? 's' : ''}</p>
                           </div>
                         </div>
 
                         {platformSummaries.length > 0 && (
                           <>
                             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Recientes
+                              Todas
                             </div>
                             <ul className="space-y-0.5">
-                              {[...platformSummaries].sort((a, b) => b.maxDate.localeCompare(a.maxDate)).slice(0, 5).map(renderPlatformItem)}
+                              {platformSummaries.map(renderPlatformItem)}
                             </ul>
                           </>
                         )}
                         
-                        {selectedPlatformName && ![...platformSummaries].sort((a, b) => b.maxDate.localeCompare(a.maxDate)).slice(0, 5).find(p => p.name.toLowerCase() === selectedPlatformName.toLowerCase()) && (
-                          <>
-                            <div className="mt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Seleccionada
-                            </div>
-                            <ul className="space-y-0.5">
-                              {platformSummaries.filter(p => p.name.toLowerCase() === selectedPlatformName.toLowerCase()).map(renderPlatformItem)}
-                            </ul>
-                          </>
-                        )}
                       </div>
                     )}
                   </>
@@ -664,46 +650,24 @@ export const Sidebar = memo(function Sidebar({
                       </ul>
                     ) : (
                       <div className="animate-vault-morph">
-                        <div className="mx-3 mb-6 grid grid-cols-2 gap-2">
+                        <div className="mx-3 mb-5">
                           <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Identidades</p>
-                            <p className="mt-1 text-xl font-bold text-text-primary">{visibleIdentities.length}</p>
-                          </div>
-                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</p>
-                            <p className="mt-1 text-xl font-bold text-text-primary">{visibleIdentities.reduce((acc, idItem) => acc + (idItem.platforms || []).length, 0)}</p>
+                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Directorio de Identidades</p>
+                            <p className="mt-1 text-sm font-bold text-text-primary">{visibleIdentities.length} identidad{visibleIdentities.length !== 1 ? 'es' : ''}</p>
                           </div>
                         </div>
 
                         {visibleIdentities.length > 0 && (
                           <>
                             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Recientes
+                              Todas
                             </div>
                             <ul className="space-y-0.5">
-                              {[...visibleIdentities].sort((a, b) => {
-                                const maxA = Math.max(...(a.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
-                                const maxB = Math.max(...(b.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
-                                return maxB - maxA
-                              }).slice(0, 5).map(renderIdentityItem)}
+                              {visibleIdentities.map(renderIdentityItem)}
                             </ul>
                           </>
                         )}
 
-                        {selectedId && ![...visibleIdentities].sort((a, b) => {
-                          const maxA = Math.max(...(a.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
-                          const maxB = Math.max(...(b.platforms || []).map(p => new Date(p.updatedAt || p.createdAt || 0).getTime()), 0)
-                          return maxB - maxA
-                        }).slice(0, 5).find(idItem => idItem.id === selectedId) && (
-                          <>
-                            <div className="mt-4 px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Seleccionada
-                            </div>
-                            <ul className="space-y-0.5">
-                              {visibleIdentities.filter(idItem => idItem.id === selectedId).map(renderIdentityItem)}
-                            </ul>
-                          </>
-                        )}
                       </div>
                     )}
                   </>
@@ -788,5 +752,4 @@ export const Sidebar = memo(function Sidebar({
     </>
   )
 })
-
 

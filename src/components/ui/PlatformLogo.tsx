@@ -6,7 +6,6 @@ interface PlatformLogoProps {
   className?: string
 }
 
-// Deterministic background colors for initials avatars
 const AVATAR_COLORS = [
   'bg-red-500 text-white',
   'bg-pink-500 text-white',
@@ -19,24 +18,12 @@ const AVATAR_COLORS = [
   'bg-yellow-500 text-slate-900',
   'bg-orange-500 text-white',
   'bg-slate-500 text-white',
-  'bg-cyan-500 text-white'
+  'bg-cyan-500 text-white',
 ]
 
-function getDeterministicColor(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  const index = Math.abs(hash) % AVATAR_COLORS.length
-  return AVATAR_COLORS[index]
-}
-
-/**
- * Componente que muestra el logotipo de una plataforma de forma dinámica utilizando
- * el servicio de favicons de Google con un fallback elegante a las iniciales de la plataforma.
- */
 const CUSTOM_ICONS: Record<string, string> = {
   'google authenticator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleauthenticator.svg',
+  'microsoft authenticator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/microsoftauthenticator.svg',
   'google maps': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googlemaps.svg',
   'google meet': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googlemeet.svg',
   'google play': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
@@ -44,9 +31,6 @@ const CUSTOM_ICONS: Record<string, string> = {
   'google playstore': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
   'google translate': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
   'google translator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
-  'google files': 'https://www.google.com/s2/favicons?domain=files.google.com&sz=256',
-  'google files go': 'https://www.google.com/s2/favicons?domain=files.google.com&sz=256',
-  'zoom': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/zoom.svg',
   'chatgpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
   'chat gpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
   'openai': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
@@ -54,90 +38,102 @@ const CUSTOM_ICONS: Record<string, string> = {
   'booking': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
 }
 
-/**
- * Componente que muestra el logotipo de una plataforma de forma dinámica utilizando
- * el servicio de favicons de Google con un fallback elegante a las iniciales de la plataforma.
- */
-export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
-  const [hasError, setHasError] = useState(false)
-  const [src, setSrc] = useState('')
+const DOMAIN_OVERRIDES: Record<string, string> = {
+  mediaset: 'mediaset.es',
+  mitele: 'mitele.es',
+  'google authenticator': 'accounts.google.com',
+  'microsoft authenticator': 'microsoft.com',
+}
 
-  const getCustomIcon = (n: string): string | null => {
-    const clean = n.trim().toLowerCase()
-    
-    // Exact or substring match in CUSTOM_ICONS
-    if (CUSTOM_ICONS[clean]) return CUSTOM_ICONS[clean]
-    
-    for (const key of Object.keys(CUSTOM_ICONS)) {
-      if (clean.includes(key) || key.includes(clean)) {
-        return CUSTOM_ICONS[key]
-      }
+const MULTIPART_SUFFIXES = new Set([
+  'co.uk',
+  'com.es',
+  'com.mx',
+  'com.ar',
+  'com.br',
+  'com.au',
+  'co.jp',
+])
+
+function getDeterministicColor(str: string): string {
+  let hash = 0
+  for (let i = 0; i < str.length; i++) {
+    hash = str.charCodeAt(i) + ((hash << 5) - hash)
+  }
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+}
+
+function normalizeDomain(value: string): string | null {
+  const clean = value.trim().toLowerCase().replace(/^@/, '')
+  if (!clean) return null
+
+  try {
+    const url = new URL(clean.match(/^https?:\/\//) ? clean : `https://${clean}`)
+    const host = url.hostname.replace(/^www\./, '')
+    if (!host.includes('.') || host === 'localhost') return null
+
+    const parts = host.split('.').filter(Boolean)
+    if (parts.length <= 2) return host
+
+    const suffix = parts.slice(-2).join('.')
+    if (MULTIPART_SUFFIXES.has(suffix) && parts.length >= 3) {
+      return parts.slice(-3).join('.')
     }
+    return parts.slice(-2).join('.')
+  } catch {
     return null
   }
+}
 
-  const getDomainFromName = (n: string): string => {
-    const clean = n.trim().toLowerCase()
-    
-    // Substring/Regex mappings requested by user
-    if (clean.includes('youtube')) return 'youtube.com'
-    if (clean.includes('yubo')) return 'yubo.live'
-    if (clean.includes('yuka')) return 'yuka.io'
-    
-    // Check in POPULAR_SERVICES by name or aliases
-    const known = POPULAR_SERVICES.find((service) => {
-      const matchName = service.name.toLowerCase() === clean || clean.includes(service.name.toLowerCase())
-      const matchAlias = service.aliases?.some(alias => alias.toLowerCase() === clean || clean.includes(alias.toLowerCase()))
-      return matchName || matchAlias
-    })
-    
-    if (known) return known.domain
-    if (clean.includes('.')) return clean
-    
-    // Remover caracteres especiales y espacios
-    const sanitized = clean.replace(/[^a-z0-9]/g, '')
-    return sanitized ? `${sanitized}.com` : 'example.com'
-  }
+function getCustomIcon(name: string): string | null {
+  const clean = name.trim().toLowerCase()
+  if (CUSTOM_ICONS[clean]) return CUSTOM_ICONS[clean]
+  return null
+}
 
+function getDomainFromName(name: string): string | null {
+  const clean = name.trim().toLowerCase()
+  if (!clean) return null
+
+  const override = DOMAIN_OVERRIDES[clean]
+  if (override) return override
+
+  const parsedDomain = normalizeDomain(clean)
+  if (parsedDomain) return parsedDomain
+
+  const known = POPULAR_SERVICES.find((service) => {
+    const serviceName = service.name.toLowerCase()
+    const aliases = service.aliases?.map((alias) => alias.toLowerCase()) ?? []
+    return clean === serviceName || aliases.includes(clean)
+  })
+
+  return known ? normalizeDomain(known.domain) : null
+}
+
+function getInitials(name: string): string {
+  const cleaned = name.trim().replace(/[^a-zA-Z0-9\s]/g, '')
+  const parts = cleaned.split(/\s+/).filter(Boolean)
+  if (parts.length >= 2) return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
+  return cleaned.slice(0, 2).toUpperCase() || 'P'
+}
+
+export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
+  const [sourceIndex, setSourceIndex] = useState(0)
+  const customIcon = getCustomIcon(name)
   const domain = getDomainFromName(name)
-  
-  // Extract up to 2 initials
-  const initials = (() => {
-    const cleaned = name.trim().replace(/[^a-zA-Z0-9\s]/g, '')
-    const parts = cleaned.split(/\s+/).filter(Boolean)
-    if (parts.length >= 2) {
-      return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
-    }
-    return cleaned.slice(0, 2).toUpperCase() || 'P'
-  })()
+  const sources = [
+    customIcon,
+    domain ? `https://logo.clearbit.com/${domain}?size=256` : null,
+    domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256` : null,
+  ].filter(Boolean) as string[]
 
-  // Resetear el estado de error y establecer src inicial si el nombre de la plataforma cambia
   useEffect(() => {
-    setHasError(false)
-    const custom = getCustomIcon(name)
-    if (custom) {
-      setSrc(custom)
-    } else {
-      setSrc(`https://logo.clearbit.com/${domain}?size=512`)
-    }
-  }, [name, domain])
+    setSourceIndex(0)
+  }, [name])
 
-  const handleImageError = () => {
-    if (src.includes('walkxcode') || src.includes('jsdelivr.net')) {
-      // Fallback 1 for custom icons -> go to Clearbit
-      setSrc(`https://logo.clearbit.com/${domain}?size=512`)
-    } else if (src.includes('clearbit.com')) {
-      // Fallback 2: icon.horse
-      setSrc(`https://icon.horse/icon/${domain}`)
-    } else if (src.includes('icon.horse')) {
-      // Fallback 3: Google Favicons with default=404 parameter to avoid the default globe icon
-      setSrc(`https://www.google.com/s2/favicons?domain=${domain}&sz=256`)
-    } else {
-      setHasError(true)
-    }
-  }
+  const initials = getInitials(name)
 
-  if (hasError || !src) {
+  if (!sources[sourceIndex]) {
     const colorClass = getDeterministicColor(name)
     return (
       <div
@@ -151,13 +147,13 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
 
   return (
     <img
-      src={src}
+      src={sources[sourceIndex]}
       alt={`Logo de ${name}`}
-      onError={handleImageError}
+      onError={() => setSourceIndex((index) => index + 1)}
       loading="lazy"
       decoding="async"
-      style={{ imageRendering: 'auto' }}
       className={`${className} rounded-full shrink-0 object-contain bg-white border border-black/[0.05] p-[1px]`}
     />
   )
 }
+

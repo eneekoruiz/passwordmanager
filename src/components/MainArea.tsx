@@ -5,6 +5,7 @@ import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '.
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
+import { SearchBar } from './SearchBar'
 import { VaultItemForm } from './VaultItemForm'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 
@@ -32,6 +33,9 @@ interface MainAreaProps {
   isMobile?: boolean
   createTrigger?: number
   sortMode: SortMode
+  onSortModeChange?: (mode: SortMode) => void
+  searchQuery?: string
+  onSearchChange?: (query: string) => void
 }
 
 interface PlatformAccount {
@@ -49,6 +53,14 @@ interface EditingPlatformContext {
 interface PlatformQuickPick {
   name: string
   count: number
+}
+
+const SORT_LABELS: Record<SortMode, string> = {
+  'alpha-asc': 'Alfabético',
+  'alpha-desc': 'Alfabético inverso',
+  'date-desc': 'Más recientes',
+  'date-asc': 'Más antiguos',
+  'usage-desc': 'Más usadas',
 }
 
 export const MainArea = memo(function MainArea({
@@ -73,6 +85,9 @@ export const MainArea = memo(function MainArea({
   isMobile = false,
   createTrigger = 0,
   sortMode,
+  onSortModeChange,
+  searchQuery = '',
+  onSearchChange,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
@@ -326,9 +341,29 @@ export const MainArea = memo(function MainArea({
   }
 
   const isFormView = view === 'create' || view === 'edit'
+  const itemQuery = searchQuery.trim().toLowerCase()
   const selectedLocalItems = localCategory
     ? localItems.filter((item) => (item.categoryId ?? item.type) === localCategory.id)
     : []
+  const filteredLocalItems = selectedLocalItems.filter((item) => {
+    if (!itemQuery) return true
+    return [vaultItemDisplayName(item), item.title]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(itemQuery))
+  })
+  const filteredPlatformAccounts = platformAccounts.filter(({ identityEmail, platform }) => {
+    if (!itemQuery) return true
+    return [identityEmail, platform.name, platform.username, platform.notes]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(itemQuery))
+  })
+  const identityPlatforms = (identity?.platforms || []).filter((platform) => {
+    if (!itemQuery) return true
+    return [platform.name, platform.username, platform.notes]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(itemQuery))
+  })
+  const showInnerTools = !isFormView && Boolean(localCategory || selectedPlatformName || identity)
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -420,11 +455,32 @@ export const MainArea = memo(function MainArea({
       </header>
       )}
 
-      <div className={`flex-1 overflow-y-auto overscroll-none ${isFormView ? '' : 'px-4 py-4 lg:px-8 lg:py-6'}`}>
+      <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
         {view === 'grid' && (
           <>
+            {showInnerTools && (
+              <div className="mb-4 flex gap-2">
+                <div className="min-w-0 flex-1">
+                  <SearchBar
+                    value={searchQuery}
+                    onChange={onSearchChange ?? (() => undefined)}
+                    placeholder={identity ? 'Buscar en esta identidad...' : selectedPlatformName ? 'Buscar cuentas...' : 'Buscar secretos...'}
+                  />
+                </div>
+                <select
+                  value={sortMode}
+                  onChange={(event) => onSortModeChange?.(event.target.value as SortMode)}
+                  className="h-11 shrink-0 rounded-xl border border-black/[0.06] bg-white px-3 text-xs font-bold text-text-secondary shadow-subtle outline-none focus:border-black/15"
+                  aria-label="Ordenar"
+                >
+                  {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+                    <option key={mode} value={mode}>{SORT_LABELS[mode]}</option>
+                  ))}
+                </select>
+              </div>
+            )}
             {localCategory ? (
-              selectedLocalItems.length === 0 ? (
+              filteredLocalItems.length === 0 ? (
                 <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center">
                   <p className="text-sm font-semibold text-text-primary">Sin secretos en {localCategory.label}</p>
                   <p className="mt-1 max-w-sm text-xs text-text-secondary">Crea el primer registro. Se cifrará localmente antes de sincronizarse con Firebase.</p>
@@ -440,8 +496,8 @@ export const MainArea = memo(function MainArea({
                   </button>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 max-lg:max-h-80">
-                  {selectedLocalItems.map((item, index) => (
+                <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredLocalItems.map((item, index) => (
                     <button
                       key={item.id}
                       type="button"
@@ -467,14 +523,14 @@ export const MainArea = memo(function MainArea({
                 </div>
               )
             ) : groupMode === 'platform' && selectedPlatformName ? (
-              platformAccounts.length === 0 ? (
+              filteredPlatformAccounts.length === 0 ? (
                 <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center animate-vault-morph">
                   <p className="text-sm font-semibold text-text-primary">No hay cuentas para {selectedPlatformDisplayName}</p>
                   <p className="mt-1 max-w-sm text-xs text-text-secondary">Cambia a la vista por identidad para crear una nueva cuenta desde su correo propietario.</p>
                 </div>
               ) : (
-                <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 max-lg:max-h-80">
-                  {platformAccounts.map(({ identityId, identityEmail, platform }, index) => (
+                <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                  {filteredPlatformAccounts.map(({ identityId, identityEmail, platform }, index) => (
                     <button
                       key={`${identityId}-${platform.id}`}
                       type="button"
@@ -523,7 +579,7 @@ export const MainArea = memo(function MainArea({
                   ))}
                 </div>
               )
-            ) : identity && (identity.platforms || []).length === 0 ? (
+            ) : identity && identityPlatforms.length === 0 && !itemQuery ? (
               <EmptyState
                 onAddPassword={() => {
                   setEditingPlatform({
@@ -536,8 +592,8 @@ export const MainArea = memo(function MainArea({
                 onImportText={onOpenImportText}
               />
             ) : (
-                <div className="grid grid-cols-1 gap-4 overflow-y-auto pr-1 sm:grid-cols-2 xl:grid-cols-3 max-lg:max-h-80">
-                {(identity?.platforms || []).map((platform, index) => (
+                <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                {identityPlatforms.map((platform, index) => (
                   <button
                     key={platform.id}
                     type="button"
@@ -683,5 +739,4 @@ export const MainArea = memo(function MainArea({
     </div>
   )
 })
-
 

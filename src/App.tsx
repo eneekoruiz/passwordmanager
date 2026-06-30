@@ -64,6 +64,7 @@ function VaultApp() {
     importBackup,
     importMassiveAccounts,
     currentProfileName,
+    currentProfileId,
     cloudSyncStatus,
     isInMemory,
     syncActiveProfileToCloud,
@@ -191,6 +192,9 @@ function VaultApp() {
   }
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
+  const [biometricPromptPassword, setBiometricPromptPassword] = useState('')
+  const [biometricPromptSaving, setBiometricPromptSaving] = useState(false)
   const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
@@ -577,11 +581,48 @@ function VaultApp() {
     })
   }
 
+  useEffect(() => {
+    if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
+    if (typeof window === 'undefined') return
+    if (window.localStorage.getItem(`contras.biometricPromptDismissed.${currentProfileId}`) === 'true') return
+
+    const timer = window.setTimeout(() => setBiometricPromptOpen(true), 900)
+    return () => window.clearTimeout(timer)
+  }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
+
+  const dismissBiometricPrompt = () => {
+    if (currentProfileId) {
+      window.localStorage.setItem(`contras.biometricPromptDismissed.${currentProfileId}`, 'true')
+    }
+    setBiometricPromptOpen(false)
+    setBiometricPromptPassword('')
+  }
+
   const handleRegisterBiometric = async (masterPassword: string) => {
     await registerBiometricUnlock(masterPassword)
+    if (currentProfileId) {
+      window.localStorage.setItem(`contras.biometricPromptDismissed.${currentProfileId}`, 'true')
+    }
+    setBiometricPromptOpen(false)
+    setBiometricPromptPassword('')
     showToast('Biometría activada correctamente. Ya puedes desbloquear con tu sensor.', 'info')
   }
 
+  const submitBiometricPrompt = async () => {
+    if (!biometricPromptPassword.trim()) {
+      showToast('Introduce tu Contraseña Maestra para activar la biometría.', 'error')
+      return
+    }
+
+    setBiometricPromptSaving(true)
+    try {
+      await handleRegisterBiometric(biometricPromptPassword)
+    } catch (error) {
+      reportUiError(error, 'No se pudo activar la biometría.')
+    } finally {
+      setBiometricPromptSaving(false)
+    }
+  }
   const handleRegisterHardwareKey = async (masterPassword: string) => {
     await registerHardwareKeyUnlock(masterPassword)
     showToast('Llave física registrada correctamente. Ya puedes desbloquear con tu llave.', 'info')
@@ -734,6 +775,11 @@ function VaultApp() {
     setSelectedPlatformName(null)
   }
 
+  const totalAccountCount = useMemo(
+    () => displayIdentities.reduce((sum, identity) => sum + (identity.platforms?.length || 0), 0),
+    [displayIdentities],
+  )
+
   const showExtraHeaderElements = selectedId === null && selectedLocalCategory === null && selectedPlatformName === null
 
   const mobileTopBar = isMobile ? (
@@ -743,7 +789,7 @@ function VaultApp() {
         <div className="min-w-0">
           <p className="truncate text-lg font-bold text-text-primary">Contras</p>
           <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-            {currentProfileName ?? 'Bóveda segura'}
+{`${currentProfileName ?? 'Bóveda Principal'} - ${totalAccountCount} Cuenta${totalAccountCount !== 1 ? 's' : ''}`}
           </p>
         </div>
         <div className="flex items-center gap-2">
@@ -849,7 +895,7 @@ function VaultApp() {
                   : 'text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              {mode === 'identity' ? 'Identidad' : mode === 'platform' ? 'Plataforma' : 'Locales'}
+              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
             </button>
           ))}
         </div>
@@ -928,6 +974,35 @@ function VaultApp() {
     </>
   )
 
+  const biometricOnboardingModal = biometricPromptOpen ? (
+    <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
+      <div className="w-full max-w-md rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
+          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.25v1.5m-6.364 4.864a9 9 0 1112.728 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+          </svg>
+        </div>
+        <h3 className="text-xl font-bold tracking-tight text-text-primary">¿Quieres activar la biometría para mayor comodidad?</h3>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">Tu dispositivo la soporta. Guardaremos la preferencia localmente y podrás desbloquear la bóveda con tu sensor.</p>
+        <input
+          type="password"
+          value={biometricPromptPassword}
+          onChange={(event) => setBiometricPromptPassword(event.target.value)}
+          placeholder="Contraseña Maestra"
+          className="mt-5 h-12 w-full rounded-xl border border-black/[0.08] bg-white px-4 text-base font-medium text-text-primary outline-none focus:border-black/20 focus:ring-4 focus:ring-black/[0.04]"
+        />
+        <div className="mt-5 grid gap-2">
+          <button type="button" onClick={() => void submitBiometricPrompt()} disabled={biometricPromptSaving} className="min-h-12 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white disabled:opacity-60">
+            {biometricPromptSaving ? 'Activando...' : 'Activar biometría'}
+          </button>
+          <button type="button" onClick={dismissBiometricPrompt} className="min-h-12 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary">
+            Ahora no
+          </button>
+        </div>
+      </div>
+    </div>
+  ) : null
+
   const cloudDownloadModal = pendingCloudDownload ? (
     pendingCloudDownload.diffResult ? (
       <SyncDiffViewer
@@ -985,10 +1060,10 @@ function VaultApp() {
 
   if (isMobile) {
     return (
-      <div className="flex h-dvh flex-col overflow-hidden bg-surface pb-16 overscroll-none overflow-x-hidden">
+      <div className="fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface overscroll-none">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex-1 flex flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'}`}>
+        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'} pb-16`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
@@ -1067,11 +1142,14 @@ function VaultApp() {
               isMobile={true}
               createTrigger={createTrigger}
               sortMode={sortMode}
+              onSortModeChange={setSortMode}
+              searchQuery={localSearchTerm}
+              onSearchChange={setLocalSearchTerm}
             />
           )}
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 items-center justify-around border-t border-black/5 bg-white/70 px-6 pb-safe shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-lg">
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 translate-y-0 items-center justify-around border-t border-black/5 bg-white/95 px-6 shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-xl">
           <button
             type="button"
             onClick={() => {
@@ -1152,6 +1230,7 @@ function VaultApp() {
         />
 
         <IOSInstallPrompt />
+        {biometricOnboardingModal}
         {cloudDownloadModal}
 
         {unsavedModalOpen && (
@@ -1345,6 +1424,7 @@ function VaultApp() {
       />
 
       <IOSInstallPrompt />
+      {biometricOnboardingModal}
       {cloudDownloadModal}
 
       {unsavedModalOpen && (
@@ -1532,6 +1612,5 @@ export default function App() {
     </ErrorBoundary>
   )
 }
-
 
 
