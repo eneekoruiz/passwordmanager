@@ -787,9 +787,14 @@ function VaultApp() {
       {/* Row 1: Title & Cloud Status & Settings */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="truncate text-lg font-bold text-text-primary">Contras</p>
-          <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-{`${currentProfileName ?? 'Bóveda Principal'} - ${totalAccountCount} Cuenta${totalAccountCount !== 1 ? 's' : ''}`}
+          <div className="flex min-w-0 items-center gap-2">
+            <p className="truncate text-lg font-bold text-text-primary">Contras</p>
+            <span className="shrink-0 rounded-full bg-text-primary px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.04em] text-white shadow-sm">
+              {totalAccountCount} cuenta{totalAccountCount !== 1 ? 's' : ''}
+            </span>
+          </div>
+          <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+            {currentProfileName ?? 'Bóveda Principal'}
           </p>
         </div>
         <div className="flex items-center gap-2">

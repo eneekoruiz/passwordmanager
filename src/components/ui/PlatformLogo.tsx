@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { POPULAR_SERVICES } from '../../data/popularServices'
 
 interface PlatformLogoProps {
@@ -17,7 +17,7 @@ const AVATAR_COLORS = [
   'bg-green-500 text-white',
   'bg-yellow-500 text-slate-900',
   'bg-orange-500 text-white',
-  'bg-slate-500 text-white',
+  'bg-slate-600 text-white',
   'bg-cyan-500 text-white',
 ]
 
@@ -33,9 +33,9 @@ const CUSTOM_ICONS: Record<string, string> = {
   'google translator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
   'chatgpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
   'chat gpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
-  'openai': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
+  openai: 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
   'booking.com': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
-  'booking': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
+  booking: 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
 }
 
 const DOMAIN_OVERRIDES: Record<string, string> = {
@@ -45,15 +45,7 @@ const DOMAIN_OVERRIDES: Record<string, string> = {
   'microsoft authenticator': 'microsoft.com',
 }
 
-const MULTIPART_SUFFIXES = new Set([
-  'co.uk',
-  'com.es',
-  'com.mx',
-  'com.ar',
-  'com.br',
-  'com.au',
-  'co.jp',
-])
+const MULTIPART_SUFFIXES = new Set(['co.uk', 'com.es', 'com.mx', 'com.ar', 'com.br', 'com.au', 'co.jp'])
 
 function getDeterministicColor(str: string): string {
   let hash = 0
@@ -86,9 +78,7 @@ function normalizeDomain(value: string): string | null {
 }
 
 function getCustomIcon(name: string): string | null {
-  const clean = name.trim().toLowerCase()
-  if (CUSTOM_ICONS[clean]) return CUSTOM_ICONS[clean]
-  return null
+  return CUSTOM_ICONS[name.trim().toLowerCase()] ?? null
 }
 
 function getDomainFromName(name: string): string | null {
@@ -117,43 +107,73 @@ function getInitials(name: string): string {
   return cleaned.slice(0, 2).toUpperCase() || 'P'
 }
 
-export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
-  const [sourceIndex, setSourceIndex] = useState(0)
+function buildSources(name: string) {
   const customIcon = getCustomIcon(name)
   const domain = getDomainFromName(name)
-  const sources = [
+  if (!domain) return customIcon ? [customIcon] : []
+
+  const encodedDomain = encodeURIComponent(domain)
+  return [
     customIcon,
-    domain ? `https://logo.clearbit.com/${domain}?size=256` : null,
-    domain ? `https://www.google.com/s2/favicons?domain=${domain}&sz=256` : null,
+    `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=128`,
+    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    `https://logo.clearbit.com/${domain}?size=128`,
   ].filter(Boolean) as string[]
+}
+
+export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
+  const [sourceIndex, setSourceIndex] = useState(0)
+  const [loaded, setLoaded] = useState(false)
+  const sources = buildSources(name)
+  const source = sources[sourceIndex]
+  const initials = getInitials(name)
+  const colorClass = getDeterministicColor(name || initials)
 
   useEffect(() => {
     setSourceIndex(0)
+    setLoaded(false)
   }, [name])
 
-  const initials = getInitials(name)
+  useEffect(() => {
+    setLoaded(false)
+    if (!source) return
 
-  if (!sources[sourceIndex]) {
-    const colorClass = getDeterministicColor(name)
-    return (
-      <div
-        className={`${className} rounded-full flex items-center justify-center ${colorClass} text-[10px] font-extrabold tracking-wider shrink-0 select-none border border-black/[0.03] shadow-sm`}
-        aria-hidden="true"
-      >
-        {initials}
-      </div>
-    )
-  }
+    const timer = window.setTimeout(() => {
+      setSourceIndex((index) => index + 1)
+    }, 3500)
+    return () => window.clearTimeout(timer)
+  }, [source])
+
+  const fallback = (
+    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold tracking-wider">
+      {initials}
+    </span>
+  )
 
   return (
-    <img
-      src={sources[sourceIndex]}
-      alt={`Logo de ${name}`}
-      onError={() => setSourceIndex((index) => index + 1)}
-      loading="lazy"
-      decoding="async"
-      className={`${className} rounded-full shrink-0 object-contain bg-white border border-black/[0.05] p-[1px]`}
-    />
+    <span
+      className={`${className} relative inline-flex shrink-0 overflow-hidden rounded-full border border-black/[0.05] ${colorClass} shadow-sm`}
+      aria-hidden="true"
+    >
+      {fallback}
+      {source && (
+        <img
+          src={source}
+          alt=""
+          onLoad={(event) => {
+            const image = event.currentTarget
+            if (image.naturalWidth <= 4 || image.naturalHeight <= 4) {
+              setSourceIndex((index) => index + 1)
+              return
+            }
+            setLoaded(true)
+          }}
+          onError={() => setSourceIndex((index) => index + 1)}
+          loading="lazy"
+          decoding="async"
+          className={`absolute inset-0 h-full w-full bg-white object-contain p-[2px] transition-opacity duration-150 ${loaded ? 'opacity-100' : 'opacity-0'}`}
+        />
+      )}
+    </span>
   )
 }
-

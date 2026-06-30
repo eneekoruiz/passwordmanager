@@ -571,24 +571,28 @@ export const Sidebar = memo(function Sidebar({
                   <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay plataformas.</p>
                 ) : (
                   <>
-                    <ul className="space-y-1 mb-4">
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() => onSelectPlatform(null)}
-                          className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                            selectedPlatformName === null ? 'bg-surface-active font-bold text-text-primary' : 'hover:bg-surface-hover text-text-secondary font-medium'
-                          }`}
-                        >
-                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-text-primary">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
-                            </svg>
-                          </div>
-                          <span className="truncate text-sm">Directorio de Plataformas</span>
-                        </button>
-                      </li>
-                    </ul>
+                    <button
+                      type="button"
+                      onClick={() => onSelectPlatform(null)}
+                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors ${
+                        selectedPlatformName === null ? 'bg-surface-active text-text-primary' : 'bg-surface-elevated text-text-secondary hover:bg-surface-hover'
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                          </svg>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold">Directorio de Plataformas</span>
+                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Todas tus plataformas cloud</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-extrabold tabular-nums text-text-primary shadow-sm ring-1 ring-black/[0.04]">
+                        {platformSummaries.length} plataforma{platformSummaries.length !== 1 ? 's' : ''}
+                      </span>
+                    </button>
                     {searchQuery ? (
                       <ul className="space-y-0.5 animate-vault-morph">
                         {platformSummaries
@@ -597,12 +601,6 @@ export const Sidebar = memo(function Sidebar({
                       </ul>
                     ) : (
                       <div className="animate-vault-morph">
-                        <div className="mx-3 mb-5">
-                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Directorio de Plataformas</p>
-                            <p className="mt-1 text-sm font-bold text-text-primary">{platformSummaries.length} plataforma{platformSummaries.length !== 1 ? 's' : ''}</p>
-                          </div>
-                        </div>
 
                         {platformSummaries.length > 0 && (
                           <>
@@ -624,24 +622,28 @@ export const Sidebar = memo(function Sidebar({
                   <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
                 ) : (
                   <>
-                    <ul className="space-y-1 mb-4">
-                      <li>
-                        <button
-                          type="button"
-                          onClick={() => onSelect(null)}
-                          className={`flex min-h-12 w-full items-center gap-3 rounded-xl px-3 py-2.5 text-left transition-colors ${
-                            selectedId === null ? 'bg-surface-active font-bold text-text-primary' : 'hover:bg-surface-hover text-text-secondary font-medium'
-                          }`}
-                        >
-                          <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-black/5 text-text-primary">
-                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                            </svg>
-                          </div>
-                          <span className="truncate text-sm">Directorio de Identidades</span>
-                        </button>
-                      </li>
-                    </ul>
+                    <button
+                      type="button"
+                      onClick={() => onSelect(null)}
+                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors ${
+                        selectedId === null ? 'bg-surface-active text-text-primary' : 'bg-surface-elevated text-text-secondary hover:bg-surface-hover'
+                      }`}
+                    >
+                      <span className="flex min-w-0 items-center gap-3">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary">
+                          <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                          </svg>
+                        </span>
+                        <span className="min-w-0">
+                          <span className="block truncate text-sm font-bold">Directorio de Identidades</span>
+                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Correos y perfiles cloud</span>
+                        </span>
+                      </span>
+                      <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-extrabold tabular-nums text-text-primary shadow-sm ring-1 ring-black/[0.04]">
+                        {visibleIdentities.length} identidad{visibleIdentities.length !== 1 ? 'es' : ''}
+                      </span>
+                    </button>
                     {searchQuery ? (
                       <ul className="space-y-0.5 animate-vault-morph">
                         {visibleIdentities
@@ -650,12 +652,6 @@ export const Sidebar = memo(function Sidebar({
                       </ul>
                     ) : (
                       <div className="animate-vault-morph">
-                        <div className="mx-3 mb-5">
-                          <div className="rounded-xl border border-black/[0.04] bg-surface-elevated p-3 shadow-sm">
-                            <p className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Directorio de Identidades</p>
-                            <p className="mt-1 text-sm font-bold text-text-primary">{visibleIdentities.length} identidad{visibleIdentities.length !== 1 ? 'es' : ''}</p>
-                          </div>
-                        </div>
 
                         {visibleIdentities.length > 0 && (
                           <>
