@@ -15,6 +15,21 @@ interface ToastContextValue {
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
+const TOAST_PRIORITY: Record<ToastType, number> = {
+  info: 0,
+  success: 1,
+  warning: 2,
+  error: 3,
+}
+
+function normalizeToastMessage(message: string) {
+  return message.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+}
+
+function strongestToastType(current: ToastType, incoming: ToastType) {
+  return TOAST_PRIORITY[incoming] > TOAST_PRIORITY[current] ? incoming : current
+}
+
 export function useToast() {
   const context = useContext(ToastContext)
   if (!context) throw new Error('useToast debe ser usado dentro de un ToastProvider')
@@ -25,15 +40,25 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
   const showToast = useCallback((message: string, type: ToastType = 'info') => {
-    // Generar un ID unico basado en el mensaje y tipo para evitar duplicados simultaneos
-    const cleanMsg = message.replace(/[^a-zA-Z0-9]/g, '_')
-    const id = `${type}_${cleanMsg}`.substring(0, 100)
-    
+    const normalizedMessage = normalizeToastMessage(message)
+    if (!normalizedMessage) return
+
+    const id = `toast_${Date.now()}_${Math.random().toString(16).slice(2)}`
+
     setToasts((prev) => {
-      if (prev.some((t) => t.id === id)) {
-        return prev
+      const duplicateIndex = prev.findIndex((toast) => normalizeToastMessage(toast.message) === normalizedMessage)
+      if (duplicateIndex === -1) {
+        return [...prev, { id, type, message: message.trim() }]
       }
-      return [...prev, { id, type, message }]
+
+      const next = [...prev]
+      const duplicate = next[duplicateIndex]
+      next[duplicateIndex] = {
+        ...duplicate,
+        type: strongestToastType(duplicate.type, type),
+        message: duplicate.message || message.trim(),
+      }
+      return next
     })
   }, [])
 

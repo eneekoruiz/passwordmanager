@@ -441,6 +441,11 @@ function VaultApp() {
     [displayIdentities, selectedId],
   )
 
+  const totalAccountCount = useMemo(
+    () => displayIdentities.reduce((sum, identity) => sum + (identity.platforms?.length || 0), 0),
+    [displayIdentities],
+  )
+
   useEffect(() => {
     if (!isUnlocked) return
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const
@@ -479,6 +484,15 @@ function VaultApp() {
     window.addEventListener('beforeunload', handleBeforeUnload)
     return () => window.removeEventListener('beforeunload', handleBeforeUnload)
   }, [unsavedDirty, hasUnsyncedChanges])
+
+  useEffect(() => {
+    if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
+    if (typeof window === 'undefined') return
+    if (window.localStorage.getItem(`contras.biometricPromptDismissed.${currentProfileId}`) === 'true') return
+
+    const timer = window.setTimeout(() => setBiometricPromptOpen(true), 900)
+    return () => window.clearTimeout(timer)
+  }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
 
   if (!mounted || !isReady) {
     return (
@@ -580,15 +594,6 @@ function VaultApp() {
       setSidebarOpen(false)
     })
   }
-
-  useEffect(() => {
-    if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
-    if (typeof window === 'undefined') return
-    if (window.localStorage.getItem(`contras.biometricPromptDismissed.${currentProfileId}`) === 'true') return
-
-    const timer = window.setTimeout(() => setBiometricPromptOpen(true), 900)
-    return () => window.clearTimeout(timer)
-  }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
 
   const dismissBiometricPrompt = () => {
     if (currentProfileId) {
@@ -774,11 +779,6 @@ function VaultApp() {
     setSelectedId(null)
     setSelectedPlatformName(null)
   }
-
-  const totalAccountCount = useMemo(
-    () => displayIdentities.reduce((sum, identity) => sum + (identity.platforms?.length || 0), 0),
-    [displayIdentities],
-  )
 
   const showExtraHeaderElements = selectedId === null && selectedLocalCategory === null && selectedPlatformName === null
 
