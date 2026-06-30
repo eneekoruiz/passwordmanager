@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { POPULAR_SERVICES } from '../../data/popularServices'
 
 interface PlatformLogoProps {
@@ -6,53 +6,137 @@ interface PlatformLogoProps {
   className?: string
 }
 
-const AVATAR_COLORS = [
-  'bg-red-500 text-white',
-  'bg-pink-500 text-white',
-  'bg-purple-500 text-white',
-  'bg-indigo-500 text-white',
-  'bg-blue-500 text-white',
-  'bg-teal-500 text-white',
-  'bg-emerald-500 text-white',
-  'bg-green-500 text-white',
-  'bg-yellow-500 text-slate-900',
-  'bg-orange-500 text-white',
-  'bg-slate-600 text-white',
-  'bg-cyan-500 text-white',
-]
-
-const CUSTOM_ICONS: Record<string, string> = {
-  'google authenticator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleauthenticator.svg',
-  'microsoft authenticator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/microsoftauthenticator.svg',
-  'google maps': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googlemaps.svg',
-  'google meet': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googlemeet.svg',
-  'google play': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
-  'google play store': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
-  'google playstore': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googleplay.svg',
-  'google translate': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
-  'google translator': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/googletranslate.svg',
-  'chatgpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
-  'chat gpt': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
-  openai: 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/openai.svg',
-  'booking.com': 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
-  booking: 'https://cdn.jsdelivr.net/npm/simple-icons@12.0.0/icons/bookingdotcom.svg',
+const SIMPLE_ICON_OVERRIDES: Record<string, string> = {
+  '1password': '1password',
+  adobe: 'adobe',
+  airbnb: 'airbnb',
+  amazon: 'amazon',
+  'amazon prime video': 'primevideo',
+  'amazon web services aws': 'amazonwebservices',
+  aws: 'amazonwebservices',
+  apple: 'apple',
+  'apple music': 'applemusic',
+  'apple tv': 'appletv',
+  asana: 'asana',
+  atlassian: 'atlassian',
+  auth0: 'auth0',
+  authy: 'authy',
+  bbva: 'bbva',
+  bereal: 'bereal',
+  binance: 'binance',
+  bitbucket: 'bitbucket',
+  bitwarden: 'bitwarden',
+  booking: 'bookingdotcom',
+  'booking com': 'bookingdotcom',
+  brave: 'brave',
+  canva: 'canva',
+  carrefour: 'carrefour',
+  chatgpt: 'openai',
+  'chat gpt': 'openai',
+  chrome: 'googlechrome',
+  claude: 'anthropic',
+  cloudflare: 'cloudflare',
+  coinbase: 'coinbase',
+  confluence: 'confluence',
+  coursera: 'coursera',
+  crunchyroll: 'crunchyroll',
+  discord: 'discord',
+  docker: 'docker',
+  dropbox: 'dropbox',
+  duolingo: 'duolingo',
+  ebay: 'ebay',
+  epicgames: 'epicgames',
+  'epic games': 'epicgames',
+  etsy: 'etsy',
+  facebook: 'facebook',
+  figma: 'figma',
+  firebase: 'firebase',
+  garmin: 'garmin',
+  gemini: 'googlegemini',
+  github: 'github',
+  gitlab: 'gitlab',
+  glovo: 'glovo',
+  google: 'google',
+  'google authenticator': 'googleauthenticator',
+  authenticator: 'googleauthenticator',
+  'google calendar': 'googlecalendar',
+  calendar: 'googlecalendar',
+  'google cloud': 'googlecloud',
+  'google drive': 'googledrive',
+  drive: 'googledrive',
+  'google keep': 'googlekeep',
+  keep: 'googlekeep',
+  'google maps': 'googlemaps',
+  maps: 'googlemaps',
+  'google meet': 'googlemeet',
+  meet: 'googlemeet',
+  'google photos': 'googlephotos',
+  photos: 'googlephotos',
+  'google play': 'googleplay',
+  'google play store': 'googleplay',
+  playstore: 'googleplay',
+  'google translate': 'googletranslate',
+  'google translator': 'googletranslate',
+  'google workspace': 'googleworkspace',
+  hbo: 'hbo',
+  heroku: 'heroku',
+  hubspot: 'hubspot',
+  instagram: 'instagram',
+  jira: 'jira',
+  linkedin: 'linkedin',
+  mastodon: 'mastodon',
+  microsoft: 'microsoft',
+  'microsoft authenticator': 'microsoftauthenticator',
+  netflix: 'netflix',
+  notion: 'notion',
+  openai: 'openai',
+  paypal: 'paypal',
+  pinterest: 'pinterest',
+  proton: 'proton',
+  reddit: 'reddit',
+  salesforce: 'salesforce',
+  slack: 'slack',
+  spotify: 'spotify',
+  steam: 'steam',
+  stripe: 'stripe',
+  telegram: 'telegram',
+  tiktok: 'tiktok',
+  twitch: 'twitch',
+  twitter: 'x',
+  uber: 'uber',
+  vercel: 'vercel',
+  whatsapp: 'whatsapp',
+  x: 'x',
+  youtube: 'youtube',
+  zoom: 'zoom',
 }
 
 const DOMAIN_OVERRIDES: Record<string, string> = {
+  dia: 'dia.es',
   mediaset: 'mediaset.es',
   mitele: 'mitele.es',
   'google authenticator': 'accounts.google.com',
+  authenticator: 'accounts.google.com',
   'microsoft authenticator': 'microsoft.com',
 }
 
 const MULTIPART_SUFFIXES = new Set(['co.uk', 'com.es', 'com.mx', 'com.ar', 'com.br', 'com.au', 'co.jp'])
 
-function getDeterministicColor(str: string): string {
-  let hash = 0
-  for (let i = 0; i < str.length; i++) {
-    hash = str.charCodeAt(i) + ((hash << 5) - hash)
-  }
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length]
+function normalizeKey(value: string): string {
+  return value
+    .trim()
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .replace(/&/g, ' and ')
+    .replace(/\+/g, ' plus ')
+    .replace(/[^a-zA-Z0-9]+/g, ' ')
+    .replace(/\s+/g, ' ')
+    .trim()
+    .toLowerCase()
+}
+
+function uniq(values: Array<string | null | undefined>) {
+  return Array.from(new Set(values.filter(Boolean) as string[]))
 }
 
 function normalizeDomain(value: string): string | null {
@@ -77,57 +161,82 @@ function normalizeDomain(value: string): string | null {
   }
 }
 
-function getCustomIcon(name: string): string | null {
-  return CUSTOM_ICONS[name.trim().toLowerCase()] ?? null
+function getKnownService(name: string) {
+  const key = normalizeKey(name)
+  return POPULAR_SERVICES.find((service) => {
+    const serviceKeys = [service.name, ...(service.aliases ?? [])].map(normalizeKey)
+    return serviceKeys.includes(key)
+  })
 }
 
 function getDomainFromName(name: string): string | null {
-  const clean = name.trim().toLowerCase()
-  if (!clean) return null
-
-  const override = DOMAIN_OVERRIDES[clean]
+  const key = normalizeKey(name)
+  const override = DOMAIN_OVERRIDES[key]
   if (override) return override
 
-  const parsedDomain = normalizeDomain(clean)
+  const parsedDomain = normalizeDomain(name)
   if (parsedDomain) return parsedDomain
 
-  const known = POPULAR_SERVICES.find((service) => {
-    const serviceName = service.name.toLowerCase()
-    const aliases = service.aliases?.map((alias) => alias.toLowerCase()) ?? []
-    return clean === serviceName || aliases.includes(clean)
-  })
-
+  const known = getKnownService(name)
   return known ? normalizeDomain(known.domain) : null
 }
 
-function getInitials(name: string): string {
-  const cleaned = name.trim().replace(/[^a-zA-Z0-9\s]/g, '')
-  const parts = cleaned.split(/\s+/).filter(Boolean)
-  if (parts.length >= 2) return (parts[0].charAt(0) + parts[1].charAt(0)).toUpperCase()
-  return cleaned.slice(0, 2).toUpperCase() || 'P'
+function toSimpleIconSlugCandidate(value: string): string | null {
+  const slug = normalizeKey(value).replace(/\s+/g, '')
+  return slug || null
+}
+
+function getSimpleIconSlugs(name: string) {
+  const key = normalizeKey(name)
+  const known = getKnownService(name)
+  const names = uniq([
+    name,
+    key,
+    SIMPLE_ICON_OVERRIDES[key],
+    known?.name,
+    ...(known?.aliases ?? []),
+  ])
+
+  return uniq([
+    SIMPLE_ICON_OVERRIDES[key],
+    ...names.map((item) => SIMPLE_ICON_OVERRIDES[normalizeKey(item)]),
+    ...names.map(toSimpleIconSlugCandidate),
+  ])
 }
 
 function buildSources(name: string) {
-  const customIcon = getCustomIcon(name)
   const domain = getDomainFromName(name)
-  if (!domain) return customIcon ? [customIcon] : []
+  const encodedDomain = domain ? encodeURIComponent(domain) : null
+  const iconSlugs = getSimpleIconSlugs(name)
 
-  const encodedDomain = encodeURIComponent(domain)
-  return [
-    customIcon,
-    `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=128`,
-    `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-    `https://logo.clearbit.com/${domain}?size=128`,
-  ].filter(Boolean) as string[]
+  return uniq([
+    ...iconSlugs.map((slug) => `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${slug}.svg`),
+    domain && `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256`,
+    domain && `https://www.google.com/s2/favicons?domain_url=https://${encodedDomain}&sz=256`,
+    domain && `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    domain && `https://icon.horse/icon/${domain}`,
+    domain && `https://api.faviconkit.com/${domain}/256`,
+    domain && `https://unavatar.io/${domain}`,
+    domain && `https://${domain}/apple-touch-icon.png`,
+    domain && `https://${domain}/favicon.ico`,
+    domain && `https://logo.clearbit.com/${domain}?size=256`,
+  ])
+}
+
+function GenericLogoIcon() {
+  return (
+    <svg className="h-[58%] w-[58%] text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.1} aria-hidden="true">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M4.75 7.75A3 3 0 0 1 7.75 4.75h8.5a3 3 0 0 1 3 3v8.5a3 3 0 0 1-3 3h-8.5a3 3 0 0 1-3-3v-8.5Z" />
+      <path strokeLinecap="round" strokeLinejoin="round" d="M9 9h6v6H9z" />
+    </svg>
+  )
 }
 
 export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
+  const sources = useMemo(() => buildSources(name), [name])
   const [sourceIndex, setSourceIndex] = useState(0)
   const [loaded, setLoaded] = useState(false)
-  const sources = buildSources(name)
   const source = sources[sourceIndex]
-  const initials = getInitials(name)
-  const colorClass = getDeterministicColor(name || initials)
 
   useEffect(() => {
     setSourceIndex(0)
@@ -140,29 +249,25 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
 
     const timer = window.setTimeout(() => {
       setSourceIndex((index) => index + 1)
-    }, 3500)
+    }, 3000)
     return () => window.clearTimeout(timer)
   }, [source])
 
-  const fallback = (
-    <span className="absolute inset-0 flex items-center justify-center text-[10px] font-extrabold tracking-wider">
-      {initials}
-    </span>
-  )
-
   return (
     <span
-      className={`${className} relative inline-flex shrink-0 overflow-hidden rounded-full border border-black/[0.05] ${colorClass} shadow-sm`}
+      className={`${className} relative inline-flex shrink-0 items-center justify-center overflow-hidden rounded-full border border-black/[0.05] bg-white shadow-sm`}
       aria-hidden="true"
     >
-      {fallback}
+      <span className={`absolute inset-0 flex items-center justify-center bg-slate-50 transition-opacity duration-150 ${loaded ? 'opacity-0' : 'opacity-100'}`}>
+        <GenericLogoIcon />
+      </span>
       {source && (
         <img
           src={source}
           alt=""
           onLoad={(event) => {
             const image = event.currentTarget
-            if (image.naturalWidth <= 4 || image.naturalHeight <= 4) {
+            if (image.naturalWidth <= 8 || image.naturalHeight <= 8) {
               setSourceIndex((index) => index + 1)
               return
             }
@@ -171,6 +276,7 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
           onError={() => setSourceIndex((index) => index + 1)}
           loading="lazy"
           decoding="async"
+          referrerPolicy="no-referrer"
           className={`absolute inset-0 h-full w-full bg-white object-contain p-[2px] transition-opacity duration-150 ${loaded ? 'opacity-100' : 'opacity-0'}`}
         />
       )}
