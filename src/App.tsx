@@ -610,12 +610,12 @@ function VaultApp() {
     }
     setBiometricPromptOpen(false)
     setBiometricPromptPassword('')
-    showToast('Biometría activada correctamente. Ya puedes desbloquear con tu sensor.', 'info')
+    showToast('Llave local activada correctamente. Ya puedes desbloquear con Face ID, huella o Windows Hello en este dispositivo.', 'info')
   }
 
   const submitBiometricPrompt = async () => {
     if (!biometricPromptPassword.trim()) {
-      showToast('Introduce tu Contraseña Maestra para activar la biometría.', 'error')
+      showToast('Introduce tu Contraseña Maestra para activar la llave local.', 'error')
       return
     }
 
@@ -623,7 +623,7 @@ function VaultApp() {
     try {
       await handleRegisterBiometric(biometricPromptPassword)
     } catch (error) {
-      reportUiError(error, 'No se pudo activar la biometría.')
+      reportUiError(error, 'No se pudo activar la llave local.')
     } finally {
       setBiometricPromptSaving(false)
     }
@@ -982,8 +982,8 @@ function VaultApp() {
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.25v1.5m-6.364 4.864a9 9 0 1112.728 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
           </svg>
         </div>
-        <h3 className="text-xl font-bold tracking-tight text-text-primary">¿Quieres activar la biometría para mayor comodidad?</h3>
-        <p className="mt-2 text-sm leading-6 text-text-secondary">Tu dispositivo la soporta. Guardaremos la preferencia localmente y podrás desbloquear la bóveda con tu sensor.</p>
+        <h3 className="text-xl font-bold tracking-tight text-text-primary">¿Quieres activar una llave local para entrar más rápido?</h3>
+        <p className="mt-2 text-sm leading-6 text-text-secondary">Tu dispositivo parece compatible. Crearemos una llave de acceso local protegida por Face ID, huella o Windows Hello; no se sube a la nube.</p>
         <input
           type="password"
           value={biometricPromptPassword}
@@ -993,7 +993,7 @@ function VaultApp() {
         />
         <div className="mt-5 grid gap-2">
           <button type="button" onClick={() => void submitBiometricPrompt()} disabled={biometricPromptSaving} className="min-h-12 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white disabled:opacity-60">
-            {biometricPromptSaving ? 'Activando...' : 'Activar biometría'}
+            {biometricPromptSaving ? 'Activando...' : 'Activar llave local'}
           </button>
           <button type="button" onClick={dismissBiometricPrompt} className="min-h-12 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary">
             Ahora no

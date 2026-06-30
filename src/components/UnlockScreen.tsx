@@ -237,7 +237,7 @@ function BiometricMasterPasswordShortcut({
         <div>
           <p className="text-xs font-bold text-emerald-950">Desbloqueo biométrico disponible</p>
           <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
-            Face ID, huella o passkey sustituyen únicamente a la Contraseña Maestra.
+            Usa la llave de acceso local protegida por Face ID, huella o Windows Hello.
           </p>
         </div>
         <button
@@ -246,7 +246,7 @@ function BiometricMasterPasswordShortcut({
           disabled={loading}
           className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
         >
-          {loading ? 'Verificando...' : 'Usar biometría'}
+          {loading ? 'Verificando...' : 'Usar llave local'}
         </button>
       </div>
     </div>

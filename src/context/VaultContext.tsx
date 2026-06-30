@@ -45,6 +45,7 @@ import { useToast } from '../components/ui/ToastProvider'
 import { payloadsAreIdentical } from '../utils/hash'
 import {
   isBiometricAvailable,
+  isMissingBiometricCredentialError,
   registerBiometricCredential,
   unlockWithBiometrics,
   type BiometricBundle,
@@ -314,15 +315,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     let mounted = true
-    const defaultBioRegistered = localStorage.getItem('contras.biometricRegistered.default') === 'true'
-    const defaultHwRegistered = localStorage.getItem('contras.hardwareKeyRegistered.default') === 'true'
     void Promise.all([
       listProfiles(),
       storeRef.current.hasBiometricBundle('default').then((registered) => {
-        if (mounted) setBiometricRegistered(defaultBioRegistered && registered)
+        if (!mounted) return
+        setBiometricRegistered(registered)
+        if (registered) localStorage.setItem('contras.biometricRegistered.default', 'true')
+        else localStorage.removeItem('contras.biometricRegistered.default')
       }),
       storeRef.current.hasHardwareKeyBundle('default').then((registered) => {
-        if (mounted) setHardwareKeyRegistered(defaultHwRegistered && registered)
+        if (!mounted) return
+        setHardwareKeyRegistered(registered)
+        if (registered) localStorage.setItem('contras.hardwareKeyRegistered.default', 'true')
+        else localStorage.removeItem('contras.hardwareKeyRegistered.default')
       }),
     ]).finally(() => {
       if (mounted) setIsReady(true)
@@ -1245,14 +1250,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setIsUnlocked(true)
           await loadVaultDataForProfile(profileId)
           setCloudSyncStatus('idle')
-          // Check if biometric/hardware key is registered for this profile locally
-          const bioReg = localStorage.getItem(`contras.biometricRegistered.${profileId}`) === 'true'
           void storeRef.current.hasBiometricBundle(profileId).then((hasBundle) => {
-            setBiometricRegistered(bioReg && hasBundle)
+            setBiometricRegistered(hasBundle)
+            if (hasBundle) localStorage.setItem(`contras.biometricRegistered.${profileId}`, 'true')
+            else localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
           })
-          const hwReg = localStorage.getItem(`contras.hardwareKeyRegistered.${profileId}`) === 'true'
           void storeRef.current.hasHardwareKeyBundle(profileId).then((hasBundle) => {
-            setHardwareKeyRegistered(hwReg && hasBundle)
+            setHardwareKeyRegistered(hasBundle)
+            if (hasBundle) localStorage.setItem(`contras.hardwareKeyRegistered.${profileId}`, 'true')
+            else localStorage.removeItem(`contras.hardwareKeyRegistered.${profileId}`)
           })
           triggerCloudSync()
           return
@@ -1337,9 +1343,24 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const unlockWithBiometricSensor = useCallback(async () => {
     const profileId = 'default'
     const bundle = await storeRef.current.loadBiometricBundle(profileId)
-    if (!bundle) throw new Error('No hay credencial biométrica registrada.')
-    const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
-    await unlockOrRestoreVault(masterPassword)
+    if (!bundle) {
+      localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+      setBiometricRegistered(false)
+      throw new Error('No hay una llave de acceso local registrada para esta bóveda.')
+    }
+
+    try {
+      const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+      await unlockOrRestoreVault(masterPassword)
+    } catch (error) {
+      if (isMissingBiometricCredentialError(error)) {
+        await storeRef.current.deleteBiometricBundle(profileId)
+        localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+        setBiometricRegistered(false)
+        throw new Error('El dispositivo ya no encuentra la llave de acceso local de Contras. Vuelve a activarla desde Ajustes despues de entrar con tu Contraseña Maestra.')
+      }
+      throw error
+    }
   }, [unlockOrRestoreVault])
 
   const registerHardwareKeyUnlock = useCallback(async (masterPassword: string) => {

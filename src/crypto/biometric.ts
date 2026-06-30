@@ -1,13 +1,11 @@
 /**
  * @module biometric
- * @description Motor de autenticación biométrica basado en WebAuthn con extensión PRF.
+ * @description Desbloqueo local con WebAuthn PRF.
  *
- * Arquitectura de seguridad:
- * - La credencial WebAuthn vive en el Secure Enclave del dispositivo (Face ID / Touch ID / Windows Hello).
- * - La extensión PRF deriva 32 bytes deterministas de esa credencial, nunca expuestos directamente al JS.
- * - Con esos 32 bytes importamos una CryptoKey AES-256-GCM con extractable=false.
- * - Esa clave cifra la contraseña maestra, que se guarda en IndexedDB.
- * - En ningún momento la contraseña maestra queda accesible sin pasar por el sensor biométrico.
+ * Nota importante: en navegadores moviles, Face ID / Touch ID se exponen a la web
+ * como una llave de acceso (passkey) local. No existe una API web que permita
+ * usar Face ID "puro" para derivar claves criptograficas. Por eso este modulo
+ * solo se activa cuando el navegador puede usar WebAuthn + PRF de forma fiable.
  */
 
 import {
@@ -19,23 +17,59 @@ import {
 } from './encoding'
 import type { EncryptedPayload } from './types'
 
-const BIOMETRIC_RP_ID = window.location.hostname
 const BIOMETRIC_RP_NAME = 'Contras Password Manager'
 const BIOMETRIC_PRF_SALT = stringToBytes('contras-prf-v1-unlock')
 
 export interface BiometricBundle {
   profileId: string
-  credentialId: string        // base64url
+  credentialId: string
   encryptedPassword: EncryptedPayload
   createdAt: string
 }
 
-// ─── Detección de soporte ────────────────────────────────────────────────────
+function getRpId(): string {
+  return window.location.hostname
+}
 
-/**
- * Devuelve true si el navegador soporta WebAuthn con la extensión PRF
- * (necesaria para derivar la clave de cifrado desde la biometría).
- */
+function isAppleWebKitWithoutExplicitPrfSignal(): boolean {
+  const ua = navigator.userAgent
+  const isAppleDevice = /iPad|iPhone|iPod|Macintosh/i.test(ua)
+  const isWebKit = /AppleWebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)
+  return isAppleDevice && isWebKit
+}
+
+async function isWebAuthnPrfAvailable(): Promise<boolean> {
+  const PublicKeyCredentialCtor = window.PublicKeyCredential as typeof PublicKeyCredential & {
+    getClientCapabilities?: () => Promise<Record<string, unknown>>
+  }
+
+  if (typeof PublicKeyCredentialCtor.getClientCapabilities === 'function') {
+    const capabilities = await PublicKeyCredentialCtor.getClientCapabilities()
+    if ('prf' in capabilities) return capabilities.prf === true
+  }
+
+  // On Apple/WebKit, creating a passkey without a positive PRF signal can leave
+  // an orphaned system passkey that this app cannot use to decrypt the vault.
+  if (isAppleWebKitWithoutExplicitPrfSignal()) return false
+
+  // Chromium exposed the PRF extension before getClientCapabilities existed.
+  return true
+}
+
+export function isMissingBiometricCredentialError(error: unknown): boolean {
+  const name = error instanceof DOMException ? error.name : error instanceof Error ? error.name : ''
+  const message = error instanceof Error ? error.message : String(error ?? '')
+
+  return (
+    name === 'NotAllowedError' &&
+    /no (?:credentials|passkeys)|not found|not registered|not allowed by the user agent or the platform|no .*matching/i.test(message)
+  )
+}
+
+export function getBiometricUnavailableMessage(): string {
+  return 'Este navegador muestra Face ID como una llave de acceso, pero no permite usarla para desbloquear esta bóveda de forma fiable. Usa Chrome/Edge en escritorio o un navegador compatible con WebAuthn PRF.'
+}
+
 export async function isBiometricAvailable(): Promise<boolean> {
   try {
     if (
@@ -45,28 +79,26 @@ export async function isBiometricAvailable(): Promise<boolean> {
     ) {
       return false
     }
-    const available = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
-    return available
+
+    const platformAuthenticatorAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
+    if (!platformAuthenticatorAvailable) return false
+
+    return isWebAuthnPrfAvailable()
   } catch {
     return false
   }
 }
 
-// ─── Registro (activar biometría) ─────────────────────────────────────────────
-
-/**
- * Registra una credencial biométrica y guarda la contraseña maestra cifrada.
- * @param masterPassword - Contraseña maestra en texto plano (solo durante el registro, no persiste).
- * @param profileId - ID del perfil al que se asocia esta credencial.
- * @returns BiometricBundle listo para persistir en IndexedDB.
- */
 export async function registerBiometricCredential(
   masterPassword: string,
   profileId: string,
   userName: string,
 ): Promise<BiometricBundle> {
+  if (!(await isBiometricAvailable())) {
+    throw new Error(getBiometricUnavailableMessage())
+  }
+
   const userId = stringToBytes(profileId).slice(0, 16)
-  // Pad to exactly 16 bytes
   const userIdPadded = new Uint8Array(16)
   userIdPadded.set(userId.slice(0, 16))
 
@@ -74,23 +106,25 @@ export async function registerBiometricCredential(
   crypto.getRandomValues(challenge)
 
   const createOptions: PublicKeyCredentialCreationOptions = {
-    rp: { id: BIOMETRIC_RP_ID, name: BIOMETRIC_RP_NAME },
+    rp: { id: getRpId(), name: BIOMETRIC_RP_NAME },
     user: {
       id: userIdPadded,
       name: userName,
       displayName: userName,
     },
     pubKeyCredParams: [
-      { type: 'public-key', alg: -7 },   // ES256
-      { type: 'public-key', alg: -257 },  // RS256
+      { type: 'public-key', alg: -7 },
+      { type: 'public-key', alg: -257 },
     ],
     authenticatorSelection: {
       authenticatorAttachment: 'platform',
+      residentKey: 'discouraged',
       requireResidentKey: false,
       userVerification: 'required',
     },
     challenge,
     timeout: 60_000,
+    attestation: 'none',
     extensions: {
       prf: {
         eval: { first: BIOMETRIC_PRF_SALT },
@@ -102,23 +136,17 @@ export async function registerBiometricCredential(
     publicKey: createOptions,
   }) as PublicKeyCredential | null
 
-  if (!credential) throw new Error('El registro biométrico fue cancelado.')
+  if (!credential) throw new Error('El registro de la llave de acceso local fue cancelado.')
 
   const extResults = (credential as any).getClientExtensionResults?.() ?? {}
   const prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
 
   if (!prfResult) {
-    throw new Error(
-      'Tu navegador no soporta la extensión PRF de WebAuthn. Usa Chrome 116+ o Safari 17+ para activar la biometría.',
-    )
+    throw new Error(getBiometricUnavailableMessage())
   }
 
-  // Derivar clave AES-256-GCM no-extractable desde los bytes PRF
   const prfKey = await derivePrfKey(new Uint8Array(prfResult))
-
-  // Cifrar la contraseña maestra con esa clave
   const encryptedPassword = await encryptWithPrfKey(masterPassword, prfKey)
-
   const credentialId = bytesToBase64(new Uint8Array((credential as any).rawId))
 
   return {
@@ -129,23 +157,14 @@ export async function registerBiometricCredential(
   }
 }
 
-// ─── Desbloqueo biométrico ────────────────────────────────────────────────────
-
-/**
- * Verifica la biometría del usuario y devuelve la contraseña maestra descifrada.
- * @param bundle - Bundle guardado en IndexedDB con la credencial y password cifrada.
- * @returns La contraseña maestra en texto plano (solo en memoria, durante el desbloqueo).
- */
 export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<string> {
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
 
-  // WebAuthn requires an ArrayBuffer-backed view; decoded data may be typed as
-  // ArrayBufferLike by newer TypeScript DOM definitions.
   const credentialIdBytes = new Uint8Array(base64ToBytes(bundle.credentialId))
 
   const getOptions: PublicKeyCredentialRequestOptions = {
-    rpId: BIOMETRIC_RP_ID,
+    rpId: getRpId(),
     allowCredentials: [
       {
         type: 'public-key',
@@ -167,21 +186,18 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
     publicKey: getOptions,
   }) as PublicKeyCredential | null
 
-  if (!assertion) throw new Error('La autenticación biométrica fue cancelada.')
+  if (!assertion) throw new Error('La autenticacion con la llave de acceso local fue cancelada.')
 
   const extResults = (assertion as any).getClientExtensionResults?.() ?? {}
-  const prfResult: ArrayBuffer | undefined =
-    extResults?.prf?.results?.first
+  const prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
 
   if (!prfResult) {
-    throw new Error('No se pudo derivar la clave biométrica. Asegúrate de que el sensor está disponible.')
+    throw new Error('No se pudo derivar la clave de la llave de acceso local. Vuelve a activar el desbloqueo biometrico en este dispositivo.')
   }
 
   const prfKey = await derivePrfKey(new Uint8Array(prfResult))
   return decryptWithPrfKey(bundle.encryptedPassword, prfKey)
 }
-
-// ─── Helpers criptográficos internos ─────────────────────────────────────────
 
 async function derivePrfKey(prfBytes: Uint8Array): Promise<CryptoKey> {
   const keyMaterial = await crypto.subtle.importKey(

@@ -51,10 +51,10 @@ export function BiometricUnlockButton({ onUnlock, onError }: BiometricUnlockButt
 
       <span className="flex flex-col items-start">
         <span className="text-sm font-bold text-text-primary leading-tight">
-          {loading ? 'Verificando...' : 'Usar biometría'}
+          {loading ? 'Verificando...' : 'Usar llave local'}
         </span>
         <span className="text-[11px] font-medium text-text-tertiary leading-tight">
-          Face ID · Huella · Windows Hello
+          Passkey local · Face ID · Huella
         </span>
       </span>
     </button>

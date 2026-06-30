@@ -503,8 +503,8 @@ export function SettingsModal({
                 />
                 {biometricAvailable && (
                   <MenuItem
-                    title={biometricRegistered ? '🔒 Biometría Activada' : '🔓 Activar Biometría'}
-                    subtitle={biometricRegistered ? 'Face ID · Huella · Windows Hello activos.' : 'Desbloquea sin contraseña con tu sensor biométrico.'}
+                    title={biometricRegistered ? '🔒 Llave local activada' : '🔓 Activar llave local'}
+                    subtitle={biometricRegistered ? 'Passkey local · Face ID · Huella activos.' : 'Desbloquea usando una llave local protegida por Face ID, huella o Windows Hello.'}
                     onClick={() => { ; ; setBiometricPassword(''); setView('biometric') }}
                   />
                 )}
@@ -561,7 +561,7 @@ export function SettingsModal({
               <div className="rounded-2xl border border-blue-100 bg-blue-50/60 p-4">
                 <p className="text-xs font-bold text-blue-900">¿Cómo funciona?</p>
                 <p className="mt-1 text-[11px] leading-relaxed text-blue-800">
-                  Tu Contraseña Maestra se cifra con una clave derivada de tu sensor biométrico (Face ID, huella o Windows Hello) y se guarda <strong>solo en este dispositivo</strong>. Nunca sale de él.
+                  Tu Contraseña Maestra se cifra con una clave derivada de una llave de acceso local protegida por Face ID, huella o Windows Hello y se guarda <strong>solo en este dispositivo</strong>. Nunca sale de él.
                 </p>
               </div>
               {biometricRegistered ? (
@@ -571,8 +571,8 @@ export function SettingsModal({
                       <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" /></svg>
                     </div>
                     <div>
-                      <p className="text-xs font-bold text-emerald-900">Biometría activa</p>
-                      <p className="text-[11px] text-emerald-700">Puedes desbloquear con tu sensor en este dispositivo.</p>
+                      <p className="text-xs font-bold text-emerald-900">Llave local activa</p>
+                      <p className="text-[11px] text-emerald-700">Puedes desbloquear con esta llave de acceso en este dispositivo.</p>
                     </div>
                   </div>
                   
@@ -586,17 +586,17 @@ export function SettingsModal({
                       
                       try {
                         await onDisableBiometric?.()
-                        showToast('Biometría desactivada. Elimina el acceso biométrico de los ajustes del dispositivo si lo deseas.', 'success')
+                        showToast('Llave local desactivada. Si el sistema creó una passkey, puedes eliminarla también desde los ajustes del dispositivo.', 'success')
                         setView('health')
                       } catch (err) {
-                        showToast(err instanceof Error ? err.message : 'Error al desactivar la biometría.', 'error')
+                        showToast(err instanceof Error ? err.message : 'Error al desactivar la llave local.', 'error')
                       } finally {
                         setLoadingBiometric(false)
                       }
                     }}
                     className="flex w-full items-center justify-center rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-xs font-semibold text-red-700 transition-colors hover:bg-red-100 disabled:opacity-50"
                   >
-                    {loadingBiometric ? 'Desactivando...' : 'Desactivar biometría'}
+                    {loadingBiometric ? 'Desactivando...' : 'Desactivar llave local'}
                   </button>
                 </div>
               ) : (
@@ -611,10 +611,10 @@ export function SettingsModal({
                     try {
                       await onRegisterBiometric?.(biometricPassword)
                       setBiometricPassword('')
-                      showToast('¡Biometría activada! La próxima vez que abras la app, podrás desbloquear con tu sensor.', 'success')
+                      showToast('Llave local activada. La próxima vez podrás desbloquear con Face ID, huella o Windows Hello en este dispositivo.', 'success')
                       setView('health')
                     } catch (err) {
-                      const msg = err instanceof Error ? err.message : 'Error al activar la biometría.'
+                      const msg = err instanceof Error ? err.message : 'Error al activar la llave local.'
                       showToast(msg, 'error')
                     } finally {
                       setLoadingBiometric(false)
@@ -641,7 +641,7 @@ export function SettingsModal({
                     disabled={loadingBiometric || !biometricPassword}
                     className="flex w-full items-center justify-center gap-2 rounded-xl bg-slate-950 px-4 py-3 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800 disabled:opacity-50"
                   >
-                    {loadingBiometric ? 'Registrando sensor...' : 'Activar con mi sensor biométrico'}
+                    {loadingBiometric ? 'Registrando llave local...' : 'Activar llave local'}
                   </button>
                 </form>
               )}
