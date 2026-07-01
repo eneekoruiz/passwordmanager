@@ -57,10 +57,11 @@ interface PlatformQuickPick {
 }
 
 const SORT_LABELS: Record<SortMode, string> = {
-  'alpha-asc': 'Alfabético',
-  'alpha-desc': 'Alfabético inverso',
-  'date-desc': 'Más recientes',
-  'date-asc': 'Más antiguos',
+  'alpha-asc': 'Alfabético (A-Z)',
+  'alpha-desc': 'Alfabético (Z-A)',
+  'created-desc': 'Recién creadas',
+  'created-asc': 'Más antiguas',
+  'access-desc': 'Recién consultadas',
   'usage-desc': 'Más usadas',
 }
 
@@ -142,16 +143,20 @@ export const MainArea = memo(function MainArea({
         return a.identityEmail.localeCompare(b.identityEmail) || (a.platform.username || '').localeCompare(b.platform.username || '')
       } else if (sortMode === 'alpha-desc') {
         return b.identityEmail.localeCompare(a.identityEmail) || (b.platform.username || '').localeCompare(a.platform.username || '')
-      } else if (sortMode === 'date-desc') {
+      } else if (sortMode === 'created-desc') {
         const dateA = a.platform.createdAt ? new Date(a.platform.createdAt).getTime() : 0
         const dateB = b.platform.createdAt ? new Date(b.platform.createdAt).getTime() : 0
         return dateB - dateA
-      } else if (sortMode === 'date-asc') {
+      } else if (sortMode === 'created-asc') {
         const dateA = a.platform.createdAt ? new Date(a.platform.createdAt).getTime() : 0
         const dateB = b.platform.createdAt ? new Date(b.platform.createdAt).getTime() : 0
         return dateA - dateB
+      } else if (sortMode === 'access-desc') {
+        const dateA = a.platform.lastAccessedAt ? new Date(a.platform.lastAccessedAt).getTime() : 0
+        const dateB = b.platform.lastAccessedAt ? new Date(b.platform.lastAccessedAt).getTime() : 0
+        return dateB - dateA
       } else if (sortMode === 'usage-desc') {
-        return (b.platform.passwordHistory?.length || 0) - (a.platform.passwordHistory?.length || 0) || a.identityEmail.localeCompare(b.identityEmail)
+        return (b.platform.accessCount || 0) - (a.platform.accessCount || 0) || a.identityEmail.localeCompare(b.identityEmail)
       }
       return 0
     })
@@ -191,10 +196,12 @@ export const MainArea = memo(function MainArea({
         return a.name.localeCompare(b.name)
       } else if (sortMode === 'alpha-desc') {
         return b.name.localeCompare(a.name)
-      } else if (sortMode === 'date-desc') {
+      } else if (sortMode === 'created-desc') {
         return b.maxDate.localeCompare(a.maxDate)
-      } else if (sortMode === 'date-asc') {
+      } else if (sortMode === 'created-asc') {
         return a.minDate.localeCompare(b.minDate)
+      } else if (sortMode === 'access-desc') {
+        return b.maxDate.localeCompare(a.maxDate) // fallback
       } else if (sortMode === 'usage-desc') {
         return b.count - a.count || a.name.localeCompare(b.name)
       }
@@ -266,11 +273,23 @@ export const MainArea = memo(function MainArea({
                     </h2>
                     <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
                       {groupMode === 'platform'
-                        ? 'Selecciona una plataforma para ver todas las cuentas relacionadas, comparar accesos y entrar a editar sin perder contexto.'
+                        ? 'Selecciona una plataforma para ver las cuentas, comparar accesos y editar.'
                         : groupMode === 'local'
-                        ? 'Selecciona una categoría local en la barra lateral para ver tus secretos que no dependen de una plataforma o identidad.'
-                        : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas a ese correo o perfil.'}
+                        ? 'Selecciona una categoría para ver tus secretos locales.'
+                        : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas.'}
                     </p>
+                    <div className="mt-5 flex gap-3">
+                      <button
+                        type="button"
+                        onClick={() => onCreate()}
+                        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 active:scale-95"
+                      >
+                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                        </svg>
+                        Crear {groupMode === 'platform' ? 'Cuenta' : groupMode === 'local' ? 'Secreto Local' : 'Identidad'}
+                      </button>
+                    </div>
                     {isMobile && groupMode === 'platform' && (
                       <div className="mt-4 flex items-center gap-3 border-t border-black/[0.04] pt-4">
                         <div className="flex flex-col">

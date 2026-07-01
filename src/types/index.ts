@@ -34,7 +34,7 @@ export interface PasswordHistoryEntry {
 export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE'
 export type LocalVaultItemType = Exclude<VaultItemType, 'ACCOUNT'>
 export type VaultGroupMode = 'identity' | 'platform' | 'local'
-export type SortMode = 'alpha-asc' | 'alpha-desc' | 'date-desc' | 'date-asc' | 'usage-desc'
+export type SortMode = 'alpha-asc' | 'alpha-desc' | 'created-desc' | 'created-asc' | 'access-desc' | 'usage-desc'
 export type AuthMethod = 'PASSWORD' | 'SSO' | 'PASSKEY' | 'MAGIC_LINK'
 export type SsoProvider = string
 export type TwoFactorType = 'NONE' | 'PIN' | 'TOTP' | 'SMS' | 'EMAIL'
@@ -90,6 +90,8 @@ export interface BaseVaultItem {
   isLocalOnly?: boolean
   sensitive?: boolean
   customFields?: CustomFieldEntry[]
+  accessCount?: number
+  lastAccessedAt?: string
 }
 
 export type VaultDiffStatus = 'added' | 'modified' | 'deleted' | 'conflict'

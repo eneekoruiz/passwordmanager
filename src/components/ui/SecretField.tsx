@@ -10,6 +10,7 @@ interface SecretFieldProps {
   onChange: (value: string) => void
   placeholder?: string
   multiline?: boolean
+  onAccess?: () => void
 }
 
 export function SecretField({
@@ -18,6 +19,7 @@ export function SecretField({
   onChange,
   placeholder,
   multiline = false,
+  onAccess,
 }: SecretFieldProps) {
   const [visible, setVisible] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -42,7 +44,10 @@ export function SecretField({
     }
     setAuthenticating(true)
     try {
-      if (await authenticate()) setVisible(true)
+      if (await authenticate()) {
+        setVisible(true)
+        onAccess?.()
+      }
     } finally {
       setAuthenticating(false)
     }
@@ -50,6 +55,7 @@ export function SecretField({
 
   const handleCopy = async () => {
     if (!(await authenticate())) return
+    onAccess?.()
     const ok = await copyToClipboard(value)
     if (ok) {
       setCopied(true)

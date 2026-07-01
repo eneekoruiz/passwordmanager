@@ -6,6 +6,7 @@ import { generateId } from '../utils/id'
 import { FormField, FormTextarea } from './ui/FormField'
 import { SecretField } from './ui/SecretField'
 import { UnsavedFormActions } from './AccountForm'
+import { useVault } from '../context/VaultContext'
 
 interface VaultItemFormProps {
   item: LocalVaultItem
@@ -80,6 +81,13 @@ export function VaultItemForm({
   const [fields, setFields] = useState<FormFieldItem[]>(() => getInitialFields(item))
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const { trackItemAccess } = useVault()
+
+  const handleItemAccessed = () => {
+    if (item.id) {
+      void trackItemAccess(item.id)
+    }
+  }
 
   const getDraftWithFields = (): LocalVaultItem => {
     const finalItem = { ...draft }
@@ -253,6 +261,7 @@ export function VaultItemForm({
                           value={field.value}
                           onChange={(val) => updateFieldValue(field.id, val)}
                           placeholder={`Introduce ${field.key}`}
+                          onAccess={handleItemAccessed}
                         />
                       ) : field.type === 'textarea' ? (
                         <FormTextarea

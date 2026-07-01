@@ -69,7 +69,7 @@ export function isMissingBiometricCredentialError(error: unknown): boolean {
 }
 
 export function getBiometricUnavailableMessage(): string {
-  return 'Este navegador muestra Face ID como una llave de acceso, pero no permite usarla para desbloquear esta bóveda de forma fiable. Usa Chrome/Edge en escritorio o un navegador compatible con WebAuthn PRF.'
+  return 'Tu navegador o sistema (ej. Windows Hello sin soporte extendido) muestra la biometría como llave, pero no soporta la encriptación segura requerida (WebAuthn PRF) para desencriptar contraseñas offline. Usa Chrome/Edge actualizado o usa la Contraseña Maestra.'
 }
 
 export async function isBiometricAvailable(): Promise<boolean> {

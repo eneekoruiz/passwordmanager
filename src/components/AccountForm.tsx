@@ -128,6 +128,7 @@ function AttachmentItem({
   updateAttachment: (id: string, field: 'name' | 'description', value: string) => void
   removeAttachment: (id: string) => void
   downloadAttachment: (attachment: FileAttachment) => void
+  onAccess?: () => void
 }) {
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
@@ -145,7 +146,10 @@ function AttachmentItem({
     setRevealing(true)
     try {
       const ok = await authorizeSensitiveAction()
-      if (ok) setUnblurred(true)
+      if (ok) {
+        setUnblurred(true)
+        onAccess?.()
+      }
     } catch (error) {
       const msg = error instanceof Error ? error.message : 'No se pudo verificar tu identidad.'
       if (!msg.toLowerCase().includes('cancel')) {
@@ -242,7 +246,7 @@ const CopyIcon = () => (
   </svg>
 )
 
-function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean }) {
+function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, onAccess }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean; onAccess?: () => void }) {
   const [copied, setCopied] = useState(false)
   const [revealed, setRevealed] = useState(false)
   const [authenticating, setAuthenticating] = useState(false)
@@ -269,7 +273,10 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
     }
     setAuthenticating(true)
     try {
-      if (await authenticate()) setRevealed(true)
+      if (await authenticate()) {
+        setRevealed(true)
+        onAccess?.()
+      }
     } finally {
       setAuthenticating(false)
     }
@@ -278,6 +285,7 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false }: 
   const handleCopy = async (event?: MouseEvent) => {
     event?.stopPropagation()
     if (isSecret && !(await authenticate())) return
+    if (isSecret) onAccess?.()
     const ok = await copyToClipboard(value)
     if (ok) {
       setCopied(true)
@@ -327,12 +335,14 @@ function SecuritySummaryCard({
   description,
   secret,
   actionLabel,
+  onAccess,
 }: {
   eyebrow: string
   title: string
   description: string
   secret?: string | null
   actionLabel: string
+  onAccess?: () => void
 }) {
   const [revealed, setRevealed] = useState(false)
   const [copied, setCopied] = useState(false)
@@ -358,7 +368,10 @@ function SecuritySummaryCard({
     }
     setAuthenticating(true)
     try {
-      if (await authenticate()) setRevealed(true)
+      if (await authenticate()) {
+        setRevealed(true)
+        onAccess?.()
+      }
     } finally {
       setAuthenticating(false)
     }
@@ -366,6 +379,7 @@ function SecuritySummaryCard({
 
   const handleCopy = async () => {
     if (!secret || !(await authenticate())) return
+    onAccess?.()
     const ok = await copyToClipboard(secret)
     if (ok) {
       setCopied(true)
@@ -468,7 +482,7 @@ export function AccountForm({
   const [passwordEnabled, setPasswordEnabled] = useState(() =>
     Boolean((initialAccount ?? createEmptyAccount()).accessMethods.some((method) => method.type === 'PASSWORD')),
   )
-  const { identities, addIdentity, authorizeSensitiveAction } = useVault()
+  const { identities, addIdentity, authorizeSensitiveAction, trackItemAccess } = useVault()
   const { showToast } = useToast()
   const [targetIdentityId, setTargetIdentityId] = useState<string>(() => {
     const id = identities.find(i => i.email === identityEmail)?.id
@@ -494,16 +508,24 @@ export function AccountForm({
     }
   }, [mode])
 
+  const handleItemAccessed = useCallback(() => {
+    if (account.id && targetIdentityId && !isEditing) {
+      void trackItemAccess(account.id, targetIdentityId)
+    }
+  }, [account.id, targetIdentityId, isEditing, trackItemAccess])
+
   const handleGlobalUnlock = async () => {
     if (isUnlocked) return
     const ok = await authorizeSensitiveAction('Desbloquear secretos')
     if (ok) {
       setIsUnlocked(true)
       showToast('Información sensible revelada', 'success')
+      handleItemAccessed()
     }
   }
 
   const downloadAttachment = (attachment: FileAttachment) => {
+    handleItemAccessed()
     try {
       const parts = attachment.data.split(';base64,')
       const base64Data = parts.length > 1 ? parts[1] : parts[0]
@@ -582,6 +604,7 @@ export function AccountForm({
   }
 
   const handleCopyRecoveryCodes = async () => {
+    handleItemAccessed()
     const ok = await copyToClipboard(account.recoveryCodes ?? '')
     if (ok) {
       setRecoveryCodesCopied(true)
@@ -1061,6 +1084,7 @@ export function AccountForm({
                         description={key.descripcion || 'Sin descripción añadida todavía.'}
                         secret={key.valor}
                         actionLabel="Secreta"
+                        onAccess={handleItemAccessed}
                       />
                     ))}
                   </div>
@@ -1072,7 +1096,7 @@ export function AccountForm({
         {account.recoveryCodes && (
           <div className="space-y-3 pt-2">
             <h3 className="text-xs font-bold text-text-tertiary px-1 uppercase tracking-wider">Códigos de Recuperación</h3>
-            <ReadOnlyField label="Códigos de emergencia" value={account.recoveryCodes} isSecret isMultiline />
+            <ReadOnlyField label="Códigos de emergencia" value={account.recoveryCodes} isSecret isMultiline onAccess={handleItemAccessed} />
           </div>
         )}
         {account.fullName && <ReadOnlyField label="Nombre Completo" value={account.fullName} />}
@@ -1085,6 +1109,7 @@ export function AccountForm({
             label={field.key || 'Campo personalizado'}
             value={field.value}
             isSecret={field.protected}
+            onAccess={handleItemAccessed}
           />
         ))}
         </div>
@@ -1220,6 +1245,7 @@ export function AccountForm({
                     required
                     showGenerator
                     forceVisible={isUnlocked}
+                    onAccess={handleItemAccessed}
                   />
                   {(account.passwordHistory ?? []).length > 0 && (
                     <Accordion title="Historial de contraseñas">

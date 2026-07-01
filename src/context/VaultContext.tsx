@@ -81,6 +81,7 @@ interface VaultContextValue {
   saveLocalItem: (item: LocalVaultItem) => Promise<void>
   deleteLocalItem: (itemId: string) => Promise<void>
   saveLocalCategory: (category: LocalCategory) => Promise<void>
+  trackItemAccess: (itemId: string, identityId?: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   verifyCurrentMasterPassword: (masterPassword: string) => Promise<boolean>
   changeCurrentMasterPassword: (currentPassword: string, nextPassword: string, recoveryPhrase: string) => Promise<void>
@@ -1002,6 +1003,49 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
   )
 
+  const trackItemAccess = useCallback(
+    async (itemId: string, identityId?: string) => {
+      if (!currentProfileId) return
+
+      try {
+        if (identityId) {
+          // Es una plataforma dentro de una identidad
+          const identity = identities.find(i => i.id === identityId)
+          if (identity) {
+            const platform = identity.platforms.find(p => p.id === itemId)
+            if (platform) {
+              const updatedPlatform = {
+                ...platform,
+                accessCount: (platform.accessCount || 0) + 1,
+                lastAccessedAt: new Date().toISOString()
+              }
+              const updatedIdentity = {
+                ...identity,
+                platforms: identity.platforms.map(p => p.id === itemId ? updatedPlatform : p)
+              }
+              await storeRef.current.saveIdentity(currentProfileId, updatedIdentity)
+            }
+          }
+        } else {
+          // Es un item local
+          const localItem = localItems.find(i => i.id === itemId)
+          if (localItem) {
+            const updatedItem = {
+              ...localItem,
+              accessCount: (localItem.accessCount || 0) + 1,
+              lastAccessedAt: new Date().toISOString()
+            }
+            await storeRef.current.saveLocalItem(currentProfileId, updatedItem)
+          }
+        }
+        await refreshVaultData()
+      } catch (error) {
+        console.warn('Failed to track item access:', error)
+      }
+    },
+    [currentProfileId, identities, localItems, refreshVaultData],
+  )
+
   const loginWithGoogleCloud = useCallback((): Promise<void> => {
     const { authClient, dbClient } = getFirebaseClients()
     const provider = new GoogleAuthProvider()
@@ -1595,6 +1639,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       saveLocalItem,
       deleteLocalItem,
       saveLocalCategory,
+      trackItemAccess,
       exportBackup,
       verifyCurrentMasterPassword,
       changeCurrentMasterPassword,
@@ -1675,6 +1720,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       saveIdentity,
       saveLocalItem,
       saveLocalCategory,
+      trackItemAccess,
       selectProfile,
       syncActiveProfileToCloud,
       unlockOrRestoreVault,
@@ -1690,6 +1736,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       registerHardwareKeyUnlock,
       unlockWithHardwareKeySensor,
       disableHardwareKeyUnlock,
+      isPromptingMasterPassword,
+      resolveMasterPasswordPrompt,
+      hasUnsyncedChanges,
     ],
   )
 

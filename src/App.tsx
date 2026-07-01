@@ -24,11 +24,12 @@ interface BeforeInstallPromptEvent extends Event {
 }
 
 const SORT_LABELS: Record<SortMode, string> = {
-  'alpha-asc': 'Alfabéticamente (A-Z)',
-  'alpha-desc': 'Alfabéticamente (Z-A)',
-  'date-desc': 'Más recientes primero',
-  'date-asc': 'Más antiguos primero',
-  'usage-desc': 'Más usadas primero',
+  'alpha-asc': 'Alfabético (A-Z)',
+  'alpha-desc': 'Alfabético (Z-A)',
+  'created-desc': 'Recién creadas',
+  'created-asc': 'Más antiguas',
+  'access-desc': 'Recién consultadas',
+  'usage-desc': 'Más usadas',
 }
 
 const SORT_STORAGE_KEY = 'contras.sortMode'
@@ -38,8 +39,9 @@ function readStoredSortMode(): SortMode {
   const stored = window.localStorage.getItem(SORT_STORAGE_KEY)
   return stored === 'alpha-asc' ||
     stored === 'alpha-desc' ||
-    stored === 'date-desc' ||
-    stored === 'date-asc' ||
+    stored === 'created-desc' ||
+    stored === 'created-asc' ||
+    stored === 'access-desc' ||
     stored === 'usage-desc'
     ? stored
     : 'alpha-asc'
@@ -168,8 +170,9 @@ function VaultApp() {
   const [localSearchTerm, setLocalSearchTerm] = useState('')
   const [sortMode, setSortMode] = useState<SortMode>(() => readStoredSortMode())
   const [focusCsvExport, setFocusCsvExport] = useState(false)
-  const [showAddForm, setShowAddForm] = useState(false)
   const [showMobileSortMenu, setShowMobileSortMenu] = useState(false)
+  const [showDesktopSortMenu, setShowDesktopSortMenu] = useState(false)
+  const [showAddForm, setShowAddForm] = useState(false)
   const [createTrigger, setCreateTrigger] = useState(0)
 
   const handleAddClick = () => {
@@ -386,16 +389,20 @@ function VaultApp() {
         return a.email.localeCompare(b.email)
       } else if (sortMode === 'alpha-desc') {
         return b.email.localeCompare(a.email)
-      } else if (sortMode === 'date-desc') {
+      } else if (sortMode === 'created-desc') {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
         return dateB - dateA
-      } else if (sortMode === 'date-asc') {
+      } else if (sortMode === 'created-asc') {
         const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
         return dateA - dateB
+      } else if (sortMode === 'access-desc') {
+        const dateA = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0
+        const dateB = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0
+        return dateB - dateA
       } else if (sortMode === 'usage-desc') {
-        return (b.platforms?.length || 0) - (a.platforms?.length || 0) || a.email.localeCompare(b.email)
+        return (b.accessCount || 0) - (a.accessCount || 0) || a.email.localeCompare(b.email)
       }
       return 0
     })
@@ -407,16 +414,20 @@ function VaultApp() {
           return a.name.localeCompare(b.name)
         } else if (sortMode === 'alpha-desc') {
           return b.name.localeCompare(a.name)
-        } else if (sortMode === 'date-desc') {
+        } else if (sortMode === 'created-desc') {
           const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return dateB - dateA
-        } else if (sortMode === 'date-asc') {
+        } else if (sortMode === 'created-asc') {
           const dateA = a.createdAt ? new Date(a.createdAt).getTime() : 0
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return dateA - dateB
+        } else if (sortMode === 'access-desc') {
+          const dateA = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0
+          const dateB = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0
+          return dateB - dateA
         } else if (sortMode === 'usage-desc') {
-          return (b.passwordHistory?.length || 0) - (a.passwordHistory?.length || 0) || a.name.localeCompare(b.name)
+          return (b.accessCount || 0) - (a.accessCount || 0) || a.name.localeCompare(b.name)
         }
         return 0
       })
@@ -1003,17 +1014,58 @@ function VaultApp() {
         className="min-w-[280px] flex-1 max-w-2xl"
       />
 
-      <select
-        value={sortMode}
-        onChange={(event) => setSortMode(event.target.value as SortMode)}
-        className="h-12 shrink-0 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-bold text-text-secondary shadow-subtle outline-none transition-all hover:bg-surface-hover focus:border-black/15 focus:ring-4 focus:ring-black/[0.035]"
-        aria-label="Ordenar bóveda"
-        title={`Ordenar: ${SORT_LABELS[sortMode]}`}
-      >
-        {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
-          <option key={mode} value={mode}>{SORT_LABELS[mode]}</option>
-        ))}
-      </select>
+      <div className="relative shrink-0 flex items-center">
+        <button
+          type="button"
+          onClick={() => setShowDesktopSortMenu(!showDesktopSortMenu)}
+          className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-bold text-text-secondary shadow-subtle outline-none transition-all hover:bg-surface-hover hover:text-text-primary"
+          title={`Ordenar: ${SORT_LABELS[sortMode]}`}
+        >
+          <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h18M3 12h18M3 19.5h18" />
+          </svg>
+          <span className="hidden xl:inline">{SORT_LABELS[sortMode]}</span>
+        </button>
+        {showDesktopSortMenu && (
+          <>
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowDesktopSortMenu(false)}
+              className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
+            />
+            <div className="absolute right-0 top-[110%] z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left">
+              <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
+                Ordenar por
+              </div>
+              {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+                <button
+                  key={mode}
+                  type="button"
+                  onClick={() => {
+                    setSortMode(mode)
+                    setShowDesktopSortMenu(false)
+                  }}
+                  className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-xs font-semibold transition-colors ${
+                    sortMode === mode
+                      ? 'bg-text-primary text-white'
+                      : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
+                  }`}
+                >
+                  <span>{SORT_LABELS[mode]}</span>
+                  {sortMode === mode && (
+                    <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+                    </svg>
+                  )}
+                </button>
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      <div className="h-8 w-px bg-black/[0.06] mx-1"></div>
 
       <button
         type="button"

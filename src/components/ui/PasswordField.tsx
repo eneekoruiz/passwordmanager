@@ -23,6 +23,8 @@ interface PasswordFieldProps {
   showGenerator?: boolean
   /** Si es true, fuerza la visibilidad ignorando el estado interno (usado por desbloqueo global) */
   forceVisible?: boolean
+  /** Callback opcional cuando se interactúa con el campo (ver/copiar) */
+  onAccess?: () => void
 }
 
 /**
@@ -105,9 +107,10 @@ export function PasswordField({
   onChange,
   placeholder,
   required,
-  disabled,
+  disabled = false,
   showGenerator = false,
   forceVisible = false,
+  onAccess,
 }: PasswordFieldProps) {
   const [internalVisible, setInternalVisible] = useState(false)
   const visible = forceVisible || internalVisible
@@ -129,7 +132,16 @@ export function PasswordField({
     }
   }, [])
 
+  const toggleVisibility = () => {
+    const nextVisible = !internalVisible
+    setInternalVisible(nextVisible)
+    if (nextVisible) {
+      onAccess?.()
+    }
+  }
+
   const handleCopy = async () => {
+    onAccess?.()
     const ok = await copyToClipboard(value)
     if (ok) {
       setCopied(true)
@@ -196,7 +208,7 @@ export function PasswordField({
 
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); setInternalVisible(!internalVisible); }}
+            onClick={(e) => { e.preventDefault(); toggleVisibility(); }}
             className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-black/10 ${visible ? 'text-black hover:bg-black/5' : 'text-text-tertiary hover:bg-surface-hover'} hover:text-text-secondary active:scale-95 transition-all duration-150`}
             aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >

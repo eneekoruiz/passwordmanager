@@ -133,10 +133,12 @@ export const Sidebar = memo(function Sidebar({
           return a.name.localeCompare(b.name)
         case 'alpha-desc':
           return b.name.localeCompare(a.name)
-        case 'date-desc':
+        case 'created-desc':
           return b.maxDate.localeCompare(a.maxDate)
-        case 'date-asc':
+        case 'created-asc':
           return a.minDate.localeCompare(b.minDate)
+        case 'access-desc':
+          return b.maxDate.localeCompare(a.maxDate)
         case 'usage-desc':
           return b.count - a.count || a.name.localeCompare(b.name)
         default:
@@ -212,21 +214,18 @@ export const Sidebar = memo(function Sidebar({
     if (isMobile) return visibleIdentities
     return [...visibleIdentities]
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
-      .slice(0, 4)
   }, [isMobile, visibleIdentities])
 
   const sidebarPlatforms = useMemo(() => {
     if (isMobile) return platformSummaries
     return [...platformSummaries]
       .sort((a, b) => b.maxDate.localeCompare(a.maxDate))
-      .slice(0, 4)
   }, [isMobile, platformSummaries])
 
   const sidebarLocalCategories = useMemo(() => {
     if (isMobile) return visibleLocalCategories
     return [...visibleLocalCategories]
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
-      .slice(0, 4)
   }, [isMobile, visibleLocalCategories])
 
   const handleAddLocalCategory = async () => {
