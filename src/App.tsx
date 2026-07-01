@@ -195,7 +195,6 @@ function VaultApp() {
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
   const [biometricPromptPassword, setBiometricPromptPassword] = useState('')
   const [biometricPromptSaving, setBiometricPromptSaving] = useState(false)
-  const [settingsMenuOpen, setSettingsMenuOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -679,7 +678,7 @@ function VaultApp() {
     showToast('Modo Viaje desactivado. La bóveda completa vuelve a estar visible.', 'success')
   }
 
-  const globalSearchResults = (() => {
+  const globalSearchResults = useMemo(() => {
     const query = globalSearchTerm.trim()
     if (!query) return []
 
@@ -715,7 +714,7 @@ function VaultApp() {
       }
     }
 
-    for (const item of localItems) {
+    for (const item of displayLocalItems) {
       const label = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
       const name = vaultItemDisplayName(item)
       if (fuzzyMatch(`${label} ${name} ${item.title}`, query)) {
@@ -734,7 +733,7 @@ function VaultApp() {
     }
 
     return results
-  })()
+  }, [displayIdentities, displayLocalItems, globalSearchTerm])
 
   const handleLock = () => {
     requestNavigation(() => setLockModalOpen(true))
@@ -787,15 +786,15 @@ function VaultApp() {
       {/* Row 1: Title & Cloud Status & Settings */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <div className="flex min-w-0 items-center gap-2">
-            <p className="truncate text-lg font-bold text-text-primary">Contras</p>
-            <span className="shrink-0 rounded-full bg-text-primary px-2.5 py-1 text-[11px] font-extrabold uppercase tracking-[0.04em] text-white shadow-sm">
-              {totalAccountCount} cuenta{totalAccountCount !== 1 ? 's' : ''}
+          <p className="truncate text-lg font-bold text-text-primary">Contras</p>
+          <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+              {currentProfileName ?? 'Bóveda Principal'}
+            </p>
+            <span className="shrink-0 text-xs font-bold tabular-nums text-text-primary">
+              {totalAccountCount} cuenta{totalAccountCount !== 1 ? 's' : ''} guardada{totalAccountCount !== 1 ? 's' : ''}
             </span>
           </div>
-          <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
-            {currentProfileName ?? 'Bóveda Principal'}
-          </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Add button */}
@@ -907,77 +906,7 @@ function VaultApp() {
       )}
     </div>
   ) : null
-
-  const globalOverlays = (
-    <>
-      {!settingsOpen && !importTextOpen && !lockModalOpen && !isMobile && (
-        <GlobalSearch
-          query={globalSearchTerm}
-          onQueryChange={setGlobalSearchTerm}
-          results={globalSearchResults}
-          syncing={cloudSyncStatus === 'syncing'}
-          hasSettingsButton={!isMobile}
-        />
-      )}
-
-      <div className="fixed right-4 top-16 z-[80] lg:top-4">
-        {!isMobile && (
-          <button
-            type="button"
-            onClick={() => setSettingsMenuOpen((open) => !open)}
-            className="flex h-12 w-12 items-center justify-center rounded-2xl border border-black/[0.06] bg-white/90 text-text-primary shadow-[0_18px_55px_rgba(15,23,42,0.12)] backdrop-blur-xl transition-all hover:-translate-y-0.5"
-            aria-label="Abrir ajustes"
-          >
-            <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-            </svg>
-          </button>
-        )}
-
-        {settingsMenuOpen && (
-          <div className="absolute right-0 mt-2 w-72 rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl">
-            <div className="px-3 py-2">
-              <p className="text-[10px] font-bold uppercase tracking-[0.16em] text-text-tertiary">Ajustes</p>
-              <p className="mt-1 truncate text-xs font-semibold text-text-primary">{currentProfileName ?? 'Bóveda segura'}</p>
-            </div>
-            <button
-              type="button"
-              onClick={() => {
-                setSettingsMenuOpen(false)
-                void handleManualSync()
-              }}
-              disabled={cloudSyncStatus === 'syncing'}
-              className="flex min-h-12 w-full items-center justify-between rounded-2xl px-3 text-left text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover disabled:opacity-60 lg:hidden"
-            >
-              <span>{cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar ahora'}</span>
-              <span className={`h-2.5 w-2.5 rounded-full ${cloudSyncStatus === 'error' ? 'bg-red-500' : cloudSyncStatus === 'synced' ? 'bg-emerald-500' : 'bg-text-tertiary'}`} />
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSettingsMenuOpen(false)
-                setSettingsOpen(true)
-              }}
-              className="flex min-h-12 w-full items-center rounded-2xl px-3 text-left text-sm font-semibold text-text-primary transition-colors hover:bg-surface-hover"
-            >
-              Exportación, importación y nube
-            </button>
-            <button
-              type="button"
-              onClick={() => {
-                setSettingsMenuOpen(false)
-                handleLock()
-              }}
-              className="flex min-h-12 w-full items-center rounded-2xl px-3 text-left text-sm font-semibold text-red-600 transition-colors hover:bg-red-50"
-            >
-              Bloquear bóveda
-            </button>
-          </div>
-        )}
-      </div>
-    </>
-  )
+  const globalOverlays = null
 
   const biometricOnboardingModal = biometricPromptOpen ? (
     <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
@@ -1063,6 +992,69 @@ function VaultApp() {
     )
   ) : null
 
+  const desktopToolbar = (
+    <header className="sticky top-0 z-40 flex min-h-20 items-center gap-3 border-b border-border-subtle bg-white/82 px-5 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:px-8">
+      <GlobalSearch
+        query={globalSearchTerm}
+        onQueryChange={setGlobalSearchTerm}
+        results={globalSearchResults}
+        syncing={cloudSyncStatus === 'syncing'}
+        className="min-w-[280px] flex-1 max-w-2xl"
+      />
+
+      <select
+        value={sortMode}
+        onChange={(event) => setSortMode(event.target.value as SortMode)}
+        className="h-12 shrink-0 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-bold text-text-secondary shadow-subtle outline-none transition-all hover:bg-surface-hover focus:border-black/15 focus:ring-4 focus:ring-black/[0.035]"
+        aria-label="Ordenar bóveda"
+        title={`Ordenar: ${SORT_LABELS[sortMode]}`}
+      >
+        {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
+          <option key={mode} value={mode}>{SORT_LABELS[mode]}</option>
+        ))}
+      </select>
+
+      <button
+        type="button"
+        onClick={handleAddClick}
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/[0.06] bg-text-primary text-white shadow-[0_14px_35px_rgba(15,23,42,0.18)] transition-all hover:-translate-y-0.5 hover:scale-105 hover:shadow-lg active:scale-[0.98]"
+        aria-label="Añadir"
+        title="Añadir"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+        </svg>
+      </button>
+
+      <button
+        type="button"
+        onClick={handleLock}
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/[0.06] bg-white text-text-secondary shadow-subtle transition-all hover:-translate-y-0.5 hover:scale-105 hover:bg-surface-hover hover:text-text-primary active:scale-[0.98]"
+        aria-label="Bloquear bóveda"
+        title="Bloquear bóveda"
+      >
+        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+        </svg>
+      </button>
+
+      {CloudSyncIndicator}
+
+      <button
+        type="button"
+        onClick={() => setSettingsOpen(true)}
+        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/[0.06] bg-white text-text-primary shadow-subtle transition-all hover:-translate-y-0.5 hover:scale-105 hover:bg-surface-hover active:scale-[0.98]"
+        aria-label="Abrir ajustes"
+        title="Ajustes"
+      >
+        <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+        </svg>
+      </button>
+    </header>
+  )
+
   if (isMobile) {
     return (
       <div className="fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface overscroll-none">
@@ -1078,7 +1070,6 @@ function VaultApp() {
               selectedPlatformName={selectedPlatformName}
               selectedLocalCategory={selectedLocalCategory}
               searchQuery={localSearchTerm}
-              onSearchChange={setLocalSearchTerm}
               onGroupModeChange={handleGroupModeChange}
               onSelect={handleSelect}
               onSelectPlatform={handleSelectPlatform}
@@ -1139,6 +1130,7 @@ function VaultApp() {
               }}
               onSelectLocalCategory={handleSelectLocalCategory}
               onOpenImportText={() => setImportTextOpen(true)}
+              onCreate={handleAddClick}
               onAddPlatform={addPlatform}
               onUpdatePlatform={updatePlatform}
               onDeletePlatform={deletePlatform}
@@ -1149,7 +1141,6 @@ function VaultApp() {
               sortMode={sortMode}
               onSortModeChange={setSortMode}
               searchQuery={localSearchTerm}
-              onSearchChange={setLocalSearchTerm}
             />
           )}
         </div>
@@ -1314,12 +1305,10 @@ function VaultApp() {
           selectedPlatformName={selectedPlatformName}
           selectedLocalCategory={selectedLocalCategory}
           searchQuery={localSearchTerm}
-          onSearchChange={setLocalSearchTerm}
           onGroupModeChange={handleGroupModeChange}
           onSelect={handleSelect}
           onSelectPlatform={handleSelectPlatform}
           onSelectLocalCategory={handleSelectLocalCategory}
-          isGlobalSearching={globalSearchTerm.trim().length > 0}
           onAddIdentity={async (email) => {
             const identity = await addIdentity(email)
             requestNavigation(() => {
@@ -1348,7 +1337,8 @@ function VaultApp() {
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated pt-20 lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+          {desktopToolbar}
           <MainArea
             identities={displayIdentities}
             identity={selectedIdentity}
@@ -1378,6 +1368,7 @@ function VaultApp() {
             }}
             onSelectLocalCategory={handleSelectLocalCategory}
             onOpenImportText={() => setImportTextOpen(true)}
+            onCreate={handleAddClick}
             onAddPlatform={addPlatform}
             onUpdatePlatform={updatePlatform}
             onDeletePlatform={deletePlatform}
@@ -1551,18 +1542,18 @@ function GlobalSearch({
   onQueryChange,
   results,
   syncing,
-  hasSettingsButton,
+  className = '',
 }: {
   query: string
   onQueryChange: (value: string) => void
   results: GlobalSearchResult[]
   syncing: boolean
-  hasSettingsButton: boolean
+  className?: string
 }) {
   const visible = query.trim().length > 0
 
   return (
-    <div className={`fixed left-4 top-16 z-[70] mx-auto max-w-2xl lg:left-[calc(20rem+2rem)] lg:top-4 ${hasSettingsButton ? 'right-20 lg:right-28' : 'right-4'}`}>
+    <div className={`relative ${className}`}>
       <div className="relative">
         <svg className="pointer-events-none absolute left-4 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
@@ -1572,7 +1563,7 @@ function GlobalSearch({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Buscar en toda la bóveda..."
-          className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-[0_18px_55px_rgba(15,23,42,0.12)] outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035]"
+          className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035]"
           aria-label="Búsqueda global de la bóveda"
         />
         {syncing && (
@@ -1581,7 +1572,7 @@ function GlobalSearch({
       </div>
 
       {visible && (
-        <div className="mt-2 max-h-[48vh] overflow-y-auto rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[48vh] overflow-y-auto rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl animate-vault-morph">
           {results.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
           ) : (
@@ -1617,5 +1608,3 @@ export default function App() {
     </ErrorBoundary>
   )
 }
-
-

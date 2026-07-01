@@ -25,6 +25,7 @@ interface MainAreaProps {
   onSelectPlatformName: (platformName: string | null) => void
   onSelectLocalCategory: (category: LocalCategory | null) => void
   onOpenImportText: () => void
+  onCreate: () => void
   onAddPlatform: (identityId: string, platform: Platform) => Promise<void>
   onUpdatePlatform: (identityId: string, platformId: string, platform: Platform) => Promise<void>
   onDeletePlatform: (identityId: string, platformId: string) => Promise<void>
@@ -77,6 +78,7 @@ export const MainArea = memo(function MainArea({
   onSelectPlatformName,
   onSelectLocalCategory,
   onOpenImportText,
+  onCreate,
   onAddPlatform,
   onUpdatePlatform,
   onDeletePlatform,
@@ -201,6 +203,36 @@ export const MainArea = memo(function MainArea({
     return list
   }, [identities, sortMode])
 
+  const renderProactiveEmptyState = ({
+    title = 'Aún no tienes elementos aquí',
+    description,
+    actionLabel,
+    onAction,
+  }: {
+    title?: string
+    description: string
+    actionLabel: string
+    onAction: () => void
+  }) => (
+    <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/72 px-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.04)] animate-vault-morph">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-text-secondary shadow-sm ring-1 ring-black/5">
+        <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
+        </svg>
+      </div>
+      <h3 className="text-base font-bold text-text-primary">{title}</h3>
+      <p className="mt-2 max-w-sm text-sm leading-relaxed text-text-secondary">{description}</p>
+      <button
+        type="button"
+        onClick={onAction}
+        className="mt-5 inline-flex items-center gap-2 rounded-xl bg-text-primary px-4 py-2.5 text-xs font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:scale-105 hover:shadow-lg active:scale-[0.98]"
+      >
+        <span>{actionLabel}</span>
+        <span aria-hidden="true">➔</span>
+      </button>
+    </div>
+  )
+
   if (!hasVaultSelection) {
     return (
       <div className="flex min-h-0 flex-1 flex-col">
@@ -262,7 +294,7 @@ export const MainArea = memo(function MainArea({
                             key={platform.name}
                             type="button"
                             onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
-                            className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
+                            className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white"
                             style={{ animationDelay: `${index * 40}ms` }}
                           >
                             <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
@@ -279,10 +311,11 @@ export const MainArea = memo(function MainArea({
                         ))}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
-                        <h3 className="text-base font-bold text-text-primary">No hay plataformas</h3>
-                        <p className="mt-1 max-w-sm text-sm text-text-secondary">Crea cuentas en tus identidades y aparecerán aquí agrupadas por plataforma.</p>
-                      </div>
+                      renderProactiveEmptyState({
+                        description: 'Crea uno nuevo aquí y aparecerá agrupado por plataforma cuando lo guardes.',
+                        actionLabel: 'Crea uno nuevo aquí',
+                        onAction: onCreate,
+                      })
                     )
                   ) : groupMode === 'local' ? (
                     <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
@@ -301,7 +334,7 @@ export const MainArea = memo(function MainArea({
                           key={idItem.id}
                           type="button"
                           onClick={() => onRequestNavigation(() => onSelectIdentity(idItem.id))}
-                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white"
+                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white"
                           style={{ animationDelay: `${index * 40}ms` }}
                         >
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
@@ -320,15 +353,11 @@ export const MainArea = memo(function MainArea({
                       ))}
                     </div>
                   ) : (
-                    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
-                        <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                        </svg>
-                      </div>
-                      <h3 className="text-base font-bold text-text-primary">No tienes identidades creadas</h3>
-                      <p className="mt-1 max-w-sm text-sm text-text-secondary">Utiliza el botón en la barra lateral para crear tu primera identidad (ej. tu email personal o de trabajo).</p>
-                    </div>
+                    renderProactiveEmptyState({
+                      description: 'Crea uno nuevo aquí para empezar a guardar credenciales bajo un correo o perfil.',
+                      actionLabel: 'Crea uno nuevo aquí',
+                      onAction: onCreate,
+                    })
                   )}
                 </section>
               </div>
@@ -481,20 +510,14 @@ export const MainArea = memo(function MainArea({
             )}
             {localCategory ? (
               filteredLocalItems.length === 0 ? (
-                <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center">
-                  <p className="text-sm font-semibold text-text-primary">Sin secretos en {localCategory.label}</p>
-                  <p className="mt-1 max-w-sm text-xs text-text-secondary">Crea el primer registro. Se cifrará localmente antes de sincronizarse con Firebase.</p>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
-                      setView('create')
-                    }}
-                    className="mt-4 rounded-xl bg-text-primary px-4 py-2 text-xs font-semibold text-white"
-                  >
-                    Crear secreto
-                  </button>
-                </div>
+                renderProactiveEmptyState({
+                  description: `Crea uno nuevo aquí para guardar el primer secreto de ${localCategory.label}.`,
+                  actionLabel: 'Crea uno nuevo aquí',
+                  onAction: () => {
+                    setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
+                    setView('create')
+                  },
+                })
               ) : (
                 <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredLocalItems.map((item, index) => (
@@ -506,7 +529,7 @@ export const MainArea = memo(function MainArea({
                         setView('edit')
                       }}
                       style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                      className="animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                     >
                       <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                       <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
@@ -524,10 +547,20 @@ export const MainArea = memo(function MainArea({
               )
             ) : groupMode === 'platform' && selectedPlatformName ? (
               filteredPlatformAccounts.length === 0 ? (
-                <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/70 px-6 text-center animate-vault-morph">
-                  <p className="text-sm font-semibold text-text-primary">No hay cuentas para {selectedPlatformDisplayName}</p>
-                  <p className="mt-1 max-w-sm text-xs text-text-secondary">Cambia a la vista por identidad para crear una nueva cuenta desde su correo propietario.</p>
-                </div>
+                renderProactiveEmptyState({
+                  description: `Crea uno nuevo aquí para añadir la primera cuenta de ${selectedPlatformDisplayName}.`,
+                  actionLabel: 'Crea uno nuevo aquí',
+                  onAction: () => {
+                    const targetIdentity = identities[0]
+                    if (!targetIdentity) return onCreate()
+                    setEditingPlatform({
+                      identityId: targetIdentity.id,
+                      identityEmail: targetIdentity.email,
+                      platform: createPlatform(selectedPlatformDisplayName, { username: '' }),
+                    })
+                    setView('create')
+                  },
+                })
               ) : (
                 <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
                   {filteredPlatformAccounts.map(({ identityId, identityEmail, platform }, index) => (
@@ -539,7 +572,7 @@ export const MainArea = memo(function MainArea({
                         setView('edit')
                       }}
                       style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                      className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                     >
                       <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                       <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
@@ -606,7 +639,7 @@ export const MainArea = memo(function MainArea({
                       setView('edit')
                     }}
                     style={{ animationDelay: `${index * 45}ms` }}
-                    className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                    className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                   >
                     <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                     <PlatformLogo name={platform.name} className="h-9 w-9" />
@@ -693,8 +726,13 @@ export const MainArea = memo(function MainArea({
             mode="edit"
             identityEmail={editingPlatform.identityEmail}
             initialAccount={editingPlatform.platform}
-            onSave={async (platform) => {
-              await onUpdatePlatform(editingPlatform.identityId, editingPlatform.platform.id, platform)
+            onSave={async (platform, targetIdentityId) => {
+              if (targetIdentityId && targetIdentityId !== editingPlatform.identityId) {
+                await onDeletePlatform(editingPlatform.identityId, editingPlatform.platform.id)
+                await onAddPlatform(targetIdentityId, platform)
+              } else {
+                await onUpdatePlatform(editingPlatform.identityId, editingPlatform.platform.id, platform)
+              }
               resetView()
             }}
             onCancel={resetView}

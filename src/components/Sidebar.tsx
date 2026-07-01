@@ -1,6 +1,5 @@
 import { useEffect, useState, useMemo, memo } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode, SortMode } from '../types'
-import { SearchBar } from './SearchBar'
 import { useToast } from './ui/ToastProvider'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -18,7 +17,6 @@ interface SidebarProps {
   selectedPlatformName: string | null
   selectedLocalCategory: LocalCategory | null
   searchQuery: string
-  onSearchChange: (query: string) => void
   onGroupModeChange: (mode: VaultGroupMode) => void
   onSelect: (id: string | null) => void
   onSelectPlatform: (platformName: string | null) => void
@@ -41,15 +39,15 @@ interface SidebarProps {
   onAddClick: () => void
   sortMode: SortMode
   onSortModeChange: (mode: SortMode) => void
-  isGlobalSearching?: boolean
 }
 
-const SORT_LABELS: Record<SortMode, string> = {
-  'alpha-asc': 'Alfabéticamente (A-Z)',
-  'alpha-desc': 'Alfabéticamente (Z-A)',
-  'date-desc': 'Más recientes primero',
-  'date-asc': 'Más antiguos primero',
-  'usage-desc': 'Más usadas primero',
+
+
+function recentTime(...values: Array<string | undefined>): number {
+  return values.reduce((latest, value) => {
+    const time = value ? Date.parse(value) : 0
+    return Number.isFinite(time) ? Math.max(latest, time) : latest
+  }, 0)
 }
 
 export const Sidebar = memo(function Sidebar({
@@ -60,14 +58,12 @@ export const Sidebar = memo(function Sidebar({
   selectedPlatformName,
   selectedLocalCategory,
   searchQuery,
-  onSearchChange,
   onGroupModeChange,
   onSelect,
   onSelectPlatform,
   onSelectLocalCategory,
   onAddIdentity,
   onDeleteIdentity,
-  onLock,
   onSync,
   isOpen,
   onClose,
@@ -81,13 +77,10 @@ export const Sidebar = memo(function Sidebar({
   onToggleAddForm,
   onAddClick,
   sortMode,
-  onSortModeChange,
-  isGlobalSearching = false,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
   const { showToast } = useToast()
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
-  const [showSortMenu, setShowSortMenu] = useState(false)
   const [adding, setAdding] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
@@ -95,10 +88,16 @@ export const Sidebar = memo(function Sidebar({
   const [sidebarError, setSidebarError] = useState<string | null>(null)
   const query = searchQuery.trim().toLowerCase()
   const localLooksEmpty = (identities.length === 0 || (identities.length === 1 && (identities[0]?.platforms || []).length === 0 && !identities[0]?.email)) && localItems.length === 0
-  const cloudIdentities = identities.filter((identity) => identity?.email !== LOCAL_IDENTITY_EMAIL)
-  const visibleIdentities = query
-    ? cloudIdentities.filter((identity) => identity?.email.toLowerCase().includes(query))
-    : cloudIdentities
+  const cloudIdentities = useMemo(
+    () => identities.filter((identity) => identity?.email !== LOCAL_IDENTITY_EMAIL),
+    [identities],
+  )
+  const visibleIdentities = useMemo(
+    () => (query
+      ? cloudIdentities.filter((identity) => identity?.email.toLowerCase().includes(query))
+      : cloudIdentities),
+    [cloudIdentities, query],
+  )
   const platformSummaries = useMemo(() => {
     const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
     for (const identity of cloudIdentities) {
@@ -160,35 +159,75 @@ export const Sidebar = memo(function Sidebar({
     }
   }, [])
 
-  const categoriesFromItems = localItems.reduce<LocalCategory[]>((categories, item) => {
-    const id = item.categoryId ?? item.type
-    if (id === item.type || categories.some((category) => category.id === id)) return categories
-    categories.push({
-      id,
-      label: item.categoryLabel?.trim() || item.title || LOCAL_ITEM_LABELS[item.type],
-      type: item.type,
-      custom: true,
-      updatedAt: item.updatedAt,
-      createdAt: item.createdAt,
-    })
-    return categories
-  }, [])
+  const localCategoryCounts = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const item of localItems) {
+      const id = item.categoryId ?? item.type
+      counts.set(id, (counts.get(id) ?? 0) + 1)
+    }
+    return counts
+  }, [localItems])
 
-  const localCategoryOptions: LocalCategory[] = [
-    ...(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => ({
-      id: type,
-      label: LOCAL_ITEM_LABELS[type],
-      type,
-      custom: false,
-    })),
-    ...PRESET_LOCAL_CATEGORIES,
-    ...localCategories,
-    ...categoriesFromItems.filter(
-      (fromItem) =>
-        !localCategories.some((custom) => custom.id === fromItem.id) &&
-        !PRESET_LOCAL_CATEGORIES.some((preset) => preset.id === fromItem.id),
-    ),
-  ]
+  const localCategoryOptions: LocalCategory[] = useMemo(() => {
+    const categoriesFromItems = localItems.reduce<LocalCategory[]>((categories, item) => {
+      const id = item.categoryId ?? item.type
+      if (id === item.type || categories.some((category) => category.id === id)) return categories
+      categories.push({
+        id,
+        label: item.categoryLabel?.trim() || item.title || LOCAL_ITEM_LABELS[item.type],
+        type: item.type,
+        custom: true,
+        updatedAt: item.updatedAt,
+        createdAt: item.createdAt,
+      })
+      return categories
+    }, [])
+
+    return [
+      ...(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => ({
+        id: type,
+        label: LOCAL_ITEM_LABELS[type],
+        type,
+        custom: false,
+      })),
+      ...PRESET_LOCAL_CATEGORIES,
+      ...localCategories,
+      ...categoriesFromItems.filter(
+        (fromItem) =>
+          !localCategories.some((custom) => custom.id === fromItem.id) &&
+          !PRESET_LOCAL_CATEGORIES.some((preset) => preset.id === fromItem.id),
+      ),
+    ]
+  }, [localCategories, localItems])
+
+  const visibleLocalCategories = useMemo(
+    () => (query
+      ? localCategoryOptions.filter((category) => category.label.toLowerCase().includes(query))
+      : localCategoryOptions),
+    [localCategoryOptions, query],
+  )
+
+
+  const sidebarIdentities = useMemo(() => {
+    if (isMobile) return visibleIdentities
+    return [...visibleIdentities]
+      .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
+      .slice(0, 4)
+  }, [isMobile, visibleIdentities])
+
+  const sidebarPlatforms = useMemo(() => {
+    if (isMobile) return platformSummaries
+    return [...platformSummaries]
+      .sort((a, b) => b.maxDate.localeCompare(a.maxDate))
+      .slice(0, 4)
+  }, [isMobile, platformSummaries])
+
+  const sidebarLocalCategories = useMemo(() => {
+    if (isMobile) return visibleLocalCategories
+    return [...visibleLocalCategories]
+      .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
+      .slice(0, 4)
+  }, [isMobile, visibleLocalCategories])
 
   const handleAddLocalCategory = async () => {
     const label = window.prompt('Nombre de la nueva categoría local')
@@ -276,6 +315,53 @@ export const Sidebar = memo(function Sidebar({
       </li>
     )
   }
+
+  const renderLocalCategoryItem = (category: LocalCategory, index: number) => {
+    const selected = selectedLocalCategory?.id === category.id
+    const count = localCategoryCounts.get(category.id) ?? 0
+    return (
+      <li key={category.id}>
+        <button
+          type="button"
+          onClick={() => onSelectLocalCategory(category)}
+          style={{ animationDelay: `${index * 35}ms` }}
+          className={`group animate-vault-slide-up flex min-h-[86px] w-full items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
+            selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)]' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:scale-[1.01] hover:border-black/10 hover:bg-white hover:shadow-lg'
+          }`}
+        >
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.05] bg-white text-text-primary shadow-sm">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
+            </svg>
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block truncate text-sm font-bold text-text-primary">{category.label}</span>
+            <span className="mt-1 block text-xs font-medium text-text-secondary">
+              {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
+            </span>
+          </span>
+          <span className="flex shrink-0 items-center gap-2">
+            {category.custom && <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-text-secondary">Tag</span>}
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200">Abrir</span>
+          </span>
+        </button>
+      </li>
+    )
+  }
+
+  const renderEmptyNavigationState = (label: string, onCreate: () => void) => (
+    <div className="mx-3 mt-4 rounded-2xl border border-dashed border-border bg-white/70 px-4 py-8 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] animate-vault-morph">
+      <p className="text-sm font-bold text-text-primary">Aún no tienes elementos aquí</p>
+      <button
+        type="button"
+        onClick={onCreate}
+        className="mt-3 inline-flex items-center gap-2 rounded-xl bg-text-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98]"
+      >
+        <span>{label}</span>
+        <span aria-hidden="true">➔</span>
+      </button>
+    </div>
+  )
 
   const renderIdentityItem = (identity: Identity) => {
     const selected = identity.id === selectedId
@@ -373,32 +459,6 @@ export const Sidebar = memo(function Sidebar({
               </>
             )}
           </div>
-          <div className="flex items-center gap-1">
-            {!isMobile && (
-              <button
-                type="button"
-                onClick={onAddClick}
-                className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
-                aria-label="Añadir identidad"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                </svg>
-              </button>
-            )}
-            {!isMobile && (
-              <button
-                type="button"
-                onClick={onLock}
-                className="min-h-11 min-w-11 rounded-xl p-2.5 text-text-secondary transition-colors hover:bg-surface-hover"
-                aria-label="Bloquear boveda"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                </svg>
-              </button>
-            )}
-          </div>
         </header>
 
         {showAddForm && (
@@ -457,67 +517,6 @@ export const Sidebar = memo(function Sidebar({
                 </button>
               ))}
             </div>
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <SearchBar
-                  value={searchQuery}
-                  onChange={onSearchChange}
-                  placeholder={isGlobalSearching ? 'Búsqueda global activa' : (groupMode === 'identity' ? 'Buscar identidades...' : 'Buscar plataformas...')}
-                  disabled={isGlobalSearching}
-                />
-              </div>
-              <div className="relative shrink-0">
-                <button
-                  type="button"
-                  onClick={() => setShowSortMenu((v) => !v)}
-                  className="flex h-11 w-11 items-center justify-center rounded-xl border border-black/[0.06] bg-white text-text-secondary shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all hover:bg-surface-hover hover:text-text-primary active:scale-[0.95]"
-                  aria-label="Ordenar lista"
-                  title={`Ordenar: ${SORT_LABELS[sortMode]}`}
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 4.5h18M3 12h18M3 19.5h18" />
-                  </svg>
-                </button>
-
-                {showSortMenu && (
-                  <>
-                    <button
-                      type="button"
-                      tabIndex={-1}
-                      onClick={() => setShowSortMenu(false)}
-                      className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
-                    />
-                    <div className="absolute right-0 mt-2 z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl animate-vault-morph text-left">
-                      <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
-                        Ordenar por
-                      </div>
-                      {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
-                        <button
-                          key={mode}
-                          type="button"
-                          onClick={() => {
-                            onSortModeChange(mode)
-                            setShowSortMenu(false)
-                          }}
-                          className={`flex min-h-10 w-full items-center justify-between rounded-xl px-3 text-xs font-semibold transition-colors ${
-                            sortMode === mode
-                              ? 'bg-text-primary text-white'
-                              : 'text-text-secondary hover:bg-surface-hover hover:text-text-primary'
-                          }`}
-                        >
-                          <span>{SORT_LABELS[mode]}</span>
-                          {sortMode === mode && (
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
-                            </svg>
-                          )}
-                        </button>
-                      ))}
-                    </div>
-                  </>
-                )}
-              </div>
-            </div>
           </div>
         )}
 
@@ -545,8 +544,8 @@ export const Sidebar = memo(function Sidebar({
                 </div>
               )}
               {groupMode === 'platform' ? (
-                platformSummaries.length === 0 ? (
-                  <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay plataformas.</p>
+                sidebarPlatforms.length === 0 ? (
+                  renderEmptyNavigationState('Crea una plataforma aquí', onAddClick)
                 ) : (
                   <>
                     <button
@@ -567,26 +566,27 @@ export const Sidebar = memo(function Sidebar({
                           <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Todas tus plataformas cloud</span>
                         </span>
                       </span>
-                      <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-extrabold tabular-nums text-text-primary shadow-sm ring-1 ring-black/[0.04]">
-                        {platformSummaries.length} plataforma{platformSummaries.length !== 1 ? 's' : ''}
+                      <span className="flex shrink-0 flex-col items-end rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.04]">
+                        <span className="text-lg font-black leading-none tabular-nums text-text-primary">{platformSummaries.length}</span>
+                        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-text-tertiary">Plataformas</span>
                       </span>
                     </button>
                     {searchQuery ? (
                       <ul className="space-y-3 animate-vault-morph">
-                        {platformSummaries
+                        {sidebarPlatforms
                           .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                           .map(renderPlatformItem)}
                       </ul>
                     ) : (
                       <div className="animate-vault-morph">
 
-                        {platformSummaries.length > 0 && (
+                        {sidebarPlatforms.length > 0 && (
                           <>
                             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Todas
+                              {isMobile ? 'Todas' : 'Más recientes'}
                             </div>
                             <ul className="space-y-3">
-                              {platformSummaries.map(renderPlatformItem)}
+                              {sidebarPlatforms.map(renderPlatformItem)}
                             </ul>
                           </>
                         )}
@@ -596,8 +596,8 @@ export const Sidebar = memo(function Sidebar({
                   </>
                 )
               ) : groupMode === 'identity' ? (
-                visibleIdentities.length === 0 ? (
-                  <p className="px-3 py-8 text-center text-sm text-text-tertiary">No hay identidades.</p>
+                sidebarIdentities.length === 0 ? (
+                  renderEmptyNavigationState('Crea una identidad aquí', onAddClick)
                 ) : (
                   <>
                     <button
@@ -618,26 +618,27 @@ export const Sidebar = memo(function Sidebar({
                           <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Correos y perfiles cloud</span>
                         </span>
                       </span>
-                      <span className="shrink-0 rounded-full bg-white px-3 py-1 text-xs font-extrabold tabular-nums text-text-primary shadow-sm ring-1 ring-black/[0.04]">
-                        {visibleIdentities.length} identidad{visibleIdentities.length !== 1 ? 'es' : ''}
+                      <span className="flex shrink-0 flex-col items-end rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.04]">
+                        <span className="text-lg font-black leading-none tabular-nums text-text-primary">{visibleIdentities.length}</span>
+                        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-text-tertiary">Identidades</span>
                       </span>
                     </button>
                     {searchQuery ? (
                       <ul className="space-y-3 animate-vault-morph">
-                        {visibleIdentities
+                        {sidebarIdentities
                           .filter(idItem => idItem.email.toLowerCase().includes(searchQuery.toLowerCase()))
                           .map(renderIdentityItem)}
                       </ul>
                     ) : (
                       <div className="animate-vault-morph">
 
-                        {visibleIdentities.length > 0 && (
+                        {sidebarIdentities.length > 0 && (
                           <>
                             <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              Todas
+                              {isMobile ? 'Todas' : 'Más recientes'}
                             </div>
                             <ul className="space-y-3">
-                              {visibleIdentities.map(renderIdentityItem)}
+                              {sidebarIdentities.map(renderIdentityItem)}
                             </ul>
                           </>
                         )}
@@ -664,38 +665,20 @@ export const Sidebar = memo(function Sidebar({
                   <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
                     Espacios privados personalizables para notas, documentos, tarjetas o cualquier dato sensible que no dependa de una plataforma.
                   </p>
-                  <ul className="space-y-3">
-                    {localCategoryOptions.map((category) => {
-                      const selected = selectedLocalCategory?.id === category.id
-                      const count = localItems.filter((item) => (item.categoryId ?? item.type) === category.id).length
-                      return (
-                        <li key={category.id}>
-                          <button
-                            type="button"
-                            onClick={() => onSelectLocalCategory(category)}
-                            className={`flex min-h-11 w-full items-center justify-between rounded-xl px-3 py-2.5 text-left transition-colors ${
-                              selected ? 'bg-surface-active' : 'hover:bg-surface-hover'
-                            }`}
-                          >
-                            <span className="truncate text-[15px] font-semibold text-text-primary/90">
-                              {category.label}
-                            </span>
-                            <span className="flex items-center gap-2 text-xs tabular-nums text-text-tertiary">
-                              {category.custom && <span className="rounded-full bg-white px-1.5 py-0.5 text-[9px] font-bold">Tag</span>}
-                              {count}
-                            </span>
-                          </button>
-                        </li>
-                      )
-                    })}
-                  </ul>
+                  {sidebarLocalCategories.length === 0 ? (
+                    renderEmptyNavigationState('Crea una categoría aquí', () => void handleAddLocalCategory())
+                  ) : (
+                    <ul className="space-y-3">
+                      {sidebarLocalCategories.map(renderLocalCategoryItem)}
+                    </ul>
+                  )}
                 </>
               )}
             </>
           )}
         </nav>
 
-        {(!isMobile || (installPromptAvailable && onInstall)) && (
+        {isMobile && installPromptAvailable && onInstall && (
           <footer className="flex flex-col gap-2.5 border-t border-border-subtle bg-surface p-3">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               {cloudUserEmail && (
@@ -726,4 +709,3 @@ export const Sidebar = memo(function Sidebar({
     </>
   )
 })
-

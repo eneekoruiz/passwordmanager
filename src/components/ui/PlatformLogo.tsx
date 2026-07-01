@@ -223,6 +223,21 @@ function buildSources(name: string) {
   ])
 }
 
+const logoSourceCache = new Map<string, string>()
+const rejectedLogoSources = new Map<string, Set<string>>()
+
+function getCachedSource(key: string, sources: string[]) {
+  const cached = logoSourceCache.get(key)
+  return cached && sources.includes(cached) ? cached : null
+}
+
+function getNextSourceIndex(key: string, sources: string[], currentIndex: number) {
+  const rejected = rejectedLogoSources.get(key)
+  for (let index = currentIndex + 1; index < sources.length; index += 1) {
+    if (!rejected?.has(sources[index])) return index
+  }
+  return -1
+}
 function GenericLogoIcon() {
   return (
     <svg className="h-[58%] w-[58%] text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.1} aria-hidden="true">
@@ -233,25 +248,38 @@ function GenericLogoIcon() {
 }
 
 export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps) {
+  const logoKey = useMemo(() => normalizeKey(name), [name])
   const sources = useMemo(() => buildSources(name), [name])
-  const [sourceIndex, setSourceIndex] = useState(0)
-  const [loaded, setLoaded] = useState(false)
+  const cachedSource = useMemo(() => getCachedSource(logoKey, sources), [logoKey, sources])
+  const initialSourceIndex = cachedSource ? sources.indexOf(cachedSource) : 0
+  const [sourceIndex, setSourceIndex] = useState(initialSourceIndex)
+  const [loaded, setLoaded] = useState(Boolean(cachedSource))
   const source = sources[sourceIndex]
 
   useEffect(() => {
-    setSourceIndex(0)
-    setLoaded(false)
-  }, [name])
+    const cached = getCachedSource(logoKey, sources)
+    if (cached) {
+      setSourceIndex(sources.indexOf(cached))
+      setLoaded(true)
+      return
+    }
 
-  useEffect(() => {
+    const rejected = rejectedLogoSources.get(logoKey)
+    const firstUsableIndex = sources.findIndex((item) => !rejected?.has(item))
+    setSourceIndex(firstUsableIndex)
     setLoaded(false)
-    if (!source) return
+  }, [logoKey, sources])
 
-    const timer = window.setTimeout(() => {
-      setSourceIndex((index) => index + 1)
-    }, 3000)
-    return () => window.clearTimeout(timer)
-  }, [source])
+  const markSourceRejected = (badSource: string | undefined) => {
+    if (!badSource) return
+    const rejected = rejectedLogoSources.get(logoKey) ?? new Set<string>()
+    rejected.add(badSource)
+    rejectedLogoSources.set(logoKey, rejected)
+    if (logoSourceCache.get(logoKey) === badSource) logoSourceCache.delete(logoKey)
+    const nextIndex = getNextSourceIndex(logoKey, sources, sourceIndex)
+    setLoaded(false)
+    setSourceIndex(nextIndex)
+  }
 
   return (
     <span
@@ -261,19 +289,21 @@ export function PlatformLogo({ name, className = 'h-5 w-5' }: PlatformLogoProps)
       <span className={`absolute inset-0 flex items-center justify-center bg-slate-50 transition-opacity duration-150 ${loaded ? 'opacity-0' : 'opacity-100'}`}>
         <GenericLogoIcon />
       </span>
-      {source && (
+      {source && sourceIndex >= 0 && (
         <img
+          key={`${logoKey}:${source}`}
           src={source}
           alt=""
           onLoad={(event) => {
             const image = event.currentTarget
             if (image.naturalWidth <= 8 || image.naturalHeight <= 8) {
-              setSourceIndex((index) => index + 1)
+              markSourceRejected(source)
               return
             }
+            logoSourceCache.set(logoKey, source)
             setLoaded(true)
           }}
-          onError={() => setSourceIndex((index) => index + 1)}
+          onError={() => markSourceRejected(source)}
           loading="lazy"
           decoding="async"
           referrerPolicy="no-referrer"

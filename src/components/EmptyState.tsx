@@ -19,10 +19,10 @@ export function EmptyState({ onAddPassword, onImportText }: EmptyStateProps) {
         </svg>
       </div>
 
-      <h3 className="text-base font-bold text-text-primary mb-2">Ninguna contraseña guardada</h3>
+      <h3 className="text-base font-bold text-text-primary mb-2">Aún no tienes elementos aquí</h3>
       
       <p className="text-xs text-text-secondary leading-relaxed mb-8">
-        Esta bóveda está vacía y protegida de forma local. Comienza agregando una credencial o importa tus contraseñas pegando una tabla de Google Docs.
+        Crea uno nuevo aquí ➔ empieza con una credencial cifrada o importa tus contraseñas pegando una tabla de Google Docs.
       </p>
 
       {/* Acciones de onboarding primarias */}
@@ -30,14 +30,14 @@ export function EmptyState({ onAddPassword, onImportText }: EmptyStateProps) {
         <button
           type="button"
           onClick={onAddPassword}
-          className="w-full rounded-xl bg-text-primary hover:opacity-90 py-3 text-xs font-semibold text-white transition-opacity active:scale-[0.98] transition-transform shadow-sm"
+          className="w-full rounded-xl bg-text-primary py-3 text-xs font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:scale-[1.02] hover:shadow-lg active:scale-[0.98]"
         >
           Crear tu primera contraseña
         </button>
         <button
           type="button"
           onClick={onImportText}
-          className="w-full rounded-xl border border-border bg-surface-elevated hover:bg-surface-hover py-3 text-xs font-semibold text-text-primary transition-colors active:scale-[0.98] transition-transform"
+          className="w-full rounded-xl border border-border bg-surface-elevated py-3 text-xs font-semibold text-text-primary transition-all hover:-translate-y-0.5 hover:bg-surface-hover hover:shadow-lg active:scale-[0.98]"
         >
           Importar desde Google Docs / TSV
         </button>
