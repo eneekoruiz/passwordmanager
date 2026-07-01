@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { Platform } from '../types'
 import { accountDisplayName } from '../utils/account'
 import { copyToClipboard } from '../utils/clipboard'
+import { PlatformLogo } from './ui/PlatformLogo'
 
 interface AccountCardProps {
   account: Platform
@@ -21,15 +22,10 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
   }
 
   return (
-    <div
-      className="rounded-xl border border-border-subtle bg-surface-elevated p-4 shadow-subtle transition-colors hover:bg-surface-hover"
-    >
-      <div className="flex items-start justify-between gap-3">
-        <button
-          type="button"
-          onClick={onEdit}
-          className="min-w-0 flex-1 text-left"
-        >
+    <div className="rounded-xl border border-border-subtle bg-surface-elevated p-4 shadow-lg hover:shadow-xl transition-shadow">
+      <div className="flex items-start gap-4">
+        <PlatformLogo name={account.name} className="h-10 w-10 rounded-lg" />
+        <button type="button" onClick={onEdit} className="flex-1 text-left">
           <p className="text-sm font-medium text-text-primary">
             {accountDisplayName(account)}
           </p>
