@@ -896,6 +896,7 @@ function VaultApp() {
               </>
             )}
           </div>
+        </div>
       </div>
 
       {/* Row 2: Search input (only on list view) */}
