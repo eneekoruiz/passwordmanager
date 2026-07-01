@@ -131,15 +131,8 @@ export function PasswordField({
       setShowGeneratorMenu(false)
     }
   }, [])
-
-  const toggleVisibility = () => {
-    const nextVisible = !internalVisible
-    setInternalVisible(nextVisible)
-    if (nextVisible) {
-      onAccess?.()
-    }
-  }
-
+  // toggleVisibility was here, moved inline to avoid eslint bugs
+  
   const handleCopy = async () => {
     onAccess?.()
     const ok = await copyToClipboard(value)
@@ -208,7 +201,12 @@ export function PasswordField({
 
           <button
             type="button"
-            onClick={(e) => { e.preventDefault(); toggleVisibility(); }}
+            onClick={(e) => { 
+              e.preventDefault()
+              const nextVisible = !internalVisible
+              setInternalVisible(nextVisible)
+              if (nextVisible) onAccess?.()
+            }}
             className={`flex h-8 w-8 items-center justify-center rounded-lg transition-colors focus:outline-none focus:ring-2 focus:ring-black/10 ${visible ? 'text-black hover:bg-black/5' : 'text-text-tertiary hover:bg-surface-hover'} hover:text-text-secondary active:scale-95 transition-all duration-150`}
             aria-label={visible ? 'Ocultar contraseña' : 'Mostrar contraseña'}
           >

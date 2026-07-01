@@ -5,7 +5,7 @@ import { useToast } from './ui/ToastProvider'
 export function MasterPasswordPromptModal() {
   const { isPromptingMasterPassword, resolveMasterPasswordPrompt, verifyCurrentMasterPassword } = useVault()
   const [password, setPassword] = useState('')
-  const { showToast } = useToast()
+  const toastContext = useToast()
   const [loading, setLoading] = useState(false)
 
   if (!isPromptingMasterPassword) return null
@@ -13,13 +13,18 @@ export function MasterPasswordPromptModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
-    const valid = await verifyCurrentMasterPassword(password)
-    setLoading(false)
-    if (valid) {
-      resolveMasterPasswordPrompt(true)
-      setPassword('')
-    } else {
-      showToast('Contraseña incorrecta.', 'error')
+    try {
+      const valid = await verifyCurrentMasterPassword(password)
+      if (valid) {
+        resolveMasterPasswordPrompt(true)
+        setPassword('')
+      } else {
+        toastContext.showToast('Contraseña incorrecta.', 'error')
+      }
+    } catch (err) {
+      toastContext.showToast(err instanceof Error ? err.message : 'Error de verificación', 'error')
+    } finally {
+      setLoading(false)
     }
   }
 
