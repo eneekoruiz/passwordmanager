@@ -355,6 +355,8 @@ export function UnlockScreen() {
   const [showNukeModal, setShowNukeModal] = useState(false)
   const [nukeConfirmation, setNukeConfirmation] = useState('')
   const { showToast } = useToast()
+  const [showTerms, setShowTerms] = useState(false)
+  const [showPrivacy, setShowPrivacy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
   const [hardwareKeyLoading, setHardwareKeyLoading] = useState(false)
@@ -423,12 +425,12 @@ export function UnlockScreen() {
       setLoading(true)
       void loginAttempt
         .catch((caughtError) => {
-          showToast(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
+          showToast(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'), 'error')
         })
         .finally(() => setLoading(false))
     } catch (caughtError) {
       setLoading(false)
-      showToast(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'Error al conectar con Google.'), 'error')
     }
   }
 
@@ -454,7 +456,7 @@ export function UnlockScreen() {
     try {
       await sendCloudPasswordResetEmail(emailInput)
     } catch (caughtError) {
-      showToast(getFriendlyErrorMessage(caughtError, 'Error al enviar el correo de restablecimiento de contraseña.'))
+      showToast(getFriendlyErrorMessage(caughtError, 'Error al enviar el correo de restablecimiento de contraseña.'), 'error')
       throw caughtError
     } finally {
       setLoading(false)
@@ -907,7 +909,6 @@ export function UnlockScreen() {
                 onClick={() => {
                   setShowNukeModal(false)
                   setNukeConfirmation('')
-                  
                 }}
                 disabled={loading}
                 className="min-h-11 rounded-xl bg-surface-hover px-4 py-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-active disabled:opacity-50"
@@ -921,6 +922,65 @@ export function UnlockScreen() {
                 className="min-h-11 rounded-xl bg-red-600 px-4 py-3 text-sm font-bold text-white shadow-sm shadow-red-700/20 transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40 active:scale-[0.98]"
               >
                 {loading ? 'Destruyendo...' : 'Destruir todo'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Legal terms footer */}
+      <div className="absolute bottom-6 w-full text-center px-4">
+        <p className="text-[11px] text-text-tertiary">
+          Al usar Contras, aceptas nuestros <button type="button" onClick={() => setShowTerms(true)} className="underline hover:text-text-primary outline-none">Términos de Servicio</button> y <button type="button" onClick={() => setShowPrivacy(true)} className="underline hover:text-text-primary outline-none">Política de Privacidad</button>.
+        </p>
+      </div>
+
+      {showTerms && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-lg max-h-[85vh] overflow-hidden rounded-3xl border border-white/50 bg-white p-0 shadow-2xl flex flex-col">
+            <div className="p-6 border-b border-black/5 flex-shrink-0">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900">Términos de Servicio</h2>
+            </div>
+            <div className="p-6 overflow-y-auto text-sm text-slate-600 space-y-4">
+              <p>Última actualización: 1 de Julio de 2026</p>
+              <h3 className="font-bold text-slate-800">1. Naturaleza del servicio</h3>
+              <p>Contras es un gestor de contraseñas de conocimiento cero. Todos los datos sensibles (contraseñas, notas) se cifran y descifran localmente en el dispositivo del usuario utilizando una Contraseña Maestra que nunca se envía a nuestros servidores.</p>
+              <h3 className="font-bold text-slate-800">2. Responsabilidad del Usuario</h3>
+              <p>Dado que no tenemos acceso a la Contraseña Maestra ni a los datos descifrados, es responsabilidad absoluta del usuario recordar o guardar de forma segura su Contraseña Maestra y/o Frase de Recuperación. La pérdida de ambos resultará en la pérdida irreversible de los datos.</p>
+              <h3 className="font-bold text-slate-800">3. Limitación de Responsabilidad</h3>
+              <p>El servicio se proporciona "tal cual". Contras no será responsable por la pérdida de datos, accesos no autorizados debidos a dispositivos comprometidos, u otros daños indirectos derivados del uso de la aplicación.</p>
+            </div>
+            <div className="p-4 border-t border-black/5 bg-slate-50 flex-shrink-0 flex justify-end">
+              <button type="button" onClick={() => setShowTerms(false)} className="rounded-xl bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-700 active:scale-95">
+                Cerrar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {showPrivacy && (
+        <div className="fixed inset-0 z-[150] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md animate-in fade-in zoom-in-95 duration-200">
+          <div className="w-full max-w-lg max-h-[85vh] overflow-hidden rounded-3xl border border-white/50 bg-white p-0 shadow-2xl flex flex-col">
+            <div className="p-6 border-b border-black/5 flex-shrink-0">
+              <h2 className="text-xl font-bold tracking-tight text-slate-900">Política de Privacidad</h2>
+            </div>
+            <div className="p-6 overflow-y-auto text-sm text-slate-600 space-y-4">
+              <p>Última actualización: 1 de Julio de 2026</p>
+              <h3 className="font-bold text-slate-800">Cifrado de Conocimiento Cero (Zero-Knowledge)</h3>
+              <p>Contras está diseñado bajo el principio de "Conocimiento Cero". Esto significa que cualquier dato sensible (contraseñas, secretos, notas privadas) se cifra localmente en tu dispositivo antes de enviarse a la nube. Nadie, ni siquiera los administradores de Contras, Google (nuestro proveedor de nube) o cualquier tercero, puede descifrar o leer tus datos sin tu Contraseña Maestra.</p>
+              <h3 className="font-bold text-slate-800">Datos que recopilamos (Nube)</h3>
+              <ul className="list-disc pl-5 space-y-1">
+                <li>Dirección de correo electrónico (si usas la sincronización en la nube o inicias sesión con Google/Email).</li>
+                <li>Tu bóveda cifrada, como un bloque opaco de datos (`encrypted_vault_blob`).</li>
+                <li>Metadatos básicos de sincronización (timestamp, contador de plataformas públicas).</li>
+              </ul>
+              <h3 className="font-bold text-slate-800">Uso de Cookies y Almacenamiento Local</h3>
+              <p>Contras utiliza `localStorage` y APIs nativas del navegador (como WebAuthn) para guardar la configuración (ej. modo de ordenación), los datos locales y las llaves biométricas. No usamos cookies de rastreo de terceros (tracking cookies).</p>
+            </div>
+            <div className="p-4 border-t border-black/5 bg-slate-50 flex-shrink-0 flex justify-end">
+              <button type="button" onClick={() => setShowPrivacy(false)} className="rounded-xl bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-700 active:scale-95">
+                Cerrar
               </button>
             </div>
           </div>

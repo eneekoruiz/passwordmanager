@@ -173,6 +173,7 @@ function VaultApp() {
   const [showMobileSortMenu, setShowMobileSortMenu] = useState(false)
   const [showDesktopSortMenu, setShowDesktopSortMenu] = useState(false)
   const [showAddForm, setShowAddForm] = useState(false)
+  const [showUserMenu, setShowUserMenu] = useState(false)
   const [createTrigger, setCreateTrigger] = useState(0)
 
   const handleAddClick = () => {
@@ -821,10 +822,80 @@ function VaultApp() {
             </svg>
           </button>
 
-          {/* Nube Icon (Sync Indicator) */}
-          {CloudSyncIndicator}
+          {/* Avatar Menu Mobile */}
+          <div className="relative shrink-0 flex items-center">
+            <button
+              type="button"
+              onClick={() => setShowUserMenu(!showUserMenu)}
+              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-sm shadow-[0_2px_5px_rgba(0,0,0,0.03)] hover:bg-indigo-100 transition-all active:scale-95"
+              aria-label="Menú de usuario"
+            >
+              {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
+            </button>
+            {showUserMenu && (
+              <>
+                <button
+                  type="button"
+                  tabIndex={-1}
+                  onClick={() => setShowUserMenu(false)}
+                  className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
+                />
+                <div className="absolute right-0 top-[115%] z-50 w-64 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200">
+                  <div className="px-3 py-3 border-b border-black/5 mb-1 bg-slate-50/50 rounded-2xl">
+                    <p className="text-sm font-bold text-slate-900 truncate">{currentProfileName || 'Bóveda Local'}</p>
+                    <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{cloudUserEmail}</p>
+                  </div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => { setShowUserMenu(false); setSettingsOpen(true) }}
+                    className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                      </svg>
+                    </div>
+                    Mi Perfil y Ajustes
+                  </button>
 
-        </div>
+                  <button
+                    type="button"
+                    onClick={() => { setShowUserMenu(false); void handleManualSync() }}
+                    className="flex items-center justify-between w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                        <svg className={`h-4 w-4 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                        </svg>
+                      </div>
+                      Sincronización
+                    </div>
+                    {cloudSyncStatus === 'synced' && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></div>}
+                    {cloudSyncStatus === 'error' && <div className="h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse"></div>}
+                    {cloudSyncStatus === 'out-of-sync' && <div className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></div>}
+                  </button>
+                  
+                  <div className="h-px bg-black/5 my-1 mx-2"></div>
+                  
+                  <button
+                    type="button"
+                    onClick={() => { setShowUserMenu(false); handleLock() }}
+                    className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
+                  >
+                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                      </svg>
+                    </div>
+                    Bloquear Bóveda
+                  </button>
+
+                </div>
+              </>
+            )}
+          </div>
       </div>
 
       {/* Row 2: Search input (only on list view) */}
@@ -1079,32 +1150,79 @@ function VaultApp() {
         </svg>
       </button>
 
-      <button
-        type="button"
-        onClick={handleLock}
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/[0.06] bg-white text-text-secondary shadow-subtle transition-all hover:-translate-y-0.5 hover:scale-105 hover:bg-surface-hover hover:text-text-primary active:scale-[0.98]"
-        aria-label="Bloquear bóveda"
-        title="Bloquear bóveda"
-      >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-        </svg>
-      </button>
+      <div className="relative shrink-0 flex items-center">
+        <button
+          type="button"
+          onClick={() => setShowUserMenu(!showUserMenu)}
+          className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-sm shadow-[0_4px_10px_rgba(0,0,0,0.03)] hover:bg-indigo-100 hover:shadow-md transition-all active:scale-95 ml-2"
+          aria-label="Menú de usuario"
+        >
+          {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
+        </button>
+        {showUserMenu && (
+          <>
+            <button
+              type="button"
+              tabIndex={-1}
+              onClick={() => setShowUserMenu(false)}
+              className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
+            />
+            <div className="absolute right-0 top-[110%] z-50 w-64 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200">
+              <div className="px-3 py-3 border-b border-black/5 mb-1 bg-slate-50/50 rounded-2xl">
+                <p className="text-sm font-bold text-slate-900 truncate">{currentProfileName || 'Bóveda Local'}</p>
+                <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{cloudUserEmail}</p>
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => { setShowUserMenu(false); setSettingsOpen(true) }}
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                  </svg>
+                </div>
+                Mi Perfil y Ajustes
+              </button>
 
-      {CloudSyncIndicator}
+              <button
+                type="button"
+                onClick={() => { setShowUserMenu(false); void handleManualSync() }}
+                className="flex items-center justify-between w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
+                    <svg className={`h-4 w-4 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                    </svg>
+                  </div>
+                  Sincronización
+                </div>
+                {cloudSyncStatus === 'synced' && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></div>}
+                {cloudSyncStatus === 'error' && <div className="h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse"></div>}
+                {cloudSyncStatus === 'out-of-sync' && <div className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></div>}
+              </button>
+              
+              <div className="h-px bg-black/5 my-1 mx-2"></div>
+              
+              <button
+                type="button"
+                onClick={() => { setShowUserMenu(false); handleLock() }}
+                className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
+              >
+                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-600">
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                </div>
+                Bloquear Bóveda
+              </button>
 
-      <button
-        type="button"
-        onClick={() => setSettingsOpen(true)}
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/[0.06] bg-white text-text-primary shadow-subtle transition-all hover:-translate-y-0.5 hover:scale-105 hover:bg-surface-hover active:scale-[0.98]"
-        aria-label="Abrir ajustes"
-        title="Ajustes"
-      >
-        <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-spin text-blue-600' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
-          <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
-        </svg>
-      </button>
+            </div>
+          </>
+        )}
+      </div>
     </header>
   )
 
