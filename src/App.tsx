@@ -874,7 +874,6 @@ function VaultApp() {
                     </div>
                     {cloudSyncStatus === 'synced' && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></div>}
                     {cloudSyncStatus === 'error' && <div className="h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse"></div>}
-                    {cloudSyncStatus === 'out-of-sync' && <div className="h-2.5 w-2.5 rounded-full bg-amber-500 ring-2 ring-white"></div>}
                   </button>
                   
                   <div className="h-px bg-black/5 my-1 mx-2"></div>
