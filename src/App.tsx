@@ -445,6 +445,64 @@ function VaultApp() {
     [displayIdentities],
   )
 
+  const globalSearchResults = useMemo(() => {
+    const query = globalSearchTerm.trim()
+    if (!query) return []
+
+    const results: GlobalSearchResult[] = []
+    for (const identity of displayIdentities) {
+      if (fuzzyMatch(identity.email, query)) {
+        results.push({
+          id: `identity-${identity.id}`,
+          title: identity.email,
+          subtitle: `${identity.platforms.length} plataforma${identity.platforms.length !== 1 ? 's' : ''}`,
+          action: () => handleSelect(identity.id),
+        })
+      }
+
+      for (const platform of identity.platforms) {
+        const haystack = [platform.name, platform.username, identity.email, platform.notes].filter(Boolean).join(' ')
+        if (fuzzyMatch(haystack, query)) {
+          results.push({
+            id: `platform-${identity.id}-${platform.id}`,
+            title: platform.name || 'Cuenta sin nombre',
+            subtitle: platform.username || identity.email,
+            action: () => {
+              requestNavigation(() => {
+                setGroupMode('identity')
+                setSelectedId(identity.id)
+                setSelectedPlatformName(null)
+                setSelectedLocalCategory(null)
+                setSidebarOpen(false)
+              })
+            },
+          })
+        }
+      }
+    }
+
+    for (const item of displayLocalItems) {
+      const label = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
+      const name = vaultItemDisplayName(item)
+      if (fuzzyMatch(`${label} ${name} ${item.title}`, query)) {
+        results.push({
+          id: `local-${item.id}`,
+          title: name,
+          subtitle: label,
+          action: () => handleSelectLocalCategory({
+            id: item.categoryId ?? item.type,
+            label,
+            type: item.type,
+            custom: Boolean(item.categoryId && item.categoryId !== item.type),
+          }),
+        })
+      }
+    }
+
+    return results
+  }, [displayIdentities, displayLocalItems, globalSearchTerm])
+
+
   useEffect(() => {
     if (!isUnlocked) return
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const
@@ -677,63 +735,6 @@ function VaultApp() {
     window.sessionStorage.removeItem('contras.travelMode')
     showToast('Modo Viaje desactivado. La bóveda completa vuelve a estar visible.', 'success')
   }
-
-  const globalSearchResults = useMemo(() => {
-    const query = globalSearchTerm.trim()
-    if (!query) return []
-
-    const results: GlobalSearchResult[] = []
-    for (const identity of displayIdentities) {
-      if (fuzzyMatch(identity.email, query)) {
-        results.push({
-          id: `identity-${identity.id}`,
-          title: identity.email,
-          subtitle: `${identity.platforms.length} plataforma${identity.platforms.length !== 1 ? 's' : ''}`,
-          action: () => handleSelect(identity.id),
-        })
-      }
-
-      for (const platform of identity.platforms) {
-        const haystack = [platform.name, platform.username, identity.email, platform.notes].filter(Boolean).join(' ')
-        if (fuzzyMatch(haystack, query)) {
-          results.push({
-            id: `platform-${identity.id}-${platform.id}`,
-            title: platform.name || 'Cuenta sin nombre',
-            subtitle: platform.username || identity.email,
-            action: () => {
-              requestNavigation(() => {
-                setGroupMode('identity')
-                setSelectedId(identity.id)
-                setSelectedPlatformName(null)
-                setSelectedLocalCategory(null)
-                setSidebarOpen(false)
-              })
-            },
-          })
-        }
-      }
-    }
-
-    for (const item of displayLocalItems) {
-      const label = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
-      const name = vaultItemDisplayName(item)
-      if (fuzzyMatch(`${label} ${name} ${item.title}`, query)) {
-        results.push({
-          id: `local-${item.id}`,
-          title: name,
-          subtitle: label,
-          action: () => handleSelectLocalCategory({
-            id: item.categoryId ?? item.type,
-            label,
-            type: item.type,
-            custom: Boolean(item.categoryId && item.categoryId !== item.type),
-          }),
-        })
-      }
-    }
-
-    return results
-  }, [displayIdentities, displayLocalItems, globalSearchTerm])
 
   const handleLock = () => {
     requestNavigation(() => setLockModalOpen(true))
