@@ -398,11 +398,11 @@ function VaultApp() {
         const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
         return dateA - dateB
       } else if (sortMode === 'access-desc') {
-        const dateA = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0
-        const dateB = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0
+        const dateA = a.updatedAt ? new Date(a.updatedAt).getTime() : 0
+        const dateB = b.updatedAt ? new Date(b.updatedAt).getTime() : 0
         return dateB - dateA
       } else if (sortMode === 'usage-desc') {
-        return (b.accessCount || 0) - (a.accessCount || 0) || a.email.localeCompare(b.email)
+        return (b.platforms?.length || 0) - (a.platforms?.length || 0) || a.email.localeCompare(b.email)
       }
       return 0
     })

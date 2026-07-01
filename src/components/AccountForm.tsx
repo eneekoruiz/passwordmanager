@@ -123,6 +123,7 @@ function AttachmentItem({
   updateAttachment,
   removeAttachment,
   downloadAttachment,
+  onAccess
 }: {
   attachment: FileAttachment
   updateAttachment: (id: string, field: 'name' | 'description', value: string) => void
