@@ -38,6 +38,10 @@ const setPromptState = (state: boolean) => {
   if (typeof window !== 'undefined') {
     // @ts-ignore
     window.__biometricPromptOpen = state
+    if (!state) {
+      // @ts-ignore
+      window.__lastBiometricPromptClose = Date.now()
+    }
   }
 }
 

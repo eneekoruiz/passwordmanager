@@ -544,7 +544,12 @@ function VaultApp() {
     const handleVisibilityChange = () => {
       const blurLockEnabled = window.localStorage.getItem('contras.blurLock') === 'true'
       // @ts-ignore
-      if (blurLockEnabled && document.hidden && !window.__biometricPromptOpen) {
+      const isBiometricActive = window.__biometricPromptOpen
+      // @ts-ignore
+      const timeSinceBiometric = Date.now() - (window.__lastBiometricPromptClose || 0)
+      const recentlyClosedBiometric = timeSinceBiometric < 3000
+
+      if (blurLockEnabled && document.hidden && !isBiometricActive && !recentlyClosedBiometric) {
         lockVault()
         showToast('Sesión bloqueada instantáneamente por desenfoque.', 'info')
       }
