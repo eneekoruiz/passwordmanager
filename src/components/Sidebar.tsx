@@ -228,7 +228,6 @@ export const Sidebar = memo(function Sidebar({
     if (isMobile) return visibleLocalCategories
     return [...visibleLocalCategories]
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
-      .slice(0, 4)
   }, [isMobile, visibleLocalCategories])
 
   const handleAddLocalCategory = async () => {

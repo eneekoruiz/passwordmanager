@@ -1046,8 +1046,8 @@ export function AccountForm({
                     displaySecret = cfg.secret
                   } else if (cfg.type === 'SMS') {
                     displayTitle = 'SMS de Respaldo'
-                    displayDescription = `El segundo factor depende del teléfono vinculado: ${cfg.phone || 'No especificado'}.`
-                    displaySecret = cfg.phone
+                    displayDescription = `El segundo factor depende del teléfono vinculado y el número de teléfono: ${cfg.phone || 'No especificado'}.`
+                    displaySecret = null
                   } else if (cfg.type === 'PIN') {
                     displayTitle = 'PIN de Seguridad'
                     displayDescription = 'PIN de seguridad configurado.'

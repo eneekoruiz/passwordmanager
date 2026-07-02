@@ -117,6 +117,7 @@ export function SettingsModal({
       const [loadingHardwareKey, setLoadingHardwareKey] = useState(false)
   const [hardwareKeyPassword, setHardwareKeyPassword] = useState('')
       const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>('health')
+      const [activeTab, setActiveTab] = useState<'settings' | 'profile'>('settings')
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -487,156 +488,191 @@ export function SettingsModal({
                 </button>
               ) : null}
               {/* Ajustes de Configuración */}
-              <div className="pt-4 space-y-6">
-                
-                {/* PREFERENCIAS */}
-                <section>
-                  <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Preferencias</h3>
-                  <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm">
-                    <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
-                      <div>
-                        <span className="block text-sm font-bold text-slate-800">Ocultar advertencias visuales</span>
-                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">No mostrar alertas naranjas en cuentas débiles.</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        className={checkboxClassName}
-                        checked={hideWeakPasswordWarnings}
-                        onChange={(e) => {
-                          const checked = e.target.checked
-                          setHideWeakPasswordWarnings(checked)
-                          if (checked) {
-                            window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
-                          } else {
-                            window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
-                          }
-                          window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
-                        }}
-                      />
-                    </label>
-                  </div>
-                </section>
-
-                {/* SEGURIDAD Y ACCESO */}
-                <section>
-                  <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Seguridad y Acceso</h3>
-                  <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
-                    <div className="flex w-full items-center justify-between gap-3 p-4">
-                      <div>
-                        <span className="block text-sm font-bold text-slate-800">Bloqueo por inactividad</span>
-                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Tiempo para bloquear automáticamente.</span>
-                      </div>
-                      <select
-                        value={autoLockTimeout}
-                        onChange={(e) => {
-                          const val = parseInt(e.target.value, 10)
-                          setAutoLockTimeout(val)
-                          window.localStorage.setItem('contras.autoLockTimeout', val.toString())
-                          window.dispatchEvent(new Event('contras:auto-lock-changed'))
-                        }}
-                        className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
-                      >
-                        <option value={1}>1 minuto</option>
-                        <option value={5}>5 minutos</option>
-                        <option value={15}>15 minutos</option>
-                        <option value={30}>30 minutos</option>
-                        <option value={0}>Nunca (No recomendado)</option>
-                      </select>
-                    </div>
-
-                    <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
-                      <div>
-                        <span className="block text-sm font-bold text-slate-800">Bloqueo por desenfoque</span>
-                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Bloquear bóveda al cambiar de pestaña.</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        className={checkboxClassName}
-                        checked={blurLock}
-                        onChange={(e) => {
-                          const checked = e.target.checked
-                          setBlurLock(checked)
-                          window.localStorage.setItem('contras.blurLock', checked ? 'true' : 'false')
-                          window.dispatchEvent(new Event('contras:blur-lock-changed'))
-                        }}
-                      />
-                    </label>
-
-                    <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
-                      <div>
-                        <span className="block text-sm font-bold text-slate-800">Requerir clave al revelar</span>
-                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Pedir autenticación al ver/copiar contraseñas.</span>
-                      </div>
-                      <input
-                        type="checkbox"
-                        className={checkboxClassName}
-                        checked={requireSecretAuth}
-                        onChange={(e) => {
-                          const checked = e.target.checked
-                          setRequireSecretAuth(checked)
-                          window.localStorage.setItem('contras.requireSecretAuth', checked ? 'true' : 'false')
-                        }}
-                      />
-                    </label>
-
-                    <MenuItem
-                      title="Credenciales y Recuperación"
-                      subtitle="Cambia tu Contraseña Maestra local."
-                      onClick={() => setView('credentials')}
-                    />
-
-                    {biometricAvailable && (
-                      <MenuItem
-                        title={biometricRegistered ? 'Llave local activada' : 'Activar llave local'}
-                        subtitle={biometricRegistered ? 'Face ID · Huella activos.' : 'Desbloquea rápido usando biometría.'}
-                        onClick={() => { setBiometricPassword(''); setView('biometric') }}
-                      />
-                    )}
-                    {hardwareKeyAvailable && (
-                      <MenuItem
-                        title={hardwareKeyRegistered ? 'Llave Física Activada' : 'Activar Llave Física'}
-                        subtitle={hardwareKeyRegistered ? 'Llave de seguridad FIDO2 (YubiKey) activa.' : 'Registra una llave de seguridad física USB/NFC.'}
-                        onClick={() => { setHardwareKeyPassword(''); setView('hardwareKey') }}
-                      />
-                    )}
-                    <MenuItem
-                      title="Modo Viaje"
-                      subtitle="Oculta bóvedas sensibles al cruzar fronteras."
-                      onClick={() => setView('travel')}
-                    />
-                  </div>
-                </section>
-                
-                {/* DATOS E IMPORTACIÓN */}
-                <section>
-                  <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Datos y Copias de Seguridad</h3>
-                  <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
-                    <MenuItem
-                      title="Importación Masiva (TSV)"
-                      subtitle="Pega filas de Google Docs u Hojas de cálculo."
-                      onClick={() => {
-                        onClose()
-                        onOpenImportText()
-                      }}
-                    />
-                    <MenuItem
-                      title="Restaurar Copia Cifrada"
-                      subtitle="Cargar backup .json"
-                      onClick={() => setView('importBackup')}
-                    />
-                    <MenuItem
-                      title="Crear Copia Cifrada"
-                      subtitle="Descargar backup .json"
-                      onClick={() => setView('exportBackup')}
-                    />
-                    <MenuItem
-                      title="Exportar Texto Plano"
-                      subtitle="CSV o JSON sin cifrar."
-                      onClick={() => setView('exportPlaintext')}
-                    />
-                  </div>
-                </section>
+              {/* Navegación por pestañas */}
+              <div className="flex w-full items-center justify-center gap-1 rounded-xl bg-slate-100/80 p-1">
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('settings')}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${
+                    activeTab === 'settings'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+                >
+                  Ajustes y Seguridad
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setActiveTab('profile')}
+                  className={`flex-1 rounded-lg py-1.5 text-xs font-bold transition-all ${
+                    activeTab === 'profile'
+                      ? 'bg-white text-slate-800 shadow-sm'
+                      : 'text-slate-500 hover:text-slate-700 hover:bg-slate-200/50'
+                  }`}
+                >
+                  Mi Perfil
+                </button>
               </div>
+
+              {activeTab === 'settings' ? (
+                <div className="pt-2 space-y-6 animate-vault-morph">
+                  
+                  {/* PREFERENCIAS */}
+                  <section>
+                    <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Preferencias</h3>
+                    <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm">
+                      <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800">Ocultar advertencias visuales</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">No mostrar alertas naranjas en cuentas débiles.</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className={checkboxClassName}
+                          checked={hideWeakPasswordWarnings}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setHideWeakPasswordWarnings(checked)
+                            if (checked) {
+                              window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                            } else {
+                              window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
+                            }
+                            window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                          }}
+                        />
+                      </label>
+                    </div>
+                  </section>
+
+                  {/* SEGURIDAD Y ACCESO */}
+                  <section>
+                    <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Seguridad y Acceso</h3>
+                    <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
+                      <div className="flex w-full items-center justify-between gap-3 p-4">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800">Bloqueo por inactividad</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Tiempo para bloquear automáticamente.</span>
+                        </div>
+                        <select
+                          value={autoLockTimeout}
+                          onChange={(e) => {
+                            const val = parseInt(e.target.value, 10)
+                            setAutoLockTimeout(val)
+                            window.localStorage.setItem('contras.autoLockTimeout', val.toString())
+                            window.dispatchEvent(new Event('contras:auto-lock-changed'))
+                          }}
+                          className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                        >
+                          <option value={1}>1 minuto</option>
+                          <option value={5}>5 minutos</option>
+                          <option value={15}>15 minutos</option>
+                          <option value={30}>30 minutos</option>
+                          <option value={0}>Nunca (No recomendado)</option>
+                        </select>
+                      </div>
+
+                      <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800">Bloqueo por desenfoque</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Bloquear bóveda al cambiar de pestaña.</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className={checkboxClassName}
+                          checked={blurLock}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setBlurLock(checked)
+                            window.localStorage.setItem('contras.blurLock', checked ? 'true' : 'false')
+                            window.dispatchEvent(new Event('contras:blur-lock-changed'))
+                          }}
+                        />
+                      </label>
+
+                      <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800">Requerir clave al revelar</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Pedir autenticación al ver/copiar contraseñas.</span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className={checkboxClassName}
+                          checked={requireSecretAuth}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setRequireSecretAuth(checked)
+                            window.localStorage.setItem('contras.requireSecretAuth', checked ? 'true' : 'false')
+                          }}
+                        />
+                      </label>
+
+                      {biometricAvailable && (
+                        <MenuItem
+                          title={biometricRegistered ? 'Llave local activada' : 'Activar llave local'}
+                          subtitle={biometricRegistered ? 'Face ID · Huella activos.' : 'Desbloquea rápido usando biometría.'}
+                          onClick={() => { setBiometricPassword(''); setView('biometric') }}
+                        />
+                      )}
+                      {hardwareKeyAvailable && (
+                        <MenuItem
+                          title={hardwareKeyRegistered ? 'Llave Física Activada' : 'Activar Llave Física'}
+                          subtitle={hardwareKeyRegistered ? 'Llave de seguridad FIDO2 (YubiKey) activa.' : 'Registra una llave de seguridad física USB/NFC.'}
+                          onClick={() => { setHardwareKeyPassword(''); setView('hardwareKey') }}
+                        />
+                      )}
+                      <MenuItem
+                        title="Modo Viaje"
+                        subtitle="Oculta bóvedas sensibles al cruzar fronteras."
+                        onClick={() => setView('travel')}
+                      />
+                    </div>
+                  </section>
+                </div>
+              ) : (
+                <div className="pt-2 space-y-6 animate-vault-morph">
+                  {/* DATOS E IMPORTACIÓN */}
+                  <section>
+                    <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Datos y Copias de Seguridad</h3>
+                    <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
+                      <MenuItem
+                        title="Importación Masiva (TSV)"
+                        subtitle="Pega filas de Google Docs u Hojas de cálculo."
+                        onClick={() => {
+                          onClose()
+                          onOpenImportText()
+                        }}
+                      />
+                      <MenuItem
+                        title="Restaurar Copia Cifrada"
+                        subtitle="Cargar backup .json"
+                        onClick={() => setView('importBackup')}
+                      />
+                      <MenuItem
+                        title="Crear Copia Cifrada"
+                        subtitle="Descargar backup .json"
+                        onClick={() => setView('exportBackup')}
+                      />
+                      <MenuItem
+                        title="Exportar Texto Plano"
+                        subtitle="CSV o JSON sin cifrar."
+                        onClick={() => setView('exportPlaintext')}
+                      />
+                    </div>
+                  </section>
+                  
+                  <section>
+                    <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Gestión de Cuenta</h3>
+                    <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
+                      <MenuItem
+                        title="Credenciales y Recuperación"
+                        subtitle="Cambia tu Contraseña Maestra local."
+                        onClick={() => setView('credentials')}
+                      />
+                    </div>
+                  </section>
+                </div>
+              )}
             </div>
           )}
 
