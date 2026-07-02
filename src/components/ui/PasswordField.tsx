@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { copyToClipboard } from '../../utils/clipboard'
+import { generateSecurePassword } from '../../utils/security'
 import { inputClassName } from './FormField'
 
 /**
@@ -27,63 +28,7 @@ interface PasswordFieldProps {
   onAccess?: () => void
 }
 
-/**
- * Genera una contraseña segura de forma criptográficamente aleatoria en el cliente.
- * Garantiza la inclusión de al menos un carácter de cada tipo seleccionado.
- *
- * @param {number} length - Longitud de la contraseña a generar.
- * @param {boolean} uppercase - Incluir mayúsculas (A-Z).
- * @param {boolean} numbers - Incluir números (0-9).
- * @param {boolean} symbols - Incluir símbolos especiales.
- * @returns {string} Contraseña segura resultante.
- */
-function generateSecurePassword(
-  length: number,
-  uppercase: boolean,
-  numbers: boolean,
-  symbols: boolean,
-): string {
-  const lowercaseChars = 'abcdefghijklmnopqrstuvwxyz'
-  const uppercaseChars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-  const numberChars = '0123456789'
-  const symbolChars = '!@#$%^&*()_+-=[]{}|;:,.<>?'
 
-  let chars = lowercaseChars
-  if (uppercase) chars += uppercaseChars
-  if (numbers) chars += numberChars
-  if (symbols) chars += symbolChars
-
-  if (chars.length === 0) return ''
-
-  const bytes = new Uint8Array(length)
-  crypto.getRandomValues(bytes)
-
-  let password = ''
-  for (let i = 0; i < length; i++) {
-    password += chars[bytes[i] % chars.length]
-  }
-
-  // Comprobación de calidad: asegurar que cumpla los requisitos
-  const minRequired = (uppercase ? 1 : 0) + (numbers ? 1 : 0) + (symbols ? 1 : 0) + 1
-  if (length >= minRequired) {
-    let hasUpper = !uppercase
-    let hasNumber = !numbers
-    let hasSymbol = !symbols
-
-    for (const c of password) {
-      if (uppercaseChars.includes(c)) hasUpper = true
-      if (numberChars.includes(c)) hasNumber = true
-      if (symbolChars.includes(c)) hasSymbol = true
-    }
-
-    if (!(hasUpper && hasNumber && hasSymbol)) {
-      // Reintentar de forma recursiva (eficiente en JS debido a la baja probabilidad de fallo repetido)
-      return generateSecurePassword(length, uppercase, numbers, symbols)
-    }
-  }
-
-  return password
-}
 
 const PASSPHRASE_WORDS = [
   'bruma', 'norte', 'cristal', 'mapa', 'luna', 'cedro', 'puente', 'nube',
@@ -142,8 +87,8 @@ export function PasswordField({
     }
   }
 
-  const handleGenerate = (len: number, up: boolean, num: boolean, sym: boolean) => {
-    onChange(generatorMode === 'passphrase' ? generatePassphrase(wordCount) : generateSecurePassword(len, up, num, sym))
+  const handleGenerate = (len: number) => {
+    onChange(generatorMode === 'passphrase' ? generatePassphrase(wordCount) : generateSecurePassword(len))
   }
 
   const prClassName = showGenerator ? 'pr-36' : 'pr-24'
@@ -179,7 +124,7 @@ export function PasswordField({
                 setShowGeneratorMenu((v) => {
                   const next = !v
                   if (next && !value) {
-                    handleGenerate(length, useUppercase, useNumbers, useSymbols)
+                    handleGenerate(length)
                   }
                   return next
                 })
@@ -193,7 +138,7 @@ export function PasswordField({
               aria-label="Generar contraseña"
             >
               <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M9.813 15.904L9 21l8.904-4.452a3 3 0 114.242-4.243L17.25 15.75m-7.437.154L4 12l8.904-4.452a3 3 0 114.242-4.243L13.25 7.75" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 5.5L18.5 7.5L16.5 8.5L18.5 9.5L19.5 11.5L20.5 9.5L22.5 8.5L20.5 7.5L19.5 5.5ZM10.5 15.5L9.5 17.5L7.5 18.5L9.5 19.5L10.5 21.5L11.5 19.5L13.5 18.5L11.5 17.5L10.5 15.5ZM13.13 5.46L18.54 10.87L7.23 22.18L1.82 16.77L13.13 5.46Z" />
               </svg>
               <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">Generar</span>
             </button>
@@ -255,7 +200,7 @@ export function PasswordField({
               </span>
               <button
                 type="button"
-                onClick={() => handleGenerate(length, useUppercase, useNumbers, useSymbols)}
+                onClick={() => handleGenerate(length)}
                 className="rounded-md p-1 text-text-secondary hover:bg-black/5 hover:text-text-primary active:scale-90 transition-all duration-150"
                 title="Regenerar"
               >
@@ -272,7 +217,7 @@ export function PasswordField({
                   type="button"
                   onClick={() => {
                     setGeneratorMode(mode)
-                    onChange(mode === 'passphrase' ? generatePassphrase(wordCount) : generateSecurePassword(length, useUppercase, useNumbers, useSymbols))
+                    onChange(mode === 'passphrase' ? generatePassphrase(wordCount) : generateSecurePassword(length))
                   }}
                   className={`rounded-lg px-2 py-1.5 text-[11px] font-bold transition-all ${
                     generatorMode === mode ? 'bg-text-primary text-white shadow-sm' : 'text-text-secondary hover:bg-surface-hover'
@@ -297,7 +242,7 @@ export function PasswordField({
                 onChange={(e) => {
                   const len = parseInt(e.target.value)
                   setLength(len)
-                  handleGenerate(len, useUppercase, useNumbers, useSymbols)
+                  handleGenerate(len)
                 }}
                 className="w-full h-1 bg-black/5 rounded-lg appearance-none cursor-pointer accent-text-primary focus:outline-none"
               />
@@ -332,7 +277,7 @@ export function PasswordField({
                   onClick={() => {
                     const next = !useUppercase
                     setUseUppercase(next)
-                    handleGenerate(length, next, useNumbers, useSymbols)
+                    handleGenerate(length)
                   }}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     useUppercase ? 'bg-text-primary' : 'bg-black/5'
@@ -353,7 +298,7 @@ export function PasswordField({
                   onClick={() => {
                     const next = !useNumbers
                     setUseNumbers(next)
-                    handleGenerate(length, useUppercase, next, useSymbols)
+                    handleGenerate(length)
                   }}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     useNumbers ? 'bg-text-primary' : 'bg-black/5'
@@ -374,7 +319,7 @@ export function PasswordField({
                   onClick={() => {
                     const next = !useSymbols
                     setUseSymbols(next)
-                    handleGenerate(length, useUppercase, useNumbers, next)
+                    handleGenerate(length)
                   }}
                   className={`relative inline-flex h-5 w-9 shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none ${
                     useSymbols ? 'bg-text-primary' : 'bg-black/5'

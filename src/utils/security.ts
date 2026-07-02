@@ -1,14 +1,95 @@
-export function passwordStrengthReasons(password: string): string[] {
+export function generateSecurePassword(length: number = 16): string {
+  const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+  const lowercase = 'abcdefghijklmnopqrstuvwxyz'
+  const numbers = '0123456789'
+  const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?'
+  
+  const allChars = uppercase + lowercase + numbers + symbols
+  let password = ''
+  
+  // Garantizar al menos uno de cada tipo
+  password += uppercase[Math.floor(Math.random() * uppercase.length)]
+  password += lowercase[Math.floor(Math.random() * lowercase.length)]
+  password += numbers[Math.floor(Math.random() * numbers.length)]
+  password += symbols[Math.floor(Math.random() * symbols.length)]
+  
+  for (let i = 4; i < length; i++) {
+    password += allChars[Math.floor(Math.random() * allChars.length)]
+  }
+  
+  // Shuffle para que no siga siempre el mismo patrón al inicio
+  return password.split('').sort(() => 0.5 - Math.random()).join('')
+}
+
+export function evaluatePassword(password: string): { isWeak: boolean, reasons: string[], recommendations: string[] } {
   const reasons: string[] = []
-  if (password.length < 8) reasons.push('Demasiado corta')
-  if (!/[A-Z]/.test(password)) reasons.push('Sin mayúsculas')
-  if (!/[0-9]/.test(password)) reasons.push('Faltan números')
-  if (!/[^A-Za-z0-9]/.test(password)) reasons.push('Sin caracteres especiales')
-  return reasons
+  const recommendations: string[] = []
+  let isWeak = false
+
+  if (password.length < 8) {
+    isWeak = true
+    reasons.push('Demasiado corta (menos de 8 caracteres)')
+    recommendations.push('Usa al menos 12-16 caracteres para mayor seguridad.')
+  } else if (password.length < 12) {
+    recommendations.push('Considera aumentar la longitud a 12 o más caracteres.')
+  }
+
+  const hasUpper = /[A-Z]/.test(password)
+  const hasLower = /[a-z]/.test(password)
+  const hasNumber = /[0-9]/.test(password)
+  const hasSymbol = /[^A-Za-z0-9]/.test(password)
+
+  if (!hasUpper && !hasLower) {
+    isWeak = true
+    reasons.push('Sin letras (ni mayúsculas ni minúsculas)')
+    recommendations.push('Añade letras mayúsculas y minúsculas.')
+  } else if (!hasUpper) {
+    reasons.push('Sin mayúsculas')
+    recommendations.push('Incluye al menos una letra mayúscula.')
+  } else if (!hasLower) {
+    reasons.push('Sin minúsculas')
+    recommendations.push('Incluye al menos una letra minúscula.')
+  }
+
+  if (!hasNumber) {
+    reasons.push('Sin números')
+    recommendations.push('Añade números para incrementar la complejidad.')
+  }
+  if (!hasSymbol) {
+    reasons.push('Sin símbolos o caracteres especiales')
+    recommendations.push('Añade caracteres especiales (ej. !@#$%^&*).')
+  }
+
+  // Comprobar caracteres repetidos (ej. aaaaa, 1111)
+  if (/(.)\1{2,}/.test(password)) {
+    isWeak = true
+    reasons.push('Contiene caracteres idénticos repetidos secuencialmente')
+    recommendations.push('Evita usar el mismo carácter varias veces seguidas.')
+  }
+
+  // Comprobar secuencias de teclado o diccionario comunes muy obvias
+  const commonSequences = ['12345', 'qwerty', 'asdfg', 'zxcvb', 'password', 'admin', '123123', 'qazwsx']
+  const lowerPw = password.toLowerCase()
+  if (commonSequences.some(seq => lowerPw.includes(seq))) {
+    isWeak = true
+    reasons.push('Contiene secuencias comunes o fáciles de adivinar')
+    recommendations.push('No uses palabras del diccionario o secuencias de teclado predecibles.')
+  }
+
+  // Si tiene menos de 10 caracteres y no tiene los 4 tipos, es inherentemente débil hoy en día
+  if (password.length < 10 && !(hasUpper && hasLower && hasNumber && hasSymbol)) {
+    isWeak = true
+  }
+
+  return { isWeak, reasons, recommendations }
+}
+
+export function passwordStrengthReasons(password: string): string[] {
+  return evaluatePassword(password).reasons
 }
 
 export function passwordStrengthIssue(password: string): boolean {
-  return passwordStrengthReasons(password).length > 0
+  return evaluatePassword(password).isWeak
 }
 
 export function hasWeakPassword(platform: any): boolean {

@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
-import { passwordStrengthIssue, passwordStrengthReasons } from '../utils/security'
+import { passwordStrengthIssue, evaluatePassword, generateSecurePassword } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 
 type PlaintextExportFormat = 'csv' | 'json'
@@ -104,6 +104,7 @@ export function SettingsModal({
   const [plaintextExportError, setPlaintextExportError] = useState<string | null>(null)
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
   const [weakPasswordsModalOpen, setWeakPasswordsModalOpen] = useState(false)
+  const [selectedWeakPasswords, setSelectedWeakPasswords] = useState<string[]>([])
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
       
@@ -1144,7 +1145,7 @@ export function SettingsModal({
       </div>
       {weakPasswordsModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
-          <div className="flex max-h-[82vh] w-full max-w-lg flex-col rounded-3xl border border-amber-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
+          <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-amber-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold tracking-tight text-text-primary">Contraseñas débiles</h2>
@@ -1161,43 +1162,133 @@ export function SettingsModal({
                 </svg>
               </button>
             </div>
-            <div className="min-h-0 flex-1 space-y-2 overflow-y-auto pr-1 scrollbar-thin">
+            
+            {weakPasswords.length > 0 && (
+              <div className="mb-3 flex items-center justify-between rounded-xl bg-surface p-3">
+                <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-amber-600 focus:ring-amber-500"
+                    checked={selectedWeakPasswords.length === weakPasswords.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedWeakPasswords(weakPasswords.map(wp => `${wp.identityEmail}-${wp.platform!.id}`))
+                      } else {
+                        setSelectedWeakPasswords([])
+                      }
+                    }}
+                  />
+                  Seleccionar Todas
+                </label>
+                <button
+                  type="button"
+                  disabled={selectedWeakPasswords.length === 0}
+                  onClick={async () => {
+                    for (const wpId of selectedWeakPasswords) {
+                      const [email, platformId] = wpId.split('-')
+                      const identity = identities.find(id => id.email === email)
+                      const platform = weakPasswords.find(wp => wp.platform?.id === platformId)?.platform
+                      if (identity && platform) {
+                        await onUpdatePlatform?.(identity.id, platform.id, { ...platform, ignoreWeakPasswordWarning: true })
+                      }
+                    }
+                    showToast(`${selectedWeakPasswords.length} aviso(s) ignorado(s).`, 'success')
+                    setSelectedWeakPasswords([])
+                  }}
+                  className="rounded-lg bg-amber-100 px-4 py-2 text-xs font-bold text-amber-800 transition-colors hover:bg-amber-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ignorar Seleccionadas
+                </button>
+              </div>
+            )}
+
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
               {weakPasswords.map((entry) => {
-                const reasons = passwordStrengthReasons(entry?.password || '')
+                const password = entry?.password || ''
+                const { reasons, recommendations } = evaluatePassword(password)
+                const platformId = entry?.platform?.id
+                const key = `${entry?.identityEmail}-${platformId}`
+                const isSelected = selectedWeakPasswords.includes(key)
+
                 return (
-                  <div key={entry?.platform?.id || `${entry?.identityEmail}-${entry?.platform?.name}`} className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 relative group">
-                    <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0 pr-8">
-                        <p className="truncate text-sm font-bold text-amber-950">{entry?.platform?.name || 'Plataforma desconocida'}</p>
-                        <p className="mt-0.5 truncate text-[11px] font-medium text-amber-800">{entry?.identityEmail || 'Identidad sin email'}</p>
-                      </div>
-                      <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-amber-900 shadow-sm">Débil</span>
-                    </div>
-                    <p className="mt-2 text-[11px] font-medium leading-relaxed text-amber-900 pr-8">
-                      {reasons.length > 0 ? reasons.join(', ') : 'No cumple la política mínima de seguridad'}.
-                    </p>
-                    {onUpdatePlatform && entry?.identityEmail && entry?.platform?.id && (
-                      <button
-                        type="button"
-                        onClick={async () => {
-                          const identity = identities.find(id => id.email === entry.identityEmail)
-                          if (identity) {
-                            await onUpdatePlatform(identity.id, entry.platform!.id, { ...entry.platform, ignoreWeakPasswordWarning: true })
-                            showToast('Aviso de contraseña débil ignorado para esta cuenta.', 'success')
-                          }
+                  <div key={key} className={`rounded-2xl border ${isSelected ? 'border-amber-400 ring-2 ring-amber-400/20' : 'border-amber-100'} bg-amber-50/50 p-4 transition-all group`}>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-amber-600 focus:ring-amber-500 cursor-pointer"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedWeakPasswords([...selectedWeakPasswords, key])
+                          else setSelectedWeakPasswords(selectedWeakPasswords.filter(id => id !== key))
                         }}
-                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-amber-600/50 opacity-0 transition-all hover:bg-amber-100/80 hover:text-amber-800 group-hover:opacity-100"
-                        title="Ignorar esta contraseña débil"
-                        aria-label="Ignorar esta contraseña débil"
-                      >
-                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                        </svg>
-                      </button>
-                    )}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-amber-950">{entry?.platform?.name || 'Plataforma desconocida'}</p>
+                            <p className="mt-0.5 truncate text-[11px] font-medium text-amber-800">{entry?.identityEmail || 'Identidad sin email'}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-amber-900 shadow-sm">Débil</span>
+                        </div>
+                        
+                        <div className="mt-3 space-y-2">
+                          <div className="rounded-lg bg-white/60 p-2 text-[11px] text-amber-900">
+                            <strong>Problemas detectados:</strong>
+                            <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                              {reasons.length > 0 ? reasons.map((r, i) => <li key={i}>{r}</li>) : <li>No cumple la política de seguridad</li>}
+                            </ul>
+                          </div>
+                          {recommendations.length > 0 && (
+                            <div className="rounded-lg bg-white/60 p-2 text-[11px] text-emerald-800">
+                              <strong>Sugerencias:</strong>
+                              <ul className="mt-1 list-disc pl-4 space-y-0.5">
+                                {recommendations.map((r, i) => <li key={i}>{r}</li>)}
+                              </ul>
+                            </div>
+                          )}
+                        </div>
+
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          {onUpdatePlatform && entry?.identityEmail && platformId && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const identity = identities.find(id => id.email === entry.identityEmail)
+                                if (identity) {
+                                  await onUpdatePlatform(identity.id, platformId, { ...entry.platform!, ignoreWeakPasswordWarning: true })
+                                  showToast('Aviso de contraseña débil ignorado.', 'success')
+                                }
+                              }}
+                              className="rounded-lg border border-amber-200 bg-white px-3 py-1.5 text-xs font-semibold text-amber-800 shadow-sm transition-colors hover:bg-amber-100"
+                            >
+                              Ignorar este aviso
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              const newPw = generateSecurePassword(16)
+                              navigator.clipboard.writeText(newPw)
+                              showToast('Contraseña sugerida copiada al portapapeles', 'success')
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                            </svg>
+                            Generar y copiar sugerencia
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
                 )
               })}
+              {weakPasswords.length === 0 && (
+                <div className="py-8 text-center text-sm text-text-tertiary">
+                  ¡No se encontraron contraseñas débiles!
+                </div>
+              )}
             </div>
           </div>
         </div>
