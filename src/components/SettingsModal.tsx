@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
-import { passwordStrengthIssue, evaluatePassword, generateSecurePassword } from '../utils/security'
+import { passwordStrengthIssue, evaluatePassword, generateSecurePassword, checkPasswordBreach } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 
 type PlaintextExportFormat = 'csv' | 'json'
@@ -105,6 +105,12 @@ export function SettingsModal({
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
   const [weakPasswordsModalOpen, setWeakPasswordsModalOpen] = useState(false)
   const [selectedWeakPasswords, setSelectedWeakPasswords] = useState<string[]>([])
+  
+  const [breachedPasswords, setBreachedPasswords] = useState<Array<{ identityEmail: string, platform: Identity['platforms'][number], count: number }>>([])
+  const [isCheckingBreaches, setIsCheckingBreaches] = useState(false)
+  const [lastBreachCheck, setLastBreachCheck] = useState<string | null>(null)
+  const [breachAuditModalOpen, setBreachAuditModalOpen] = useState(false)
+  
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
       
@@ -133,8 +139,40 @@ export function SettingsModal({
       setBiometricPassword('')
       setHardwareKeyPassword('')
       setBackupFile(null)
+      setBreachedPasswords([])
     }
   }, [])
+  
+  const performBreachAudit = async () => {
+    setIsCheckingBreaches(true)
+    const newBreached: Array<{ identityEmail: string, platform: Identity['platforms'][number], count: number }> = []
+    
+    const allAccounts = (identities || []).flatMap((identity) =>
+      (identity?.platforms || []).map((platform) => ({
+        identityEmail: identity?.email,
+        platform,
+        password: passwordForPlatform(platform),
+      }))
+    )
+    
+    for (const acc of allAccounts) {
+      if (acc.password) {
+        const count = await checkPasswordBreach(acc.password)
+        if (count > 0) {
+          newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
+        }
+      }
+    }
+    
+    setBreachedPasswords(newBreached)
+    setLastBreachCheck(new Date().toISOString())
+    setIsCheckingBreaches(false)
+    if (newBreached.length > 0) {
+      setBreachAuditModalOpen(true)
+    } else {
+      showToast('¡Felicidades! Ninguna de tus contraseñas aparece en filtraciones públicas.', 'success')
+    }
+  }
 
   const selectedIdentities =
     selectedIdentityIds.length === 0
@@ -483,11 +521,42 @@ export function SettingsModal({
                 >
                   <span>
                     <span className="block text-sm font-black text-amber-900">{weakPasswords.length} Contraseñas Débiles Detectadas</span>
-                    <span className="mt-0.5 block text-[11px] font-medium text-amber-800">Revisar plataformas, identidades y motivo de debilidad.</span>
+                    <span className="mt-0.5 block text-[11px] font-medium text-amber-800">Revisar algoritmicamente longitud y complejidad.</span>
                   </span>
                   <span className="shrink-0 rounded-xl bg-white/80 px-3 py-1.5 text-[11px] font-bold text-amber-900 shadow-sm">Revisar</span>
                 </button>
               ) : null}
+
+              <button
+                type="button"
+                onClick={performBreachAudit}
+                disabled={isCheckingBreaches}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-red-100 bg-slate-50 p-3 text-left transition-all hover:bg-slate-100 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+              >
+                <span>
+                  <span className="block text-sm font-black text-slate-900 flex items-center gap-2">
+                    Auditoría de Contraseñas Expuestas
+                    {isCheckingBreaches && (
+                      <svg className="h-4 w-4 animate-spin text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className="mt-0.5 block text-[11px] font-medium text-slate-500">
+                    {lastBreachCheck 
+                      ? `Última revisión: ${new Date(lastBreachCheck).toLocaleDateString()}` 
+                      : 'Busca tus contraseñas en filtraciones mundiales (Pwned)'}
+                  </span>
+                </span>
+                {breachedPasswords.length > 0 && !isCheckingBreaches ? (
+                  <span className="shrink-0 rounded-xl bg-red-100 px-3 py-1.5 text-[11px] font-bold text-red-900 shadow-sm flex items-center gap-1">
+                    <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse"></span>
+                    {breachedPasswords.length}
+                  </span>
+                ) : (
+                  <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm border border-black/5">Escanear</span>
+                )}
+              </button>
               {/* Ajustes de Configuración */}
               {/* Navegación por pestañas */}
               <div className="flex w-full items-center justify-center gap-1 rounded-xl bg-slate-100/80 p-1">
@@ -1289,6 +1358,62 @@ export function SettingsModal({
                   ¡No se encontraron contraseñas débiles!
                 </div>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+      {breachAuditModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-vault-morph">
+          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
+            <header className="border-b border-black/5 bg-slate-50/50 px-6 py-4 flex items-center justify-between">
+              <div>
+                <h3 className="font-bold text-slate-900">Resultados de Auditoría</h3>
+                <p className="text-[11px] font-medium text-slate-500">Filtraciones en Have I Been Pwned</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setBreachAuditModalOpen(false)}
+                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-slate-500 hover:bg-black/10 hover:text-slate-900"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
+            </header>
+            <div className="max-h-[420px] overflow-y-auto p-2 scrollbar-thin">
+              {breachedPasswords.map((entry) => {
+                const key = `${entry.identityEmail}-${entry.platform.id}`
+                return (
+                  <div key={key} className="flex gap-4 rounded-2xl p-3 transition-colors hover:bg-slate-50">
+                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
+                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                    </div>
+                    <div className="flex-1 overflow-hidden pt-0.5">
+                      <div className="flex items-center justify-between">
+                        <p className="truncate text-sm font-bold text-slate-900">{entry.platform.name}</p>
+                        <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black text-red-700">
+                          {entry.count.toLocaleString()} filtraciones
+                        </span>
+                      </div>
+                      <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{entry.identityEmail}</p>
+                      <p className="mt-1 text-[11px] font-medium leading-relaxed text-red-600/90">
+                        ¡Cámbiala de inmediato! Esta contraseña circula públicamente por internet.
+                      </p>
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+            <div className="border-t border-black/5 p-4 bg-slate-50/50">
+              <button
+                type="button"
+                onClick={() => setBreachAuditModalOpen(false)}
+                className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-slate-800"
+              >
+                Entendido
+              </button>
             </div>
           </div>
         </div>
