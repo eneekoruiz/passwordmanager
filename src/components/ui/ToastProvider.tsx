@@ -162,13 +162,15 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
   }
 
   const opacity = dragging ? Math.max(0.35, 1 - (Math.abs(dragX) + Math.abs(dragY)) / 180) : 1
+  const exitY = dragY < -20 ? dragY - 100 : -48
+  const exitX = Math.abs(dragX) > 20 ? (dragX > 0 ? dragX + 150 : dragX - 150) : dragX
   const transform = isExiting
-    ? `translate3d(${dragX}px, -18px, 0) scale(0.96)`
+    ? `translate3d(${exitX}px, ${exitY}px, 0) scale(0.92)`
     : `translate3d(${dragX}px, ${dragY}px, 0)`
 
   return (
     <div
-      className={`pointer-events-auto relative flex min-h-14 w-full touch-pan-y select-none items-start gap-3 overflow-hidden rounded-2xl border bg-white/95 px-3.5 py-3 shadow-[0_14px_44px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[opacity,transform] before:absolute before:inset-y-0 before:left-0 before:w-1 ${typeStyles[toast.type]} ${isExiting ? 'opacity-0' : 'animate-fade-in-down'}`}
+      className={`pointer-events-auto relative flex min-h-14 w-full touch-none select-none items-start gap-3 overflow-hidden rounded-2xl border bg-white/95 px-3.5 py-3 shadow-[0_14px_44px_rgba(15,23,42,0.14)] backdrop-blur-xl transition-[opacity,transform] before:absolute before:inset-y-0 before:left-0 before:w-1 ${typeStyles[toast.type]} ${isExiting ? 'opacity-0' : 'animate-fade-in-down'}`}
       style={{ transform, opacity, transitionDuration: dragging ? '0ms' : '220ms' }}
       role="status"
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}

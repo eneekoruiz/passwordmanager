@@ -82,6 +82,19 @@ export function MasterPasswordPromptModal() {
               </button>
             </div>
           </form>
+
+          <div className="text-center mt-5">
+            <button
+              type="button"
+              onClick={() => {
+                resolveMasterPasswordPrompt(false)
+                window.dispatchEvent(new Event('contras:open-settings'))
+              }}
+              className="text-[11px] font-semibold text-indigo-600 transition-colors hover:text-indigo-800"
+            >
+              ¿No quieres que te pida la clave cada vez? Desactívalo en Ajustes
+            </button>
+          </div>
         </div>
       </div>
     </div>

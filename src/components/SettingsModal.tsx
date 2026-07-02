@@ -74,6 +74,17 @@ export function SettingsModal({
   const [hideWeakPasswordWarnings, setHideWeakPasswordWarnings] = useState(() => {
     return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
   })
+  const [requireSecretAuth, setRequireSecretAuth] = useState(() => {
+    return typeof window !== 'undefined' && window.localStorage.getItem('contras.requireSecretAuth') !== 'false'
+  })
+  const [autoLockTimeout, setAutoLockTimeout] = useState(() => {
+    if (typeof window === 'undefined') return 5
+    const val = window.localStorage.getItem('contras.autoLockTimeout')
+    return val ? parseInt(val, 10) : 5
+  })
+  const [blurLock, setBlurLock] = useState(() => {
+    return typeof window !== 'undefined' && window.localStorage.getItem('contras.blurLock') === 'true'
+  })
   const [plaintextFormat, setPlaintextFormat] = useState<PlaintextExportFormat>('csv')
   const [selectedIdentityIds, setSelectedIdentityIds] = useState<string[]>([])
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
@@ -423,45 +434,40 @@ export function SettingsModal({
         <div className="max-h-[420px] space-y-4 overflow-y-auto pr-1 scrollbar-thin">
           {view === 'health' && (
             <div className="space-y-4 animate-vault-morph">
-              {/* Puntuación de Seguridad */}
-              <div className="flex items-center justify-between rounded-3xl border border-black/[0.06] bg-gradient-to-br from-white to-slate-50 p-4 shadow-sm">
-                <div>
-                  <h3 className="text-xs font-bold uppercase tracking-wider text-text-primary">Puntuación de Seguridad</h3>
-                  <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">Basado en auditoría Zero-Knowledge</p>
+              {/* Puntuación y Resumen de Seguridad Integrados */}
+              <div className="overflow-hidden rounded-3xl border border-black/[0.05] bg-white shadow-[0_12px_40px_rgba(15,23,42,0.06)]">
+                {/* Header de la tarjeta */}
+                <div className="bg-gradient-to-br from-indigo-500 to-purple-600 px-5 py-6 text-white relative overflow-hidden">
+                  <div className="absolute inset-0 bg-[url('data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMjAiIGhlaWdodD0iMjAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PGNpcmNsZSBjeD0iMiIgY3k9IjIiIHI9IjIiIGZpbGw9IiNmZmZmZmYiIGZpbGwtb3BhY2l0eT0iMC4wNSIvPjwvc3ZnPg==')] opacity-30"></div>
+                  <div className="relative flex items-center justify-between">
+                    <div className="max-w-[70%]">
+                      <h3 className="text-[13px] font-bold uppercase tracking-[0.15em] text-indigo-100">Auditoría de Seguridad</h3>
+                      <h4 className="mt-1 text-lg font-black leading-tight">Tu Bóveda está protegida</h4>
+                      <p className="mt-1.5 text-xs text-indigo-100 leading-relaxed">
+                        <span className="font-semibold text-white">{totalAccountsCount}</span> cuentas en total. <span className="font-semibold text-white">{totalPasswordsCount}</span> usan contraseña, de las cuales <span className="font-semibold text-emerald-300">{securePasswordsCount}</span> son fuertes.
+                      </p>
+                    </div>
+                    <div className="flex h-16 w-16 shrink-0 flex-col items-center justify-center rounded-[1.25rem] bg-white text-indigo-600 shadow-xl ring-4 ring-white/20">
+                      <span className="text-[10px] font-black uppercase tracking-widest text-indigo-300">Score</span>
+                      <span className="text-2xl font-black leading-none mt-0.5">{healthScore}</span>
+                    </div>
+                  </div>
                 </div>
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-text-primary text-lg font-black text-white shadow-[0_8px_20px_rgba(15,23,42,0.16)]">
-                  {healthScore}
-                </div>
-              </div>
 
-              {/* Psicología Positiva */}
-              <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4 flex items-start gap-3 shadow-sm">
-                <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-emerald-600 text-white mt-0.5">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.745 3.745 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
-                  </svg>
-                </div>
-                <div>
-                  <h4 className="text-xs font-bold text-emerald-950">Tu Bóveda está protegida</h4>
-                  <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
-                    Tienes <span className="font-bold">{totalAccountsCount}</span> cuentas totales. <span className="font-bold">{totalPasswordsCount}</span> usan contraseña, de las cuales <span className="font-bold">{securePasswordsCount}</span> son seguras.
-                  </p>
-                </div>
-              </div>
-
-              {/* Grid de Auditoría */}
-              <div className="grid grid-cols-3 gap-2">
-                <div className="rounded-2xl border border-red-100 bg-red-50 p-3">
-                  <p className="text-lg font-black text-red-700">{reusedPasswords.length}</p>
-                  <p className="text-[10px] font-bold text-red-700">Reutilizadas</p>
-                </div>
-                <div className="rounded-2xl border border-amber-100 bg-amber-50 p-3">
-                  <p className="text-lg font-black text-amber-800">{weakPasswords.length}</p>
-                  <p className="text-[10px] font-bold text-amber-800">Débiles</p>
-                </div>
-                <div className="rounded-2xl border border-blue-100 bg-blue-50 p-3">
-                  <p className="text-lg font-black text-blue-800">{oldPasswords.length}</p>
-                  <p className="text-[10px] font-bold text-blue-800">Antiguas</p>
+                {/* Grid de Auditoría (Inside the same card) */}
+                <div className="grid grid-cols-3 divide-x divide-black/[0.05] bg-slate-50/50">
+                  <div className="p-4 text-center transition-colors hover:bg-white">
+                    <p className="text-2xl font-black text-red-600">{reusedPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800">Reutilizadas</p>
+                  </div>
+                  <div className="p-4 text-center transition-colors hover:bg-white">
+                    <p className="text-2xl font-black text-amber-500">{weakPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">Débiles</p>
+                  </div>
+                  <div className="p-4 text-center transition-colors hover:bg-white">
+                    <p className="text-2xl font-black text-blue-500">{oldPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">Antiguas</p>
+                  </div>
                 </div>
               </div>
 
@@ -500,6 +506,66 @@ export function SettingsModal({
                         window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
                       }
                       window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                    }}
+                  />
+                </label>
+
+                <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3 transition-colors hover:bg-surface-hover cursor-pointer">
+                  <div>
+                    <span className="block text-sm font-bold text-text-primary">Requerir clave al revelar secretos</span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">Solicitar contraseña maestra, huella o Face ID al ver/copiar contraseñas.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className={checkboxClassName}
+                    checked={requireSecretAuth}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setRequireSecretAuth(checked)
+                      window.localStorage.setItem('contras.requireSecretAuth', checked ? 'true' : 'false')
+                    }}
+                  />
+                </label>
+
+                <div className="flex w-full flex-col gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3">
+                  <div className="flex w-full items-center justify-between gap-3">
+                    <div>
+                      <span className="block text-sm font-bold text-text-primary">Bloqueo por inactividad</span>
+                      <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">Tiempo tras el cual la bóveda se bloqueará si no interactúas con ella.</span>
+                    </div>
+                    <select
+                      value={autoLockTimeout}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value, 10)
+                        setAutoLockTimeout(val)
+                        window.localStorage.setItem('contras.autoLockTimeout', val.toString())
+                        window.dispatchEvent(new Event('contras:auto-lock-changed'))
+                      }}
+                      className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-sm font-medium text-text-primary outline-none focus:border-black/20 focus:ring-2 focus:ring-black/5"
+                    >
+                      <option value={1}>1 minuto</option>
+                      <option value={5}>5 minutos</option>
+                      <option value={15}>15 minutos</option>
+                      <option value={30}>30 minutos</option>
+                      <option value={0}>Nunca (No recomendado)</option>
+                    </select>
+                  </div>
+                </div>
+
+                <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3 transition-colors hover:bg-surface-hover cursor-pointer">
+                  <div>
+                    <span className="block text-sm font-bold text-text-primary">Bloqueo instantáneo por desenfoque</span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">Bloquear automáticamente la bóveda al cambiar de pestaña o minimizar la app.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className={checkboxClassName}
+                    checked={blurLock}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setBlurLock(checked)
+                      window.localStorage.setItem('contras.blurLock', checked ? 'true' : 'false')
+                      window.dispatchEvent(new Event('contras:blur-lock-changed'))
                     }}
                   />
                 </label>

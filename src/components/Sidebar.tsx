@@ -568,9 +568,8 @@ export const Sidebar = memo(function Sidebar({
                           <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Todas tus plataformas cloud</span>
                         </span>
                       </span>
-                      <span className="flex shrink-0 flex-col items-end rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.04]">
-                        <span className="text-lg font-black leading-none tabular-nums text-text-primary">{platformSummaries.length}</span>
-                        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-text-tertiary">Plataformas</span>
+                      <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04]">
+                        {platformSummaries.length}
                       </span>
                     </button>
                     {searchQuery ? (
@@ -620,9 +619,8 @@ export const Sidebar = memo(function Sidebar({
                           <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Correos y perfiles cloud</span>
                         </span>
                       </span>
-                      <span className="flex shrink-0 flex-col items-end rounded-xl bg-white px-3 py-2 shadow-sm ring-1 ring-black/[0.04]">
-                        <span className="text-lg font-black leading-none tabular-nums text-text-primary">{visibleIdentities.length}</span>
-                        <span className="mt-0.5 text-[10px] font-bold uppercase tracking-[0.12em] text-text-tertiary">Identidades</span>
+                      <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04]">
+                        {visibleIdentities.length}
                       </span>
                     </button>
                     {searchQuery ? (

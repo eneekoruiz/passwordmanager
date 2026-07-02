@@ -520,27 +520,93 @@ function VaultApp() {
     const events = ['mousemove', 'mousedown', 'keydown', 'touchstart', 'scroll'] as const
     let timer: number | null = null
 
+    const lockVault = () => {
+      logoutProfile()
+      setSelectedId(null)
+      setSelectedPlatformName(null)
+      setSelectedLocalCategory(null)
+      setGlobalSearchTerm('')
+      setLocalSearchTerm('')
+    }
+
     const resetTimer = () => {
       if (timer !== null) window.clearTimeout(timer)
+      
+      const val = window.localStorage.getItem('contras.autoLockTimeout')
+      const timeoutMins = val ? parseInt(val, 10) : 5
+      
+      if (timeoutMins === 0) return
+
       timer = window.setTimeout(() => {
-        logoutProfile()
-        setSelectedId(null)
-        setSelectedPlatformName(null)
-        setSelectedLocalCategory(null)
-        setGlobalSearchTerm('')
-        setLocalSearchTerm('')
+        lockVault()
         showToast('Sesión bloqueada automáticamente por inactividad.', 'info')
-      }, 5 * 60 * 1000)
+      }, timeoutMins * 60 * 1000)
+    }
+
+    const handleVisibilityChange = () => {
+      const blurLockEnabled = window.localStorage.getItem('contras.blurLock') === 'true'
+      if (blurLockEnabled && document.hidden) {
+        lockVault()
+        showToast('Sesión bloqueada instantáneamente por desenfoque.', 'info')
+      }
+    }
+
+    const handleConfigChange = () => {
+      resetTimer()
     }
 
     events.forEach((event) => window.addEventListener(event, resetTimer, { passive: true }))
+    document.addEventListener('visibilitychange', handleVisibilityChange)
+    window.addEventListener('contras:auto-lock-changed', handleConfigChange)
+    window.addEventListener('contras:blur-lock-changed', handleConfigChange)
+    
     resetTimer()
 
     return () => {
       if (timer !== null) window.clearTimeout(timer)
       events.forEach((event) => window.removeEventListener(event, resetTimer))
+      document.removeEventListener('visibilitychange', handleVisibilityChange)
+      window.removeEventListener('contras:auto-lock-changed', handleConfigChange)
+      window.removeEventListener('contras:blur-lock-changed', handleConfigChange)
     }
-  }, [isUnlocked, logoutProfile])
+  }, [isUnlocked, logoutProfile, showToast])
+
+  useEffect(() => {
+    const handleOpenSettings = () => setSettingsOpen(true)
+    const handleClipboardCleared = () => showToast('Portapapeles limpiado por seguridad', 'info')
+    
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'l') {
+        e.preventDefault()
+        window.dispatchEvent(new Event('contras:lock-vault'))
+      }
+      if ((e.ctrlKey || e.metaKey) && e.key.toLowerCase() === 'k') {
+        e.preventDefault()
+        if (isUnlocked) {
+          const searchInput = document.getElementById('global-search-input')
+          if (searchInput) searchInput.focus()
+        }
+      }
+      if (e.key === 'Escape') {
+        const searchInput = document.getElementById('global-search-input') as HTMLInputElement | null
+        if (searchInput && document.activeElement === searchInput) {
+          searchInput.value = ''
+          searchInput.dispatchEvent(new Event('input', { bubbles: true }))
+          searchInput.blur()
+        }
+      }
+    }
+
+    window.addEventListener('contras:open-settings', handleOpenSettings)
+    window.addEventListener('clipboard:cleared', handleClipboardCleared)
+    window.addEventListener('keydown', handleKeyDown)
+    
+    return () => {
+      window.removeEventListener('contras:open-settings', handleOpenSettings)
+      window.removeEventListener('clipboard:cleared', handleClipboardCleared)
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [showToast, isUnlocked])
 
   useEffect(() => {
     if (!unsavedDirty && !hasUnsyncedChanges) return
@@ -557,11 +623,19 @@ function VaultApp() {
   useEffect(() => {
     if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
     if (typeof window === 'undefined') return
-    if (window.localStorage.getItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`) === 'true') return
+    if (window.localStorage.getItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`) === 'true') return
 
-    const timer = window.setTimeout(() => setBiometricPromptOpen(true), 900)
+    const timer = window.setTimeout(() => setBiometricPromptOpen(true), 1500)
     return () => window.clearTimeout(timer)
   }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
+
+  const prevSyncStatusRef = useRef(cloudSyncStatus)
+  useEffect(() => {
+    if (prevSyncStatusRef.current === 'syncing' && cloudSyncStatus === 'idle' && isOnline) {
+      showToast('Bóveda sincronizada correctamente con la nube.', 'success')
+    }
+    prevSyncStatusRef.current = cloudSyncStatus
+  }, [cloudSyncStatus, isOnline, showToast])
 
   if (!mounted || !isReady) {
     return (
@@ -666,7 +740,7 @@ function VaultApp() {
 
   const dismissBiometricPrompt = () => {
     if (currentProfileId) {
-      window.localStorage.setItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`, 'true')
+      window.localStorage.setItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`, 'true')
     }
     setBiometricPromptOpen(false)
     setBiometricPromptPassword('')
@@ -752,6 +826,12 @@ function VaultApp() {
     requestNavigation(() => setLockModalOpen(true))
   }
 
+  useEffect(() => {
+    const lockHandler = () => handleLock()
+    window.addEventListener('contras:lock-vault', lockHandler)
+    return () => window.removeEventListener('contras:lock-vault', lockHandler)
+  }, [requestNavigation])
+
   const confirmLock = () => {
     setLockModalOpen(false)
     logoutProfile()
@@ -796,7 +876,7 @@ function VaultApp() {
 
   const mobileTopBar = isMobile ? (
     <div className="fixed left-0 right-0 top-0 z-50 flex flex-col bg-white/85 backdrop-blur-xl border-b border-black/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
-      {/* Row 1: Title & Cloud Status & Settings */}
+      {/* Row 1: Title & Sync indicator */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
           <p className="truncate text-lg font-bold text-text-primary">Contras</p>
@@ -809,7 +889,9 @@ function VaultApp() {
             </span>
           </div>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 shrink-0">
+          {/* Sync indicator only */}
+          {CloudSyncIndicator && <div className="flex items-center">{CloudSyncIndicator}</div>}
           {/* Add button */}
           <button
             type="button"
@@ -821,80 +903,6 @@ function VaultApp() {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
             </svg>
           </button>
-
-          {/* Avatar Menu Mobile */}
-          <div className="relative shrink-0 flex items-center">
-            <button
-              type="button"
-              onClick={() => setShowUserMenu(!showUserMenu)}
-              className="flex h-9 w-9 items-center justify-center rounded-full border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-sm shadow-[0_2px_5px_rgba(0,0,0,0.03)] hover:bg-indigo-100 transition-all active:scale-95"
-              aria-label="Menú de usuario"
-            >
-              {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
-            </button>
-            {showUserMenu && (
-              <>
-                <button
-                  type="button"
-                  tabIndex={-1}
-                  onClick={() => setShowUserMenu(false)}
-                  className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
-                />
-                <div className="absolute right-0 top-[115%] z-50 w-64 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200">
-                  <div className="px-3 py-3 border-b border-black/5 mb-1 bg-slate-50/50 rounded-2xl">
-                    <p className="text-sm font-bold text-slate-900 truncate">{currentProfileName || 'Bóveda Local'}</p>
-                    <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{cloudUserEmail}</p>
-                  </div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => { setShowUserMenu(false); setSettingsOpen(true) }}
-                    className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                  >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
-                      </svg>
-                    </div>
-                    Mi Perfil y Ajustes
-                  </button>
-
-                  <button
-                    type="button"
-                    onClick={() => { setShowUserMenu(false); void handleManualSync() }}
-                    className="flex items-center justify-between w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-blue-50 text-blue-600">
-                        <svg className={`h-4 w-4 ${cloudSyncStatus === 'syncing' ? 'animate-spin' : ''}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                        </svg>
-                      </div>
-                      Sincronización
-                    </div>
-                    {cloudSyncStatus === 'synced' && <div className="h-2.5 w-2.5 rounded-full bg-emerald-500 ring-2 ring-white"></div>}
-                    {cloudSyncStatus === 'error' && <div className="h-2.5 w-2.5 rounded-full bg-red-500 ring-2 ring-white animate-pulse"></div>}
-                  </button>
-                  
-                  <div className="h-px bg-black/5 my-1 mx-2"></div>
-                  
-                  <button
-                    type="button"
-                    onClick={() => { setShowUserMenu(false); handleLock() }}
-                    className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-red-600 hover:bg-red-50 transition-colors"
-                  >
-                    <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-100 text-red-600">
-                      <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                      </svg>
-                    </div>
-                    Bloquear Bóveda
-                  </button>
-
-                </div>
-              </>
-            )}
-          </div>
         </div>
       </div>
 
@@ -992,28 +1000,38 @@ function VaultApp() {
   const globalOverlays = null
 
   const biometricOnboardingModal = biometricPromptOpen ? (
-    <div className="fixed inset-0 z-[125] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-      <div className="w-full max-w-md rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-        <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-emerald-50 text-emerald-700 ring-1 ring-emerald-100">
-          <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.25v1.5m-6.364 4.864a9 9 0 1112.728 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
-          </svg>
-        </div>
-        <h3 className="text-xl font-bold tracking-tight text-text-primary">¿Quieres activar una llave local para entrar más rápido?</h3>
-        <p className="mt-2 text-sm leading-6 text-text-secondary">Crearemos una llave de acceso local para Contras protegida por Face ID, huella o Windows Hello. En Apple se guarda en Contraseñas y no se sube a nuestra nube.</p>
-        <input
-          type="password"
-          value={biometricPromptPassword}
-          onChange={(event) => setBiometricPromptPassword(event.target.value)}
-          placeholder="Contraseña Maestra"
-          className="mt-5 h-12 w-full rounded-xl border border-black/[0.08] bg-white px-4 text-base font-medium text-text-primary outline-none focus:border-black/20 focus:ring-4 focus:ring-black/[0.04]"
-        />
-        <div className="mt-5 grid gap-2">
-          <button type="button" onClick={() => void submitBiometricPrompt()} disabled={biometricPromptSaving} className="min-h-12 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white disabled:opacity-60">
-            {biometricPromptSaving ? 'Activando...' : 'Activar llave local'}
-          </button>
-          <button type="button" onClick={dismissBiometricPrompt} className="min-h-12 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary">
-            Ahora no
+    <div className="fixed bottom-4 left-1/2 z-[100] w-full max-w-sm -translate-x-1/2 px-4 sm:bottom-6 sm:right-6 sm:left-auto sm:translate-x-0">
+      <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-white p-4 shadow-xl ring-1 ring-black/5 animate-vault-slide-up">
+        <div className="flex items-start gap-4">
+          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 11.25v1.5m-6.364 4.864a9 9 0 1112.728 0M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" />
+            </svg>
+          </div>
+          <div className="flex-1">
+            <h3 className="text-sm font-bold text-text-primary">¿Entrar más rápido?</h3>
+            <p className="mt-1 text-xs text-text-secondary">Activa el desbloqueo por huella o cara para no tener que escribir tu contraseña maestra.</p>
+            <div className="mt-3 flex gap-2">
+              <button
+                type="button"
+                onClick={() => setSettingsOpen(true)}
+                className="flex h-8 items-center justify-center rounded-lg bg-text-primary px-3 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
+              >
+                Configurar
+              </button>
+              <button
+                type="button"
+                onClick={dismissBiometricPrompt}
+                className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-black/5 active:bg-black/10"
+              >
+                Ignorar
+              </button>
+            </div>
+          </div>
+          <button type="button" onClick={dismissBiometricPrompt} className="absolute right-2 top-2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
           </button>
         </div>
       </div>
@@ -1500,6 +1518,7 @@ function VaultApp() {
             identity={selectedIdentity}
             groupMode={groupMode}
             selectedPlatformName={selectedPlatformName}
+            syncing={cloudSyncStatus === 'syncing'}
             localCategory={selectedLocalCategory}
             localItems={displayLocalItems}
             onOpenSidebar={() => setSidebarOpen(true)}
@@ -1715,6 +1734,7 @@ function GlobalSearch({
           <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
         </svg>
         <input
+          id="global-search-input"
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
@@ -1722,14 +1742,23 @@ function GlobalSearch({
           className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035]"
           aria-label="Búsqueda global de la bóveda"
         />
-        {syncing && (
-          <span className="absolute right-4 top-1/2 h-4 w-4 -translate-y-1/2 animate-spin rounded-full border-2 border-blue-500 border-t-transparent" />
-        )}
       </div>
 
       {visible && (
         <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[48vh] overflow-y-auto rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl animate-vault-morph">
-          {results.length === 0 ? (
+          {syncing ? (
+            <div className="flex flex-col gap-1 p-1">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="flex min-h-14 w-full items-center gap-4 rounded-2xl px-4 py-2 animate-pulse">
+                  <div className="h-10 w-10 shrink-0 rounded-full bg-black/5" />
+                  <div className="flex flex-1 flex-col gap-2">
+                    <div className="h-3.5 w-32 rounded-full bg-black/5" />
+                    <div className="h-2.5 w-48 rounded-full bg-black/[0.03]" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : results.length === 0 ? (
             <div className="px-4 py-6 text-center text-sm font-medium text-text-tertiary">Sin resultados</div>
           ) : (
             results.slice(0, 50).map((result) => (
@@ -1742,8 +1771,8 @@ function GlobalSearch({
                 }}
                 className="flex min-h-14 w-full flex-col justify-center rounded-2xl px-4 text-left transition-colors hover:bg-surface-hover"
               >
-                <span className="truncate text-sm font-semibold text-text-primary">{result.title}</span>
-                <span className="truncate text-xs text-text-tertiary">{result.subtitle}</span>
+                <span className="text-[15px] font-semibold text-text-primary">{result.title}</span>
+                <span className="mt-0.5 text-xs text-text-tertiary">{result.subtitle}</span>
               </button>
             ))
           )}

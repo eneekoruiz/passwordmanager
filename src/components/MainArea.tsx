@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState, memo } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
-import { passwordStrengthIssue } from '../utils/security'
+import { hasWeakPassword } from '../utils/security'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { SearchBar } from './SearchBar'
 import { VaultItemForm } from './VaultItemForm'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
+import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 
 type ViewMode = 'grid' | 'create' | 'edit'
 
@@ -38,6 +39,7 @@ interface MainAreaProps {
   onSortModeChange?: (mode: SortMode) => void
   searchQuery?: string
   onSearchChange?: (query: string) => void
+  syncing?: boolean
 }
 
 interface PlatformAccount {
@@ -92,6 +94,7 @@ export const MainArea = memo(function MainArea({
   onSortModeChange,
   searchQuery = '',
   onSearchChange,
+  syncing = false,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
@@ -329,8 +332,15 @@ export const MainArea = memo(function MainArea({
                             style={{ animationDelay: `${index * 40}ms` }}
                           >
                             <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
-                            <span className="min-w-0 flex-1">
-                              <span className="block truncate text-sm font-semibold text-text-primary">{getCanonicalPlatformName(platform.name)}</span>
+                            <span className="min-w-0 flex-1 relative">
+                              <span className="block truncate text-sm font-semibold text-text-primary pr-5">{getCanonicalPlatformName(platform.name)}</span>
+                              {(!hideWarnings && identities.some(id => id.platforms?.some(p => p.name === platform.name && hasWeakPassword(p)))) && (
+                                <div className="absolute right-0 top-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
+                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                  </svg>
+                                </div>
+                              )}
                               <span className="mt-1 block text-xs text-text-secondary">
                                 {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registradas
                               </span>
@@ -341,6 +351,19 @@ export const MainArea = memo(function MainArea({
                           </button>
                         ))}
                       </div>
+                    ) : syncing ? (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
+                            <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
+                            <div className="flex-1 space-y-2">
+                              <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
+                              <div className="h-2.5 w-1/3 rounded bg-black/5"></div>
+                            </div>
+                            <div className="h-5 w-10 rounded-full bg-black/5"></div>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       renderProactiveEmptyState({
                         description: 'Crea uno nuevo aquí y aparecerá agrupado por plataforma cuando lo guardes.',
@@ -349,15 +372,30 @@ export const MainArea = memo(function MainArea({
                       })
                     )
                   ) : groupMode === 'local' ? (
-                    <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
-                      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
-                        <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                        </svg>
+                    syncing ? (
+                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
+                        {[1, 2, 3, 4].map(i => (
+                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
+                            <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
+                            <div className="flex-1 space-y-2">
+                              <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
+                              <div className="h-2.5 w-1/3 rounded bg-black/5"></div>
+                            </div>
+                            <div className="h-5 w-10 rounded-full bg-black/5"></div>
+                          </div>
+                        ))}
                       </div>
-                      <h3 className="text-base font-bold text-text-primary">Selecciona una categoría</h3>
-                      <p className="mt-1 max-w-sm text-sm text-text-secondary">Elige una categoría de la bóveda local en la barra lateral para ver o añadir secretos.</p>
-                    </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+                          <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                          </svg>
+                        </div>
+                        <h3 className="text-base font-bold text-text-primary">Selecciona una categoría</h3>
+                        <p className="mt-1 max-w-sm text-sm text-text-secondary">Elige una categoría de la bóveda local en la barra lateral para ver o añadir secretos.</p>
+                      </div>
+                    )
                   ) : identities.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                       {identities.map((idItem, index) => (
@@ -371,8 +409,15 @@ export const MainArea = memo(function MainArea({
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
                             {idItem.email.charAt(0).toUpperCase()}
                           </div>
-                          <span className="min-w-0 flex-1">
-                            <span className="block truncate text-sm font-semibold text-text-primary">{idItem.email}</span>
+                          <span className="min-w-0 flex-1 relative">
+                            <span className="block truncate text-sm font-semibold text-text-primary pr-5">{idItem.email}</span>
+                            {(!hideWarnings && (idItem.platforms || []).some(p => hasWeakPassword(p))) && (
+                              <div className="absolute right-0 top-0 text-amber-500" title="Al menos una plataforma tiene contraseña débil">
+                                <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                  <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                </svg>
+                              </div>
+                            )}
                             <span className="mt-1 block text-xs text-text-secondary">
                               {(idItem?.platforms || []).length} plataforma{(idItem?.platforms || []).length !== 1 ? 's' : ''} vinculada{(idItem?.platforms || []).length !== 1 ? 's' : ''}
                             </span>
@@ -381,6 +426,19 @@ export const MainArea = memo(function MainArea({
                             Abrir
                           </span>
                         </button>
+                      ))}
+                    </div>
+                  ) : syncing ? (
+                    <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
+                      {[1, 2, 3, 4].map(i => (
+                        <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
+                          <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
+                          <div className="flex-1 space-y-2">
+                            <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
+                            <div className="h-2.5 w-1/3 rounded bg-black/5"></div>
+                          </div>
+                          <div className="h-5 w-10 rounded-full bg-black/5"></div>
+                        </div>
                       ))}
                     </div>
                   ) : (
@@ -611,12 +669,17 @@ export const MainArea = memo(function MainArea({
                         <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px] pr-5">
                           {platform.username}
                         </span>
-                        {(!hideWarnings && passwordStrengthIssue(platform.accessMethods?.find(m => m?.type === 'PASSWORD')?.password || '') && !platform.ignoreWeakPasswordWarning) && (
-                          <div className="absolute right-3 top-3 text-amber-500" title="Contraseña débil o insegura">
-                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                            </svg>
-                          </div>
+                        {(!hideWarnings && hasWeakPassword(platform)) && (
+                          <WeakPasswordWarningPopover
+                            platform={platform}
+                            className="absolute right-3 top-3"
+                            onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
+                            onDisableGlobally={() => {
+                              window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                              window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                              window.dispatchEvent(new Event('contras:open-settings'))
+                            }}
+                          />
                         )}
                         <span className="mt-1 block truncate text-xs text-text-secondary">
                           {identityEmail}
@@ -685,12 +748,17 @@ export const MainArea = memo(function MainArea({
                       <span className="block truncate text-sm font-semibold text-text-primary pr-5">
                         {platform.name}
                       </span>
-                      {(!hideWarnings && passwordStrengthIssue(platform.accessMethods?.find(m => m?.type === 'PASSWORD')?.password || '') && !platform.ignoreWeakPasswordWarning) && (
-                        <div className="absolute right-3 top-3 text-amber-500" title="Contraseña débil o insegura">
-                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                          </svg>
-                        </div>
+                      {(!hideWarnings && hasWeakPassword(platform)) && (
+                        <WeakPasswordWarningPopover
+                          platform={platform}
+                          className="absolute right-3 top-3"
+                          onIgnore={() => void onUpdatePlatform(identity!.id, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
+                          onDisableGlobally={() => {
+                            window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                            window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                            window.dispatchEvent(new Event('contras:open-settings'))
+                          }}
+                        />
                       )}
                       <span className="mt-1 block truncate text-xs text-text-secondary">
                         {(platform.username || identity?.email) ?? ''}

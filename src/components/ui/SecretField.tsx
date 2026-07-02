@@ -34,6 +34,8 @@ export function SecretField({
   }, [visible])
 
   const authenticate = async () => {
+    const requireAuth = typeof window !== 'undefined' && window.localStorage.getItem('contras.requireSecretAuth') !== 'false'
+    if (!requireAuth) return true
     return await authorizeSensitiveAction()
   }
 

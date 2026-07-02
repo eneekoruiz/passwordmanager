@@ -11,7 +11,8 @@ export async function copyToClipboard(text: string): Promise<boolean> {
     clipboardClearTimer = window.setTimeout(() => {
       void navigator.clipboard.writeText('').catch(() => {})
       clipboardClearTimer = null
-    }, 45_000)
+      window.dispatchEvent(new CustomEvent('clipboard:cleared', { detail: { type: 'clipboard' } }))
+    }, 60_000)
     return true
   } catch {
     return false

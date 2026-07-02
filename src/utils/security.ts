@@ -10,3 +10,10 @@ export function passwordStrengthReasons(password: string): string[] {
 export function passwordStrengthIssue(password: string): boolean {
   return passwordStrengthReasons(password).length > 0
 }
+
+export function hasWeakPassword(platform: any): boolean {
+  if (platform.ignoreWeakPasswordWarning) return false
+  const pwMethod = platform.accessMethods?.find((m: any) => m?.type === 'PASSWORD')
+  if (!pwMethod || !pwMethod.password) return false
+  return passwordStrengthIssue(pwMethod.password)
+}

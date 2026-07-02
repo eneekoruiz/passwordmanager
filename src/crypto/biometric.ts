@@ -154,15 +154,21 @@ export async function registerBiometricCredential(
   if (!credential) throw new Error('El registro de la llave de acceso local fue cancelado.')
 
   const extResults = (credential as any).getClientExtensionResults?.() ?? {}
-  const prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
+  let prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
+  const credentialIdBytes = new Uint8Array((credential as any).rawId)
+  const credentialId = bytesToBase64(credentialIdBytes)
 
   if (!prfResult) {
-    throw new Error(getBiometricUnavailableMessage())
+    // Plan B: Conveniencia. Guardar entropía local en localStorage
+    const randomBytes = new Uint8Array(32)
+    crypto.getRandomValues(randomBytes)
+    const fallbackKey = `contras_biometric_fallback_${credentialId}`
+    localStorage.setItem(fallbackKey, bytesToBase64(randomBytes))
+    prfResult = randomBytes.buffer
   }
 
   const prfKey = await derivePrfKey(new Uint8Array(prfResult))
   const encryptedPassword = await encryptWithPrfKey(masterPassword, prfKey)
-  const credentialId = bytesToBase64(new Uint8Array((credential as any).rawId))
 
   return {
     profileId,
@@ -216,10 +222,16 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
   }
 
   const extResults = (assertion as any).getClientExtensionResults?.() ?? {}
-  const prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
+  let prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
 
   if (!prfResult) {
-    throw new Error('No se pudo derivar la clave de la llave de acceso local. Vuelve a activar el desbloqueo biometrico en este dispositivo.')
+    const fallbackKey = `contras_biometric_fallback_${bundle.credentialId}`
+    const stored = localStorage.getItem(fallbackKey)
+    if (stored) {
+      prfResult = bytesToArrayBuffer(new Uint8Array(base64ToBytes(stored)))
+    } else {
+      throw new Error('No se pudo derivar la clave de la llave de acceso local. Vuelve a activar el desbloqueo biométrico en este dispositivo.')
+    }
   }
 
   const prfKey = await derivePrfKey(new Uint8Array(prfResult))

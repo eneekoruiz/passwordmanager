@@ -119,6 +119,7 @@ const DOMAIN_OVERRIDES: Record<string, string> = {
   authenticator: 'accounts.google.com',
   'microsoft authenticator': 'microsoft.com',
   blablacar: 'blablacar.es',
+  'black car': 'blablacar.es',
   holder: 'holded.com',
   holded: 'holded.com',
   'jack and jones': 'jackjones.com',
@@ -134,6 +135,10 @@ const DOMAIN_OVERRIDES: Record<string, string> = {
   stradivarius: 'stradivarius.com',
   stadivarius: 'stradivarius.com',
   wallapop: 'wallapop.com',
+  'amazon web services': 'aws.amazon.com',
+  'aws': 'aws.amazon.com',
+  'amazon prime': 'primevideo.com',
+  'amazon prime video': 'primevideo.com',
 }
 
 const MULTIPART_SUFFIXES = new Set(['co.uk', 'com.es', 'com.mx', 'com.ar', 'com.br', 'com.au', 'co.jp'])
@@ -225,17 +230,22 @@ function buildSources(name: string) {
   const encodedDomain = domain ? encodeURIComponent(domain) : null
   const iconSlugs = getSimpleIconSlugs(name)
 
+  // Si el dominio es un subdominio muy específico (ej. maps.google.com), clearbit devolverá el de google.com
+  // Para evitar esto, ponemos google favicons ANTES de clearbit si es un subdominio conocido.
+  const isSpecificSubdomain = domain?.includes('google.com') && domain !== 'google.com' || domain?.includes('aws.amazon.com')
+
   return uniq([
-    domain && `https://logo.clearbit.com/${domain}?size=256`,
-    domain && `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256`,
-    domain && `https://www.google.com/s2/favicons?domain_url=https://${encodedDomain}&sz=256`,
-    domain && `https://api.faviconkit.com/${domain}/256`,
-    domain && `https://unavatar.io/${domain}`,
+    (isSpecificSubdomain && domain) ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
+    domain ? `https://logo.clearbit.com/${domain}?size=256` : null,
+    domain ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
+    domain ? `https://www.google.com/s2/favicons?domain_url=https://${encodedDomain}&sz=256` : null,
+    domain ? `https://api.faviconkit.com/${domain}/256` : null,
+    domain ? `https://unavatar.io/${domain}` : null,
     ...iconSlugs.map((slug) => `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${slug}.svg`),
-    domain && `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-    domain && `https://icon.horse/icon/${domain}`,
-    domain && `https://${domain}/apple-touch-icon.png`,
-    domain && `https://${domain}/favicon.ico`,
+    domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null,
+    domain ? `https://icon.horse/icon/${domain}` : null,
+    domain ? `https://${domain}/apple-touch-icon.png` : null,
+    domain ? `https://${domain}/favicon.ico` : null,
   ])
 }
 

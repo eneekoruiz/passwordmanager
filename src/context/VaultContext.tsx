@@ -189,6 +189,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const storeRef = useRef(new VaultStore(vaultRef.current))
   const firebaseUserRef = useRef<User | null>(null)
   const syncInProgressRef = useRef(false)
+  const lastAuthorizedTimeRef = useRef<number>(0)
 
   const [isReady, setIsReady] = useState(false)
   const [isAuthReady, setIsAuthReady] = useState(false)
@@ -1435,8 +1436,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const authorizeSensitiveAction = useCallback(async (_actionName: string = 'Acción protegida') => {
     if (!currentProfileId || !isUnlocked) return false
+
+    const now = Date.now()
+    if (now - lastAuthorizedTimeRef.current < 30000) {
+      return true
+    }
     
-    // Si tiene biometría activa, la preferimos.
+    // Si tiene biometría activa, la preferimos – pero siempre hacemos fallback al modal.
     if (biometricAvailable && biometricRegistered) {
       const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
       if (!bundle) {
@@ -1444,17 +1450,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setBiometricRegistered(false)
         // Continuamos con el fallback
       } else {
-        showToast('Verifica tu identidad en el navegador...', 'info')
         try {
+          showToast('Verifica tu identidad en el navegador...', 'info')
           const masterPassword = await withTimeout(
             unlockWithBiometrics(bundle as BiometricBundle),
-            20000,
+            15000,
             'La verificación biométrica no respondió a tiempo.',
           )
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-          if (passwordIsValid) return true
+          if (passwordIsValid) {
+            lastAuthorizedTimeRef.current = Date.now()
+            return true
+          }
+          // Si la contraseña no es válida (bundle corrupto), continuamos al fallback
         } catch (err) {
           console.warn('Biometría cancelada o fallida, usando fallback.', err)
+          // Siempre continuamos al fallback
         }
       }
     }
@@ -1466,27 +1477,31 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(`contras.hardwareKeyRegistered.${currentProfileId}`)
         setHardwareKeyRegistered(false)
       } else {
-        showToast('Verifica tu llave de seguridad en el navegador...', 'info')
         try {
+          showToast('Verifica tu llave de seguridad en el navegador...', 'info')
           const masterPassword = await withTimeout(
             unlockWithHardwareKey(bundle as HardwareKeyBundle),
-            20000,
+            15000,
             'La llave de seguridad no respondió a tiempo.',
           )
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
-          if (passwordIsValid) return true
+          if (passwordIsValid) {
+            lastAuthorizedTimeRef.current = Date.now()
+            return true
+          }
         } catch (err) {
           console.warn('Llave física cancelada o fallida, usando fallback.', err)
         }
       }
     }
 
-    // Fallback: Si no hay hardware ni biometría, o si fallaron/se cancelaron, pedimos la clave maestra
+    // Fallback: siempre pedimos la clave maestra mediante el modal
     const authorized = await promptMasterPassword()
     if (!authorized) {
       showToast('Autorización cancelada.', 'error')
       return false
     }
+    lastAuthorizedTimeRef.current = Date.now()
     return true
   }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword, showToast])
 

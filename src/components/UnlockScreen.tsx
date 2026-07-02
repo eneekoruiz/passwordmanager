@@ -228,27 +228,31 @@ function NativeIdentityStep({
 
 function BiometricMasterPasswordShortcut({
   loading,
+  failed,
   onUnlock,
 }: {
   loading: boolean
+  failed?: boolean
   onUnlock: () => void
 }) {
   return (
-    <div className="rounded-2xl border border-emerald-100 bg-emerald-50/80 p-3 text-left shadow-sm">
+    <div className={`rounded-2xl border p-3 text-left shadow-sm ${failed ? 'border-amber-200 bg-amber-50/80' : 'border-emerald-100 bg-emerald-50/80'}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold text-emerald-950">Desbloqueo biométrico disponible</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-emerald-800">
-            Usa la llave de acceso local protegida por Face ID, huella o Windows Hello.
+          <p className={`text-xs font-bold ${failed ? 'text-amber-950' : 'text-emerald-950'}`}>
+            {failed ? 'Autenticación fallida' : 'Desbloqueo biométrico disponible'}
+          </p>
+          <p className={`mt-0.5 text-[11px] leading-relaxed ${failed ? 'text-amber-800' : 'text-emerald-800'}`}>
+            {failed ? '¿Intentar de nuevo con tu huella o Face ID?' : 'Usa la llave de acceso local protegida por Face ID, huella o Windows Hello.'}
           </p>
         </div>
         <button
           type="button"
           onClick={onUnlock}
           disabled={loading}
-          className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+          className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98] ${failed ? 'bg-amber-600' : 'bg-emerald-950'}`}
         >
-          {loading ? 'Verificando...' : 'Usar llave local'}
+          {loading ? 'Verificando...' : (failed ? 'Reintentar' : 'Desbloquear')}
         </button>
       </div>
     </div>
@@ -359,6 +363,7 @@ export function UnlockScreen() {
   const [showPrivacy, setShowPrivacy] = useState(false)
   const [loading, setLoading] = useState(false)
   const [biometricLoading, setBiometricLoading] = useState(false)
+  const [biometricFailed, setBiometricFailed] = useState(false)
   const [hardwareKeyLoading, setHardwareKeyLoading] = useState(false)
 
   useEffect(() => {
@@ -466,13 +471,17 @@ export function UnlockScreen() {
   const handleBiometricVaultUnlock = async () => {
     
     setBiometricLoading(true)
+    setBiometricFailed(false)
     try {
       await unlockWithBiometricSensor()
       setMasterPassword('')
       setConfirmMasterPassword('')
     } catch (caughtError) {
       const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación biométrica.')
-      if (!message.toLowerCase().includes('cancel')) showToast(message, 'error')
+      if (!message.toLowerCase().includes('cancel')) {
+        showToast(message, 'error')
+        setBiometricFailed(true)
+      }
     } finally {
       setBiometricLoading(false)
     }
@@ -693,6 +702,7 @@ export function UnlockScreen() {
                     {canUseBiometricUnlock && (
                       <BiometricMasterPasswordShortcut
                         loading={loading || biometricLoading || isCloudLoading}
+                        failed={biometricFailed}
                         onUnlock={handleBiometricVaultUnlock}
                       />
                     )}

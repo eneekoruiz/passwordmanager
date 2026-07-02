@@ -480,6 +480,7 @@ export function AccountForm({
   const [saving, setSaving] = useState(false)
   const [isEditing, setIsEditing] = useState(mode === 'create')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
+  const [deleteConfirmText, setDeleteConfirmText] = useState('')
   const [passwordEnabled, setPasswordEnabled] = useState(() =>
     Boolean((initialAccount ?? createEmptyAccount()).accessMethods.some((method) => method.type === 'PASSWORD')),
   )
@@ -1857,32 +1858,68 @@ export function AccountForm({
 
       {/* Modal Seguro de Borrado */}
       {showDeleteModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/40 backdrop-blur-md p-4 animate-fade-in">
-          <div className="relative w-full max-w-sm rounded-3xl border border-white/10 bg-white/90 p-6 shadow-2xl backdrop-blur-xl text-center">
-            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 shadow-sm">
-              <svg className="h-6 w-6 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/50 backdrop-blur-md animate-in fade-in duration-150">
+          <div
+            className="w-full max-w-sm rounded-[2rem] bg-white shadow-[0_32px_80px_rgba(0,0,0,0.22)] overflow-hidden animate-in zoom-in-95 duration-200"
+            role="alertdialog"
+            aria-modal="true"
+            aria-labelledby="delete-platform-title"
+          >
+            {/* Header */}
+            <div className="bg-red-50 px-6 pt-6 pb-5 text-center">
+              <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-100 shadow-inner">
+                <svg className="h-7 w-7 text-red-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+              </div>
+              <h2 id="delete-platform-title" className="text-lg font-black text-red-900 tracking-tight">Eliminar plataforma</h2>
+              <p className="mt-1.5 text-sm text-red-700 leading-relaxed">
+                Esta acción eliminará permanentemente la plataforma junto con todas sus contraseñas y API Keys. No se puede deshacer.
+              </p>
             </div>
-            <h3 className="mb-2 text-lg font-bold text-text-primary tracking-tight">¿Eliminar definitivamente?</h3>
-            <p className="mb-6 text-xs leading-relaxed text-text-secondary">
-              ¿Estás seguro de que deseas eliminar esta plataforma? Esta acción no se puede deshacer y borrará permanentemente la contraseña y las API Keys asociadas.
-            </p>
-            <div className="flex gap-3">
-              <button
-                type="button"
-                onClick={() => setShowDeleteModal(false)}
-                className="flex-1 rounded-xl bg-surface-hover px-4 py-3 text-sm font-semibold text-text-primary transition-colors hover:bg-surface-active"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => { setShowDeleteModal(false); onDelete?.() }}
-                className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white transition-opacity hover:opacity-90 shadow-sm shadow-red-600/20"
-              >
-                Sí, eliminar
-              </button>
+
+            {/* Body */}
+            <div className="px-6 py-5 space-y-4">
+              <div>
+                <label htmlFor="delete-platform-input" className="block text-xs font-bold text-slate-600 mb-2">
+                  Escribe <span className="font-black text-red-600 tracking-widest">ELIMINAR</span> para confirmar
+                </label>
+                <input
+                  id="delete-platform-input"
+                  type="text"
+                  autoFocus
+                  autoComplete="off"
+                  autoCorrect="off"
+                  autoCapitalize="none"
+                  spellCheck={false}
+                  value={deleteConfirmText}
+                  onChange={(e) => setDeleteConfirmText(e.target.value)}
+                  placeholder="ELIMINAR"
+                  className={`w-full rounded-xl border px-4 py-3 text-sm font-mono font-bold tracking-widest outline-none transition-all ${
+                    deleteConfirmText === 'ELIMINAR'
+                      ? 'border-red-400 bg-red-50 text-red-700 focus:ring-2 focus:ring-red-300'
+                      : 'border-slate-200 bg-slate-50 text-slate-700 focus:border-slate-400 focus:ring-2 focus:ring-slate-200'
+                  }`}
+                />
+              </div>
+
+              <div className="flex gap-2.5">
+                <button
+                  type="button"
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmText('') }}
+                  className="flex-1 rounded-xl border border-black/8 bg-slate-100 px-4 py-3 text-sm font-semibold text-slate-700 transition-colors hover:bg-slate-200"
+                >
+                  Cancelar
+                </button>
+                <button
+                  type="button"
+                  disabled={deleteConfirmText !== 'ELIMINAR'}
+                  onClick={() => { setShowDeleteModal(false); setDeleteConfirmText(''); onDelete?.() }}
+                  className="flex-1 rounded-xl bg-red-600 px-4 py-3 text-sm font-semibold text-white shadow-sm shadow-red-600/20 transition-all hover:bg-red-700 disabled:cursor-not-allowed disabled:opacity-40"
+                >
+                  Eliminar
+                </button>
+              </div>
             </div>
           </div>
         </div>
