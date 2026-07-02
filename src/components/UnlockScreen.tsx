@@ -710,8 +710,22 @@ export function UnlockScreen() {
                         value={masterPassword}
                         onChange={setMasterPassword}
                         required
-                        placeholder="Escribe tu Contraseña Maestra"
+                        placeholder="Contraseña Maestra"
                       />
+
+                      {cloudVaultExists !== false && (
+                        <div className="text-right">
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setShowRecoveryFlow(true)
+                            }}
+                            className="text-[11px] font-semibold text-text-secondary hover:text-text-primary transition-colors focus:outline-none"
+                          >
+                            ¿Olvidaste tu contraseña?
+                          </button>
+                        </div>
+                      )}
 
                       {cloudVaultExists === false && (
                         <PasswordField
@@ -719,7 +733,7 @@ export function UnlockScreen() {
                           value={confirmMasterPassword}
                           onChange={setConfirmMasterPassword}
                           required
-                          placeholder="Repite tu Contraseña Maestra"
+                          placeholder="Repite tu contraseña"
                         />
                       )}
                     </div>
@@ -852,18 +866,6 @@ export function UnlockScreen() {
                           ? 'Comenzar a usar la bóveda'
                           : 'Desbloquear Bóveda Local'}
                     </button>
-                    {cloudVaultExists !== false && (
-                      <button
-                        type="button"
-                        onClick={() => {
-                          setShowRecoveryFlow(true)
-                          
-                        }}
-                        className="min-h-11 rounded-xl px-4 py-2 text-xs font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
-                      >
-                        ¿Olvidaste tu contraseña?
-                      </button>
-                    )}
               </form>
             )}
 

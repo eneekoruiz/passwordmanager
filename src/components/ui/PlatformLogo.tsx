@@ -118,6 +118,22 @@ const DOMAIN_OVERRIDES: Record<string, string> = {
   'google authenticator': 'accounts.google.com',
   authenticator: 'accounts.google.com',
   'microsoft authenticator': 'microsoft.com',
+  blablacar: 'blablacar.es',
+  holder: 'holded.com',
+  holded: 'holded.com',
+  'jack and jones': 'jackjones.com',
+  jackjones: 'jackjones.com',
+  mediamarkt: 'mediamarkt.es',
+  'mediamarkt espana': 'mediamarkt.es',
+  fotomath: 'photomath.com',
+  photomath: 'photomath.com',
+  renfe: 'renfe.com',
+  'pull and bear': 'pullandbear.com',
+  pullandbear: 'pullandbear.com',
+  reebok: 'reebok.com',
+  stradivarius: 'stradivarius.com',
+  stadivarius: 'stradivarius.com',
+  wallapop: 'wallapop.com',
 }
 
 const MULTIPART_SUFFIXES = new Set(['co.uk', 'com.es', 'com.mx', 'com.ar', 'com.br', 'com.au', 'co.jp'])
@@ -210,16 +226,16 @@ function buildSources(name: string) {
   const iconSlugs = getSimpleIconSlugs(name)
 
   return uniq([
-    ...iconSlugs.map((slug) => `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${slug}.svg`),
+    domain && `https://logo.clearbit.com/${domain}?size=256`,
     domain && `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256`,
     domain && `https://www.google.com/s2/favicons?domain_url=https://${encodedDomain}&sz=256`,
-    domain && `https://icons.duckduckgo.com/ip3/${domain}.ico`,
-    domain && `https://icon.horse/icon/${domain}`,
     domain && `https://api.faviconkit.com/${domain}/256`,
     domain && `https://unavatar.io/${domain}`,
+    ...iconSlugs.map((slug) => `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${slug}.svg`),
+    domain && `https://icons.duckduckgo.com/ip3/${domain}.ico`,
+    domain && `https://icon.horse/icon/${domain}`,
     domain && `https://${domain}/apple-touch-icon.png`,
     domain && `https://${domain}/favicon.ico`,
-    domain && `https://logo.clearbit.com/${domain}?size=256`,
   ])
 }
 

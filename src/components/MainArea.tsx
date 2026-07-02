@@ -273,49 +273,49 @@ export const MainArea = memo(function MainArea({
         <div className="flex-1 min-h-0 overflow-y-auto">
           <div className="flex justify-center px-6 py-6 lg:py-12 min-h-full">
             <div className="w-full max-w-5xl">
-            <div className="rounded-[28px] border border-black/[0.06] bg-[radial-gradient(circle_at_top_left,_rgba(255,255,255,0.96),_rgba(248,250,252,0.92)_46%,_rgba(241,245,249,0.94))] p-6 shadow-[0_28px_80px_rgba(15,23,42,0.08)] backdrop-blur xl:p-8">
+            <div className="p-1">
               <div className="grid gap-6">
                 <section className="space-y-5">
-                  <div>
-                    <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
-                      {groupMode === 'platform' ? 'Vista por plataforma' : groupMode === 'local' ? 'Bóveda Local' : 'Tus Identidades'}
-                    </p>
-                    <h2 className="mt-2 text-2xl font-bold tracking-tight text-text-primary">
-                      {groupMode === 'platform' ? 'Explora tus accesos con una vista visual' : groupMode === 'local' ? 'Gestiona tus notas y secretos locales' : 'Gestiona tus cuentas por identidad'}
-                    </h2>
-                    <p className="mt-2 max-w-2xl text-sm leading-relaxed text-text-secondary">
-                      {groupMode === 'platform'
-                        ? 'Selecciona una plataforma para ver las cuentas, comparar accesos y editar.'
-                        : groupMode === 'local'
-                        ? 'Selecciona una categoría para ver tus secretos locales.'
-                        : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas.'}
-                    </p>
-                    <div className="mt-5 flex gap-3">
-                      <button
-                        type="button"
-                        onClick={() => onCreate()}
-                        className="inline-flex h-9 items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-bold text-white shadow-sm transition-transform hover:scale-105 active:scale-95"
-                      >
-                        <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                        </svg>
-                        Crear {groupMode === 'platform' ? 'Cuenta' : groupMode === 'local' ? 'Secreto Local' : 'Identidad'}
-                      </button>
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-black/[0.04] pb-4">
+                    <div>
+                      <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
+                        {groupMode === 'platform' ? 'Vista por plataforma' : groupMode === 'local' ? 'Bóveda Local' : 'Tus Identidades'}
+                      </p>
+                      <h2 className="mt-1 text-2xl font-black tracking-tight text-text-primary">
+                        {groupMode === 'platform' ? 'Explora tus accesos con la vista visual' : groupMode === 'local' ? 'Gestiona tus notas y secretos locales' : 'Gestiona tus cuentas por identidad'}
+                      </h2>
+                      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-text-secondary">
+                        {groupMode === 'platform'
+                          ? 'Selecciona una plataforma para ver las cuentas, comparar accesos y editar.'
+                          : groupMode === 'local'
+                          ? 'Selecciona una categoría para ver tus secretos locales.'
+                          : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas.'}
+                      </p>
                     </div>
-                    {isMobile && groupMode === 'platform' && (
-                      <div className="mt-4 flex items-center gap-3 border-t border-black/[0.04] pt-4">
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Plataformas</span>
-                          <span className="text-sm font-semibold text-text-primary">{featuredPlatforms.length}</span>
-                        </div>
-                        <div className="h-6 w-px bg-black/[0.04]"></div>
-                        <div className="flex flex-col">
-                          <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</span>
-                          <span className="text-sm font-semibold text-text-primary">{identities.reduce((sum, id) => sum + (id.platforms?.length || 0), 0)}</span>
-                        </div>
-                      </div>
-                    )}
+                    <button
+                      type="button"
+                      onClick={() => onCreate()}
+                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-bold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95 self-start md:self-center"
+                    >
+                      <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      Crear {groupMode === 'platform' ? 'cuenta' : groupMode === 'local' ? 'secreto local' : 'identidad'}
+                    </button>
                   </div>
+                  {isMobile && groupMode === 'platform' && (
+                    <div className="mt-4 flex items-center gap-3 border-t border-black/[0.04] pt-4">
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Plataformas</span>
+                        <span className="text-sm font-semibold text-text-primary">{featuredPlatforms.length}</span>
+                      </div>
+                      <div className="h-6 w-px bg-black/[0.04]"></div>
+                      <div className="flex flex-col">
+                        <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</span>
+                        <span className="text-sm font-semibold text-text-primary">{identities.reduce((sum, id) => sum + (id.platforms?.length || 0), 0)}</span>
+                      </div>
+                    </div>
+                  )}
 
                   {groupMode === 'platform' ? (
                     featuredPlatforms.length > 0 ? (

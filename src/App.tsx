@@ -1136,20 +1136,6 @@ function VaultApp() {
         )}
       </div>
 
-      <div className="h-8 w-px bg-black/[0.06] mx-1"></div>
-
-      <button
-        type="button"
-        onClick={handleAddClick}
-        className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl border border-black/[0.06] bg-text-primary text-white shadow-[0_14px_35px_rgba(15,23,42,0.18)] transition-all hover:-translate-y-0.5 hover:scale-105 hover:shadow-lg active:scale-[0.98]"
-        aria-label="Añadir"
-        title="Añadir"
-      >
-        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.4}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-        </svg>
-      </button>
-
       <div className="relative shrink-0 flex items-center">
         <button
           type="button"

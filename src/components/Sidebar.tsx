@@ -214,18 +214,21 @@ export const Sidebar = memo(function Sidebar({
     if (isMobile) return visibleIdentities
     return [...visibleIdentities]
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
+      .slice(0, 4)
   }, [isMobile, visibleIdentities])
 
   const sidebarPlatforms = useMemo(() => {
     if (isMobile) return platformSummaries
     return [...platformSummaries]
       .sort((a, b) => b.maxDate.localeCompare(a.maxDate))
+      .slice(0, 4)
   }, [isMobile, platformSummaries])
 
   const sidebarLocalCategories = useMemo(() => {
     if (isMobile) return visibleLocalCategories
     return [...visibleLocalCategories]
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
+      .slice(0, 4)
   }, [isMobile, visibleLocalCategories])
 
   const handleAddLocalCategory = async () => {

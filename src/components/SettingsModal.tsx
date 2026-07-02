@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
-import { passwordStrengthIssue } from '../utils/security'
+import { passwordStrengthIssue, passwordStrengthReasons } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 
 type PlaintextExportFormat = 'csv' | 'json'
