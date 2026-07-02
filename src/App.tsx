@@ -758,11 +758,9 @@ function VaultApp() {
       window.localStorage.setItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`, 'true')
     }
     setBiometricPromptOpen(false)
-    showToast('Llave local activada correctamente. Apple Passwords/Face ID podrá mostrar la llave de Contras al desbloquear.', 'info')
   }
   const handleRegisterHardwareKey = async (masterPassword: string) => {
     await registerHardwareKeyUnlock(masterPassword)
-    showToast('Llave física registrada correctamente. Ya puedes desbloquear con tu llave.', 'info')
   }
 
   const handleManualSync = async () => {
@@ -1363,6 +1361,7 @@ function VaultApp() {
           hardwareKeyRegistered={hardwareKeyRegistered}
           onRegisterHardwareKey={handleRegisterHardwareKey}
           onDisableHardwareKey={disableHardwareKeyUnlock}
+          onUpdatePlatform={updatePlatform}
         />
 
         <ImportTextModal
@@ -1558,6 +1557,7 @@ function VaultApp() {
         onDisableHardwareKey={disableHardwareKeyUnlock}
         focusCsvExport={focusCsvExport}
         onCsvExportFocused={() => setFocusCsvExport(false)}
+        onUpdatePlatform={updatePlatform}
       />
 
       <ImportTextModal

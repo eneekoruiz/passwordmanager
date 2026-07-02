@@ -38,6 +38,7 @@ interface SettingsModalProps {
   onDisableHardwareKey?: () => Promise<void>
   focusCsvExport?: boolean
   onCsvExportFocused?: () => void
+  onUpdatePlatform?: (identityId: string, platformId: string, updates: any) => void | Promise<void>
 }
 
 /**
@@ -67,6 +68,7 @@ export function SettingsModal({
   onDisableHardwareKey,
   focusCsvExport = false,
   onCsvExportFocused,
+  onUpdatePlatform,
 }: SettingsModalProps) {
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
@@ -369,13 +371,13 @@ export function SettingsModal({
     <button
       type="button"
       onClick={onClick}
-      className="flex w-full items-center justify-between rounded-xl border border-black/5 bg-white/70 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow"
+      className="flex w-full items-center justify-between bg-transparent p-4 text-left transition-colors hover:bg-slate-50/50"
     >
       <div>
-        <h3 className="text-xs font-bold text-text-primary">{title}</h3>
-        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">{subtitle}</p>
+        <h3 className="text-sm font-bold text-slate-800">{title}</h3>
+        <p className="mt-0.5 text-[11px] leading-relaxed text-slate-500">{subtitle}</p>
       </div>
-      <svg className="h-5 w-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+      <svg className="h-5 w-5 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
         <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
       </svg>
     </button>
@@ -485,135 +487,138 @@ export function SettingsModal({
                 </button>
               ) : null}
               {/* Ajustes de Configuración */}
-              <div className="pt-2 space-y-2">
-                <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Ajustes de Bóveda</h3>
+              <div className="pt-4 space-y-6">
                 
-                <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3 transition-colors hover:bg-surface-hover cursor-pointer">
-                  <div>
-                    <span className="block text-sm font-bold text-text-primary">Ocultar advertencias visuales</span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">No mostrar el icono de alerta en las tarjetas con contraseñas débiles.</span>
+                {/* PREFERENCIAS */}
+                <section>
+                  <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Preferencias</h3>
+                  <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm">
+                    <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800">Ocultar advertencias visuales</span>
+                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">No mostrar alertas naranjas en cuentas débiles.</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className={checkboxClassName}
+                        checked={hideWeakPasswordWarnings}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setHideWeakPasswordWarnings(checked)
+                          if (checked) {
+                            window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                          } else {
+                            window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
+                          }
+                          window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                        }}
+                      />
+                    </label>
                   </div>
-                  <input
-                    type="checkbox"
-                    className={checkboxClassName}
-                    checked={hideWeakPasswordWarnings}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      setHideWeakPasswordWarnings(checked)
-                      if (checked) {
-                        window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
-                      } else {
-                        window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
-                      }
-                      window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
-                    }}
-                  />
-                </label>
+                </section>
 
-                <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3 transition-colors hover:bg-surface-hover cursor-pointer">
-                  <div>
-                    <span className="block text-sm font-bold text-text-primary">Requerir clave al revelar secretos</span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">Solicitar contraseña maestra, huella o Face ID al ver/copiar contraseñas.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className={checkboxClassName}
-                    checked={requireSecretAuth}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      setRequireSecretAuth(checked)
-                      window.localStorage.setItem('contras.requireSecretAuth', checked ? 'true' : 'false')
-                    }}
-                  />
-                </label>
-
-                <div className="flex w-full flex-col gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3">
-                  <div className="flex w-full items-center justify-between gap-3">
-                    <div>
-                      <span className="block text-sm font-bold text-text-primary">Bloqueo por inactividad</span>
-                      <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">Tiempo tras el cual la bóveda se bloqueará si no interactúas con ella.</span>
+                {/* SEGURIDAD Y ACCESO */}
+                <section>
+                  <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Seguridad y Acceso</h3>
+                  <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
+                    <div className="flex w-full items-center justify-between gap-3 p-4">
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800">Bloqueo por inactividad</span>
+                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Tiempo para bloquear automáticamente.</span>
+                      </div>
+                      <select
+                        value={autoLockTimeout}
+                        onChange={(e) => {
+                          const val = parseInt(e.target.value, 10)
+                          setAutoLockTimeout(val)
+                          window.localStorage.setItem('contras.autoLockTimeout', val.toString())
+                          window.dispatchEvent(new Event('contras:auto-lock-changed'))
+                        }}
+                        className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                      >
+                        <option value={1}>1 minuto</option>
+                        <option value={5}>5 minutos</option>
+                        <option value={15}>15 minutos</option>
+                        <option value={30}>30 minutos</option>
+                        <option value={0}>Nunca (No recomendado)</option>
+                      </select>
                     </div>
-                    <select
-                      value={autoLockTimeout}
-                      onChange={(e) => {
-                        const val = parseInt(e.target.value, 10)
-                        setAutoLockTimeout(val)
-                        window.localStorage.setItem('contras.autoLockTimeout', val.toString())
-                        window.dispatchEvent(new Event('contras:auto-lock-changed'))
-                      }}
-                      className="h-9 rounded-lg border border-black/[0.08] bg-white px-2 text-sm font-medium text-text-primary outline-none focus:border-black/20 focus:ring-2 focus:ring-black/5"
-                    >
-                      <option value={1}>1 minuto</option>
-                      <option value={5}>5 minutos</option>
-                      <option value={15}>15 minutos</option>
-                      <option value={30}>30 minutos</option>
-                      <option value={0}>Nunca (No recomendado)</option>
-                    </select>
-                  </div>
-                </div>
 
-                <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3 transition-colors hover:bg-surface-hover cursor-pointer">
-                  <div>
-                    <span className="block text-sm font-bold text-text-primary">Bloqueo instantáneo por desenfoque</span>
-                    <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">Bloquear automáticamente la bóveda al cambiar de pestaña o minimizar la app.</span>
-                  </div>
-                  <input
-                    type="checkbox"
-                    className={checkboxClassName}
-                    checked={blurLock}
-                    onChange={(e) => {
-                      const checked = e.target.checked
-                      setBlurLock(checked)
-                      window.localStorage.setItem('contras.blurLock', checked ? 'true' : 'false')
-                      window.dispatchEvent(new Event('contras:blur-lock-changed'))
-                    }}
-                  />
-                </label>
+                    <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800">Bloqueo por desenfoque</span>
+                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Bloquear bóveda al cambiar de pestaña.</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className={checkboxClassName}
+                        checked={blurLock}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setBlurLock(checked)
+                          window.localStorage.setItem('contras.blurLock', checked ? 'true' : 'false')
+                          window.dispatchEvent(new Event('contras:blur-lock-changed'))
+                        }}
+                      />
+                    </label>
 
-                <MenuItem
-                  title="Modo Viaje"
-                  subtitle="Oculta bóvedas sensibles al cruzar fronteras."
-                  onClick={() => setView('travel')}
-                />
-                <MenuItem
-                  title="Credenciales y Recuperación"
-                  subtitle="Cambia tu Contraseña Maestra local."
-                  onClick={() => setView('credentials')}
-                />
-                {biometricAvailable && (
-                  <MenuItem
-                    title={biometricRegistered ? '🔒 Llave local activada' : '🔓 Activar llave local'}
-                    subtitle={biometricRegistered ? 'Passkey local · Face ID · Huella activos.' : 'Desbloquea usando una llave local protegida por Face ID, huella o Windows Hello.'}
-                    onClick={() => { ; ; setBiometricPassword(''); setView('biometric') }}
-                  />
-                )}
-                {hardwareKeyAvailable && (
-                  <MenuItem
-                    title={hardwareKeyRegistered ? '🔒 Llave Física Activada' : '🔑 Activar Llave Física'}
-                    subtitle={hardwareKeyRegistered ? 'Llave de seguridad FIDO2 (YubiKey) activa.' : 'Registra una llave de seguridad física USB/NFC para desbloquear.'}
-                    onClick={() => { ; ; setHardwareKeyPassword(''); setView('hardwareKey') }}
-                  />
-                )}
+                    <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                      <div>
+                        <span className="block text-sm font-bold text-slate-800">Requerir clave al revelar</span>
+                        <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Pedir autenticación al ver/copiar contraseñas.</span>
+                      </div>
+                      <input
+                        type="checkbox"
+                        className={checkboxClassName}
+                        checked={requireSecretAuth}
+                        onChange={(e) => {
+                          const checked = e.target.checked
+                          setRequireSecretAuth(checked)
+                          window.localStorage.setItem('contras.requireSecretAuth', checked ? 'true' : 'false')
+                        }}
+                      />
+                    </label>
+
+                    <MenuItem
+                      title="Credenciales y Recuperación"
+                      subtitle="Cambia tu Contraseña Maestra local."
+                      onClick={() => setView('credentials')}
+                    />
+
+                    {biometricAvailable && (
+                      <MenuItem
+                        title={biometricRegistered ? 'Llave local activada' : 'Activar llave local'}
+                        subtitle={biometricRegistered ? 'Face ID · Huella activos.' : 'Desbloquea rápido usando biometría.'}
+                        onClick={() => { setBiometricPassword(''); setView('biometric') }}
+                      />
+                    )}
+                    {hardwareKeyAvailable && (
+                      <MenuItem
+                        title={hardwareKeyRegistered ? 'Llave Física Activada' : 'Activar Llave Física'}
+                        subtitle={hardwareKeyRegistered ? 'Llave de seguridad FIDO2 (YubiKey) activa.' : 'Registra una llave de seguridad física USB/NFC.'}
+                        onClick={() => { setHardwareKeyPassword(''); setView('hardwareKey') }}
+                      />
+                    )}
+                    <MenuItem
+                      title="Modo Viaje"
+                      subtitle="Oculta bóvedas sensibles al cruzar fronteras."
+                      onClick={() => setView('travel')}
+                    />
+                  </div>
+                </section>
                 
-                <div className="pt-2">
-                  <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Importar y Exportar</h3>
-                  <div className="space-y-2">
-                    <button
-                      type="button"
+                {/* DATOS E IMPORTACIÓN */}
+                <section>
+                  <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Datos y Copias de Seguridad</h3>
+                  <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
+                    <MenuItem
+                      title="Importación Masiva (TSV)"
+                      subtitle="Pega filas de Google Docs u Hojas de cálculo."
                       onClick={() => {
                         onClose()
                         onOpenImportText()
                       }}
-                      className="flex w-full items-center justify-between rounded-xl border border-black/5 bg-white/70 p-4 text-left shadow-sm transition-all hover:-translate-y-0.5 hover:bg-white hover:shadow"
-                    >
-                      <div>
-                        <h3 className="text-xs font-bold text-text-primary">Importación Masiva (TSV)</h3>
-                        <p className="mt-1 text-[11px] leading-relaxed text-text-secondary">Pega filas de Google Docs u Hojas de cálculo.</p>
-                      </div>
-                      <svg className="h-5 w-5 text-text-tertiary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
-                      </svg>
-                    </button>
+                    />
                     <MenuItem
                       title="Restaurar Copia Cifrada"
                       subtitle="Cargar backup .json"
@@ -630,7 +635,7 @@ export function SettingsModal({
                       onClick={() => setView('exportPlaintext')}
                     />
                   </div>
-                </div>
+                </section>
               </div>
             </div>
           )}
@@ -1124,17 +1129,36 @@ export function SettingsModal({
               {weakPasswords.map((entry) => {
                 const reasons = passwordStrengthReasons(entry?.password || '')
                 return (
-                  <div key={entry?.platform?.id || `${entry?.identityEmail}-${entry?.platform?.name}`} className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3">
+                  <div key={entry?.platform?.id || `${entry?.identityEmail}-${entry?.platform?.name}`} className="rounded-2xl border border-amber-100 bg-amber-50/70 p-3 relative group">
                     <div className="flex items-start justify-between gap-3">
-                      <div className="min-w-0">
+                      <div className="min-w-0 pr-8">
                         <p className="truncate text-sm font-bold text-amber-950">{entry?.platform?.name || 'Plataforma desconocida'}</p>
                         <p className="mt-0.5 truncate text-[11px] font-medium text-amber-800">{entry?.identityEmail || 'Identidad sin email'}</p>
                       </div>
                       <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-amber-900 shadow-sm">Débil</span>
                     </div>
-                    <p className="mt-2 text-[11px] font-medium leading-relaxed text-amber-900">
+                    <p className="mt-2 text-[11px] font-medium leading-relaxed text-amber-900 pr-8">
                       {reasons.length > 0 ? reasons.join(', ') : 'No cumple la política mínima de seguridad'}.
                     </p>
+                    {onUpdatePlatform && entry?.identityEmail && entry?.platform?.id && (
+                      <button
+                        type="button"
+                        onClick={async () => {
+                          const identity = identities.find(id => id.email === entry.identityEmail)
+                          if (identity) {
+                            await onUpdatePlatform(identity.id, entry.platform!.id, { ...entry.platform, ignoreWeakPasswordWarning: true })
+                            showToast('Aviso de contraseña débil ignorado para esta cuenta.', 'success')
+                          }
+                        }}
+                        className="absolute right-3 top-1/2 -translate-y-1/2 rounded-lg p-2 text-amber-600/50 opacity-0 transition-all hover:bg-amber-100/80 hover:text-amber-800 group-hover:opacity-100"
+                        title="Ignorar esta contraseña débil"
+                        aria-label="Ignorar esta contraseña débil"
+                      >
+                        <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                        </svg>
+                      </button>
+                    )}
                   </div>
                 )
               })}
