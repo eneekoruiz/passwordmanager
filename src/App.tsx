@@ -741,7 +741,6 @@ function VaultApp() {
       window.localStorage.setItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`, 'true')
     }
     setBiometricPromptOpen(false)
-    setBiometricPromptPassword('')
   }
 
   const handleRegisterBiometric = async (masterPassword: string) => {
