@@ -15,7 +15,7 @@ interface ToastContextValue {
 
 const MAX_VISIBLE_TOASTS = 3
 const TOAST_DURATION_MS = 5200
-const DISMISS_DRAG_DISTANCE = 72
+const DISMISS_DRAG_DISTANCE = 30
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
@@ -175,6 +175,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       role="status"
       aria-live={toast.type === 'error' ? 'assertive' : 'polite'}
       onPointerDown={(event) => {
+        if ((event.target as HTMLElement).closest('button')) return
         startRef.current = { x: event.clientX, y: event.clientY }
         setDragging(true)
         window.clearTimeout(timerRef.current)

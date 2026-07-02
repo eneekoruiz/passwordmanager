@@ -225,7 +225,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [isInMemory, setIsInMemory] = useState(isInMemoryFallbackActive())
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false)
-  const [biometricAvailable, setBiometricAvailable] = useState(false)
+  const [biometricAvailable, setBiometricAvailable] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('contras.biometricAvailable') === 'true' : false)
   const [biometricRegistered, setBiometricRegistered] = useState(false)
   const [hardwareKeyAvailable, setHardwareKeyAvailable] = useState(false)
   const [hardwareKeyRegistered, setHardwareKeyRegistered] = useState(false)
@@ -235,8 +235,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // Check biometric & hardware key availability on mount
   useEffect(() => {
     void isBiometricAvailable()
-      .then((available) => setBiometricAvailable(available))
-      .catch(() => setBiometricAvailable(false))
+      .then((available) => {
+        setBiometricAvailable(available)
+        if (typeof window !== 'undefined') localStorage.setItem('contras.biometricAvailable', available ? 'true' : 'false')
+      })
+      .catch(() => {
+        setBiometricAvailable(false)
+        if (typeof window !== 'undefined') localStorage.setItem('contras.biometricAvailable', 'false')
+      })
     void isHardwareKeyAvailable()
       .then((available) => setHardwareKeyAvailable(available))
       .catch(() => setHardwareKeyAvailable(false))

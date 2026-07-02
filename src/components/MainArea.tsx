@@ -353,7 +353,7 @@ export const MainArea = memo(function MainArea({
                       </div>
                     ) : syncing ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
-                        {[1, 2, 3, 4].map(i => (
+                        {Array.from({ length: 16 }, (_, i) => i).map(i => (
                           <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
                             <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                             <div className="flex-1 space-y-2">
@@ -374,7 +374,7 @@ export const MainArea = memo(function MainArea({
                   ) : groupMode === 'local' ? (
                     syncing ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
-                        {[1, 2, 3, 4].map(i => (
+                        {Array.from({ length: 16 }, (_, i) => i).map(i => (
                           <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
                             <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                             <div className="flex-1 space-y-2">
@@ -423,7 +423,7 @@ export const MainArea = memo(function MainArea({
                     </div>
                   ) : syncing ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
-                      {[1, 2, 3, 4].map(i => (
+                      {Array.from({ length: 16 }, (_, i) => i).map(i => (
                         <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
                           <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                           <div className="flex-1 space-y-2">

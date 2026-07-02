@@ -33,7 +33,13 @@ function getRpId(): string {
   return window.location.hostname
 }
 
-
+// Helper para marcar globalmente que hay un prompt biométrico activo
+const setPromptState = (state: boolean) => {
+  if (typeof window !== 'undefined') {
+    // @ts-ignore
+    window.__biometricPromptOpen = state
+  }
+}
 
 async function isWebAuthnPrfAvailable(): Promise<boolean> {
   const PublicKeyCredentialCtor = window.PublicKeyCredential as typeof PublicKeyCredential & {
@@ -141,6 +147,7 @@ export async function registerBiometricCredential(
 
   let credential: PublicKeyCredential | null = null
   try {
+    setPromptState(true)
     credential = await navigator.credentials.create({
       publicKey: createOptions,
     }) as PublicKeyCredential | null
@@ -149,6 +156,8 @@ export async function registerBiometricCredential(
       throw new Error('Apple Passwords ya tiene una llave de acceso para Contras en este dispositivo. Usa esa llave para entrar o desactiva la llave local en Ajustes antes de crear una nueva.')
     }
     throw error
+  } finally {
+    setPromptState(false)
   }
 
   if (!credential) throw new Error('El registro de la llave de acceso local fue cancelado.')
@@ -209,10 +218,16 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
     } as any,
   }
 
-  const assertion = await navigator.credentials.get({
-    publicKey: getOptions,
-    mediation: 'optional',
-  }) as PublicKeyCredential | null
+  let assertion: PublicKeyCredential | null = null
+  try {
+    setPromptState(true)
+    assertion = await navigator.credentials.get({
+      publicKey: getOptions,
+      mediation: 'optional',
+    }) as PublicKeyCredential | null
+  } finally {
+    setPromptState(false)
+  }
 
   if (!assertion) throw new Error('La autenticacion con la llave de acceso local fue cancelada.')
 
