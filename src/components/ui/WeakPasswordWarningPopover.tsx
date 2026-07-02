@@ -1,14 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
-import type { Platform } from '../../crypto/vault'
 
 interface WeakPasswordWarningPopoverProps {
-  platform: Platform
   onIgnore: () => void
   onDisableGlobally: () => void
   className?: string
 }
 
-export function WeakPasswordWarningPopover({ platform, onIgnore, onDisableGlobally, className = '' }: WeakPasswordWarningPopoverProps) {
+export function WeakPasswordWarningPopover({ onIgnore, onDisableGlobally, className = '' }: WeakPasswordWarningPopoverProps) {
   const [open, setOpen] = useState(false)
   const containerRef = useRef<HTMLDivElement>(null)
 

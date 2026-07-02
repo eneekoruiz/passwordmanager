@@ -198,7 +198,6 @@ function VaultApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
   const [biometricPromptPassword, setBiometricPromptPassword] = useState('')
-  const [biometricPromptSaving, setBiometricPromptSaving] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -754,22 +753,6 @@ function VaultApp() {
     setBiometricPromptOpen(false)
     setBiometricPromptPassword('')
     showToast('Llave local activada correctamente. Apple Passwords/Face ID podrá mostrar la llave de Contras al desbloquear.', 'info')
-  }
-
-  const submitBiometricPrompt = async () => {
-    if (!biometricPromptPassword.trim()) {
-      showToast('Introduce tu Contraseña Maestra para activar la llave local.', 'error')
-      return
-    }
-
-    setBiometricPromptSaving(true)
-    try {
-      await handleRegisterBiometric(biometricPromptPassword)
-    } catch (error) {
-      reportUiError(error, 'No se pudo activar la llave local.')
-    } finally {
-      setBiometricPromptSaving(false)
-    }
   }
   const handleRegisterHardwareKey = async (masterPassword: string) => {
     await registerHardwareKeyUnlock(masterPassword)

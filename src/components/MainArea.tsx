@@ -671,7 +671,6 @@ export const MainArea = memo(function MainArea({
                         </span>
                         {(!hideWarnings && hasWeakPassword(platform)) && (
                           <WeakPasswordWarningPopover
-                            platform={platform}
                             className="absolute right-3 top-3"
                             onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
                             onDisableGlobally={() => {
@@ -750,7 +749,6 @@ export const MainArea = memo(function MainArea({
                       </span>
                       {(!hideWarnings && hasWeakPassword(platform)) && (
                         <WeakPasswordWarningPopover
-                          platform={platform}
                           className="absolute right-3 top-3"
                           onIgnore={() => void onUpdatePlatform(identity!.id, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
                           onDisableGlobally={() => {
