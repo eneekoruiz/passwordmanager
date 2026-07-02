@@ -197,7 +197,6 @@ function VaultApp() {
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
-  const [biometricPromptPassword, setBiometricPromptPassword] = useState('')
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -751,7 +750,6 @@ function VaultApp() {
       window.localStorage.setItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`, 'true')
     }
     setBiometricPromptOpen(false)
-    setBiometricPromptPassword('')
     showToast('Llave local activada correctamente. Apple Passwords/Face ID podrá mostrar la llave de Contras al desbloquear.', 'info')
   }
   const handleRegisterHardwareKey = async (masterPassword: string) => {
