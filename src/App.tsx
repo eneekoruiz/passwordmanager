@@ -634,6 +634,39 @@ function VaultApp() {
     }
     prevSyncStatusRef.current = cloudSyncStatus
   }, [cloudSyncStatus, isOnline, showToast])
+  const requestNavigation = (action: () => void) => {
+    if (unsavedDirty && unsavedActions) {
+      setPendingNavigation(() => action)
+      setUnsavedModalOpen(true)
+      return
+    }
+
+    action()
+  }
+
+  const continuePendingNavigation = () => {
+    const action = pendingNavigation
+    setPendingNavigation(null)
+    setUnsavedModalOpen(false)
+    if (action) action()
+  }
+
+  const handleUnsavedDiscard = () => {
+    unsavedActions?.discard()
+    setUnsavedDirty(false)
+    setUnsavedActions(null)
+    continuePendingNavigation()
+  }
+
+  const handleLock = () => {
+    requestNavigation(() => setLockModalOpen(true))
+  }
+
+  useEffect(() => {
+    const lockHandler = () => handleLock()
+    window.addEventListener('contras:lock-vault', lockHandler)
+    return () => window.removeEventListener('contras:lock-vault', lockHandler)
+  }, [requestNavigation])
 
   if (!mounted || !isReady) {
     return (
@@ -657,30 +690,6 @@ function VaultApp() {
   const reportUiError = (error: unknown, fallback: string) => {
     const message = getFriendlyErrorMessage(error, fallback)
     showToast(message, 'error')
-  }
-
-  const requestNavigation = (action: () => void) => {
-    if (unsavedDirty && unsavedActions) {
-      setPendingNavigation(() => action)
-      setUnsavedModalOpen(true)
-      return
-    }
-
-    action()
-  }
-
-  const continuePendingNavigation = () => {
-    const action = pendingNavigation
-    setPendingNavigation(null)
-    setUnsavedModalOpen(false)
-    if (action) action()
-  }
-
-  const handleUnsavedDiscard = () => {
-    unsavedActions?.discard()
-    setUnsavedDirty(false)
-    setUnsavedActions(null)
-    continuePendingNavigation()
   }
 
   const handleUnsavedSave = async () => {
@@ -801,16 +810,6 @@ function VaultApp() {
     window.sessionStorage.removeItem('contras.travelMode')
     showToast('Modo Viaje desactivado. La bóveda completa vuelve a estar visible.', 'success')
   }
-
-  const handleLock = () => {
-    requestNavigation(() => setLockModalOpen(true))
-  }
-
-  useEffect(() => {
-    const lockHandler = () => handleLock()
-    window.addEventListener('contras:lock-vault', lockHandler)
-    return () => window.removeEventListener('contras:lock-vault', lockHandler)
-  }, [requestNavigation])
 
   const confirmLock = () => {
     setLockModalOpen(false)
