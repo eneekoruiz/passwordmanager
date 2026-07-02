@@ -1248,6 +1248,19 @@ export function AccountForm({
                     forceVisible={isUnlocked}
                     onAccess={handleItemAccessed}
                   />
+                  
+                  <label className="mt-4 flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50 p-3 transition-colors hover:bg-amber-100/50 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={account.ignoreWeakPasswordWarning ?? false}
+                      onChange={(e) => setAccount({ ...account, ignoreWeakPasswordWarning: e.target.checked })}
+                      className="h-5 w-5 shrink-0 rounded-md border border-amber-300 bg-white text-amber-600 accent-amber-600 focus:ring-2 focus:ring-amber-500/20"
+                    />
+                    <div>
+                      <span className="block text-sm font-bold text-amber-900">Ignorar en auditoría</span>
+                      <span className="block text-xs text-amber-800">No mostrar la advertencia de contraseña débil para esta cuenta.</span>
+                    </div>
+                  </label>
                   {(account.passwordHistory ?? []).length > 0 && (
                     <Accordion title="Historial de contraseñas">
                       <div className="space-y-2 mt-2">

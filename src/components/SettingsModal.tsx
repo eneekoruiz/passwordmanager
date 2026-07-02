@@ -3,6 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
+import { passwordStrengthIssue } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 
 type PlaintextExportFormat = 'csv' | 'json'
@@ -12,19 +13,6 @@ const checkboxClassName =
 
 function passwordForPlatform(platform: Identity['platforms'][number] | undefined): string {
   return platform?.accessMethods?.find((method) => method?.type === 'PASSWORD')?.password ?? ''
-}
-
-function passwordStrengthReasons(password: string): string[] {
-  const reasons: string[] = []
-  if (password.length < 8) reasons.push('Demasiado corta')
-  if (!/[A-Z]/.test(password)) reasons.push('Sin mayúsculas')
-  if (!/[0-9]/.test(password)) reasons.push('Faltan números')
-  if (!/[^A-Za-z0-9]/.test(password)) reasons.push('Sin caracteres especiales')
-  return reasons
-}
-
-function passwordStrengthIssue(password: string): boolean {
-  return passwordStrengthReasons(password).length > 0
 }
 
 interface SettingsModalProps {
@@ -83,6 +71,9 @@ export function SettingsModal({
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
   const [backupFile, setBackupFile] = useState<File | null>(null)
+  const [hideWeakPasswordWarnings, setHideWeakPasswordWarnings] = useState(() => {
+    return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
+  })
   const [plaintextFormat, setPlaintextFormat] = useState<PlaintextExportFormat>('csv')
   const [selectedIdentityIds, setSelectedIdentityIds] = useState<string[]>([])
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
@@ -156,7 +147,7 @@ export function SettingsModal({
     const reused = entries.filter((entry, _, all) =>
       all.some((other) => other !== entry && other?.password === entry?.password),
     )
-    const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || ''))
+    const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || '') && !entry?.platform?.ignoreWeakPasswordWarning)
     const old = entries.filter((entry) => {
       if (!entry?.platform?.updatedAt) return false
       const time = Date.parse(entry.platform.updatedAt)
@@ -491,6 +482,28 @@ export function SettingsModal({
               <div className="pt-2 space-y-2">
                 <h3 className="mb-2 px-1 text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Ajustes de Bóveda</h3>
                 
+                <label className="flex w-full items-center justify-between gap-3 rounded-2xl border border-black/[0.06] bg-surface p-3 transition-colors hover:bg-surface-hover cursor-pointer">
+                  <div>
+                    <span className="block text-sm font-bold text-text-primary">Ocultar advertencias visuales</span>
+                    <span className="mt-0.5 block text-[11px] leading-relaxed text-text-secondary">No mostrar el icono de alerta en las tarjetas con contraseñas débiles.</span>
+                  </div>
+                  <input
+                    type="checkbox"
+                    className={checkboxClassName}
+                    checked={hideWeakPasswordWarnings}
+                    onChange={(e) => {
+                      const checked = e.target.checked
+                      setHideWeakPasswordWarnings(checked)
+                      if (checked) {
+                        window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                      } else {
+                        window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
+                      }
+                      window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                    }}
+                  />
+                </label>
+
                 <MenuItem
                   title="Modo Viaje"
                   subtitle="Oculta bóvedas sensibles al cruzar fronteras."

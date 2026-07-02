@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState, memo } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
+import { passwordStrengthIssue } from '../utils/security'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
@@ -95,6 +96,17 @@ export const MainArea = memo(function MainArea({
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
   const [editingLocalItem, setEditingLocalItem] = useState<LocalVaultItem | null>(null)
+  const [hideWarnings, setHideWarnings] = useState(() => {
+    return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
+  })
+
+  useEffect(() => {
+    const handleToggle = () => {
+      setHideWarnings(window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true')
+    }
+    window.addEventListener('contras:weak-passwords-toggled', handleToggle)
+    return () => window.removeEventListener('contras:weak-passwords-toggled', handleToggle)
+  }, [])
 
   const resetView = () => {
     setView('grid')
@@ -596,9 +608,16 @@ export const MainArea = memo(function MainArea({
                       <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                       <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px]">
+                        <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px] pr-5">
                           {platform.username}
                         </span>
+                        {(!hideWarnings && passwordStrengthIssue(platform.accessMethods?.find(m => m?.type === 'PASSWORD')?.password || '') && !platform.ignoreWeakPasswordWarning) && (
+                          <div className="absolute right-3 top-3 text-amber-500" title="Contraseña débil o insegura">
+                            <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                              <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                            </svg>
+                          </div>
+                        )}
                         <span className="mt-1 block truncate text-xs text-text-secondary">
                           {identityEmail}
                         </span>
@@ -663,9 +682,16 @@ export const MainArea = memo(function MainArea({
                     <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                     <PlatformLogo name={platform.name} className="h-9 w-9" />
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-text-primary">
+                      <span className="block truncate text-sm font-semibold text-text-primary pr-5">
                         {platform.name}
                       </span>
+                      {(!hideWarnings && passwordStrengthIssue(platform.accessMethods?.find(m => m?.type === 'PASSWORD')?.password || '') && !platform.ignoreWeakPasswordWarning) && (
+                        <div className="absolute right-3 top-3 text-amber-500" title="Contraseña débil o insegura">
+                          <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                            <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                          </svg>
+                        </div>
+                      )}
                       <span className="mt-1 block truncate text-xs text-text-secondary">
                         {(platform.username || identity?.email) ?? ''}
                       </span>

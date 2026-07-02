@@ -105,7 +105,7 @@ function VaultApp() {
 
     const handleStorageDegraded = () => {
       showToast(
-        'Aviso de iOS: Safari está limitando el almacenamiento. La app funciona en modo temporal. Añádela a la pantalla de inicio para evitar esto.',
+        'Navegación Privada o Almacenamiento Limitado detectado. La app funciona en modo temporal offline.',
         'warning',
       )
     }
@@ -266,9 +266,9 @@ function VaultApp() {
       return {
         color: 'text-amber-600 bg-amber-50 border-amber-100 hover:bg-amber-100/50',
         dotColor: 'bg-amber-500',
-        label: isInMemory ? 'Almacenamiento bloqueado' : 'Bóveda local (Offline o degradado)',
+        label: isInMemory ? 'Modo temporal offline' : 'Bóveda local (Offline o degradado)',
         description: isInMemory
-          ? 'Almacenamiento de Safari bloqueado o degradado. Tus cambios no se guardarán al salir. Configura la sincronización con Google Cloud o añade la app a la pantalla de inicio.'
+          ? 'Almacenamiento restringido por Navegación Privada o falta de espacio. Tus cambios no se guardarán al salir. Configura la sincronización o añade la app a la pantalla de inicio.'
           : !isOnline
             ? 'Sin conexión a Internet. Operando en modo local.'
             : 'Fallo al sincronizar con Google Cloud. Revisa tu conexión de red.',
@@ -557,7 +557,7 @@ function VaultApp() {
   useEffect(() => {
     if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
     if (typeof window === 'undefined') return
-    if (window.localStorage.getItem(`contras.biometricPromptDismissed.${currentProfileId}`) === 'true') return
+    if (window.localStorage.getItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`) === 'true') return
 
     const timer = window.setTimeout(() => setBiometricPromptOpen(true), 900)
     return () => window.clearTimeout(timer)
@@ -666,7 +666,7 @@ function VaultApp() {
 
   const dismissBiometricPrompt = () => {
     if (currentProfileId) {
-      window.localStorage.setItem(`contras.biometricPromptDismissed.${currentProfileId}`, 'true')
+      window.localStorage.setItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`, 'true')
     }
     setBiometricPromptOpen(false)
     setBiometricPromptPassword('')
@@ -675,7 +675,7 @@ function VaultApp() {
   const handleRegisterBiometric = async (masterPassword: string) => {
     await registerBiometricUnlock(masterPassword)
     if (currentProfileId) {
-      window.localStorage.setItem(`contras.biometricPromptDismissed.${currentProfileId}`, 'true')
+      window.localStorage.setItem(`contras.biometricPromptDismissed.v2.${currentProfileId}`, 'true')
     }
     setBiometricPromptOpen(false)
     setBiometricPromptPassword('')

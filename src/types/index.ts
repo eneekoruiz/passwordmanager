@@ -144,6 +144,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   attachments?: FileAttachment[]
   passwordHistory?: PasswordHistoryEntry[]
   sensitive?: boolean
+  ignoreWeakPasswordWarning?: boolean
 }
 
 /** Plataforma concreta dentro de una identidad: Amazon, Netflix, GitHub, etc. */

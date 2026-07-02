@@ -687,7 +687,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             if (isChunkError && typeof window !== 'undefined') {
               console.warn('Chunk load error detected during syncDiff import. Reloading page...', err)
               window.location.reload()
-              throw new Error('La aplicación se ha actualizado. Recargando para aplicar los cambios...')
+              return new Promise<any>(() => {}) // Wait indefinitely for reload
             }
             throw err
           }

@@ -33,12 +33,7 @@ function getRpId(): string {
   return window.location.hostname
 }
 
-function isAppleWebKitWithoutExplicitPrfSignal(): boolean {
-  const ua = navigator.userAgent
-  const isAppleDevice = /iPad|iPhone|iPod|Macintosh/i.test(ua)
-  const isWebKit = /AppleWebKit/i.test(ua) && !/CriOS|FxiOS|EdgiOS/i.test(ua)
-  return isAppleDevice && isWebKit
-}
+
 
 async function isWebAuthnPrfAvailable(): Promise<boolean> {
   const PublicKeyCredentialCtor = window.PublicKeyCredential as typeof PublicKeyCredential & {
@@ -50,9 +45,6 @@ async function isWebAuthnPrfAvailable(): Promise<boolean> {
     if ('prf' in capabilities) return capabilities.prf === true
   }
 
-  // On Apple/WebKit, creating a passkey without a positive PRF signal can leave
-  // an orphaned system passkey that this app cannot use to decrypt the vault.
-  if (isAppleWebKitWithoutExplicitPrfSignal()) return false
 
   // Chromium exposed the PRF extension before getClientCapabilities existed.
   return true
