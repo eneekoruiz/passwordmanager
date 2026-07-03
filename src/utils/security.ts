@@ -1,24 +1,42 @@
+import { secureRandomInt, secureShuffle } from './random'
+
+interface PasswordGeneratorOptions {
+  uppercase?: boolean
+  numbers?: boolean
+  symbols?: boolean
+}
+
 export function generateSecurePassword(length: number = 16): string {
+  return generateSecurePasswordWithOptions(length)
+}
+
+export function generateSecurePasswordWithOptions(
+  length: number = 16,
+  options: PasswordGeneratorOptions = {},
+): string {
   const uppercase = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'
   const lowercase = 'abcdefghijklmnopqrstuvwxyz'
   const numbers = '0123456789'
   const symbols = '!@#$%^&*()_+-=[]{}|;:,.<>?'
-  
-  const allChars = uppercase + lowercase + numbers + symbols
-  let password = ''
-  
-  // Garantizar al menos uno de cada tipo
-  password += uppercase[Math.floor(Math.random() * uppercase.length)]
-  password += lowercase[Math.floor(Math.random() * lowercase.length)]
-  password += numbers[Math.floor(Math.random() * numbers.length)]
-  password += symbols[Math.floor(Math.random() * symbols.length)]
-  
-  for (let i = 4; i < length; i++) {
-    password += allChars[Math.floor(Math.random() * allChars.length)]
+
+  const includeUppercase = options.uppercase ?? true
+  const includeNumbers = options.numbers ?? true
+  const includeSymbols = options.symbols ?? true
+  const pools = [
+    lowercase,
+    ...(includeUppercase ? [uppercase] : []),
+    ...(includeNumbers ? [numbers] : []),
+    ...(includeSymbols ? [symbols] : []),
+  ]
+  const safeLength = Math.max(length, pools.length, 8)
+  const allChars = pools.join('')
+  const password: string[] = pools.map((pool) => pool[secureRandomInt(pool.length)])
+
+  for (let i = password.length; i < safeLength; i++) {
+    password.push(allChars[secureRandomInt(allChars.length)])
   }
-  
-  // Shuffle para que no siga siempre el mismo patrón al inicio
-  return password.split('').sort(() => 0.5 - Math.random()).join('')
+
+  return secureShuffle(password).join('')
 }
 
 export async function hashEmailForDirectory(email: string): Promise<string> {

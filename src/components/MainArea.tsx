@@ -48,6 +48,7 @@ interface MainAreaProps {
   isMobile?: boolean
   createTrigger?: number
   editPlatformTrigger?: string | null
+  onEditPlatformHandled?: () => void
   sortMode: SortMode
   searchQuery?: string
   syncing?: boolean
@@ -68,6 +69,8 @@ interface EditingPlatformContext {
 interface PlatformQuickPick {
   name: string
   count: number
+  hasWeakPassword: boolean
+  maxAccessDate: string
 }
 
 
@@ -94,6 +97,7 @@ export const MainArea = memo(function MainArea({
   isMobile = false,
   createTrigger = 0,
   editPlatformTrigger = null,
+  onEditPlatformHandled,
   sortMode,
   searchQuery = '',
   syncing = false,
@@ -157,9 +161,10 @@ export const MainArea = memo(function MainArea({
       if (target) {
         setEditingPlatform(target)
         setView('edit')
+        onEditPlatformHandled?.()
       }
     }
-  }, [editPlatformTrigger, identities])
+  }, [editPlatformTrigger, identities, onEditPlatformHandled])
 
   const platformAccounts = useMemo<PlatformAccount[]>(() => {
     if (groupMode !== 'platform' || !selectedPlatformName) return []
@@ -200,27 +205,32 @@ export const MainArea = memo(function MainArea({
 
   const rawDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName ?? ''
   const selectedPlatformDisplayName = getCanonicalPlatformName(rawDisplayName)
-  const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
+  const hasVaultSelection = groupMode === 'inbox' || Boolean(identity || localCategory || selectedPlatformName)
   const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
-    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean }>()
     identities.forEach((item) => {
       (item?.platforms || []).forEach((platform) => {
         const name = platform?.name?.trim()
         if (!name) return
         const key = name.toLowerCase()
         const date = platform.createdAt || new Date(0).toISOString()
+        const accessDate = platform.lastAccessedAt || ''
         const existing = platformData.get(key)
         const canonicalName = getCanonicalPlatformName(name)
         if (existing) {
           existing.count += 1
           if (date < existing.minDate) existing.minDate = date
           if (date > existing.maxDate) existing.maxDate = date
+          if (accessDate > existing.maxAccessDate) existing.maxAccessDate = accessDate
+          existing.hasWeakPassword = existing.hasWeakPassword || hasWeakPassword(platform)
         } else {
           platformData.set(key, {
             name: canonicalName,
             count: 1,
             minDate: date,
             maxDate: date,
+            maxAccessDate: accessDate,
+            hasWeakPassword: hasWeakPassword(platform),
           })
         }
       })
@@ -237,7 +247,7 @@ export const MainArea = memo(function MainArea({
       } else if (sortMode === 'created-asc') {
         return a.minDate.localeCompare(b.minDate)
       } else if (sortMode === 'access-desc') {
-        return b.maxDate.localeCompare(a.maxDate) // fallback
+        return (b.maxAccessDate || b.maxDate).localeCompare(a.maxAccessDate || a.maxDate)
       } else if (sortMode === 'usage-desc') {
         return b.count - a.count || a.name.localeCompare(b.name)
       }
@@ -355,7 +365,7 @@ export const MainArea = memo(function MainArea({
                             <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
                             <span className="min-w-0 flex-1 relative">
                               <span className="block truncate text-sm font-semibold text-text-primary pr-5">{getCanonicalPlatformName(platform.name)}</span>
-                              {(!hideWarnings && identities.some(id => id.platforms?.some(p => p.name === platform.name && hasWeakPassword(p)))) && (
+                              {(!hideWarnings && platform.hasWeakPassword) && (
                                 <div className="absolute right-0 top-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
                                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
                                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
@@ -691,17 +701,6 @@ export const MainArea = memo(function MainArea({
                           <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px] pr-5">
                             {platform.username}
                           </span>
-                          {(!hideWarnings && hasWeakPassword(platform)) && (
-                            <WeakPasswordWarningPopover
-                              className="absolute right-3 top-3"
-                              onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
-                              onDisableGlobally={() => {
-                                window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
-                                window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
-                                window.dispatchEvent(new Event('contras:open-settings'))
-                              }}
-                            />
-                          )}
                           <span className="mt-1 block truncate text-xs text-text-secondary">
                             {identityEmail}
                           </span>
@@ -731,6 +730,17 @@ export const MainArea = memo(function MainArea({
                           </span>
                         </span>
                       </button>
+                      {(!hideWarnings && hasWeakPassword(platform)) && (
+                        <WeakPasswordWarningPopover
+                          className="absolute right-3 top-3 z-20"
+                          onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
+                          onDisableGlobally={() => {
+                            window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                            window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                            window.dispatchEvent(new Event('contras:open-settings'))
+                          }}
+                        />
+                      )}
                       {/* Quick Travel Button */}
                       {(pwMethod?.password || hasUrl) && (
                         <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
@@ -829,17 +839,6 @@ export const MainArea = memo(function MainArea({
                       <span className="block truncate text-sm font-semibold text-text-primary pr-5">
                         {platform.name}
                       </span>
-                      {(!hideWarnings && hasWeakPassword(platform)) && (
-                        <WeakPasswordWarningPopover
-                          className="absolute right-3 top-3"
-                          onIgnore={() => void onUpdatePlatform(identity!.id, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
-                          onDisableGlobally={() => {
-                            window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
-                            window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
-                            window.dispatchEvent(new Event('contras:open-settings'))
-                          }}
-                        />
-                      )}
                       <span className="mt-1 block truncate text-xs text-text-secondary">
                         {(platform.username || identity?.email) ?? ''}
                       </span>
@@ -894,6 +893,17 @@ export const MainArea = memo(function MainArea({
                       </span>
                     </span>
                     </button>
+                    {(!hideWarnings && hasWeakPassword(platform)) && identity && (
+                      <WeakPasswordWarningPopover
+                        className="absolute right-3 top-3 z-20"
+                        onIgnore={() => void onUpdatePlatform(identity.id, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
+                        onDisableGlobally={() => {
+                          window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                          window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                          window.dispatchEvent(new Event('contras:open-settings'))
+                        }}
+                      />
+                    )}
                            {/* Quick Travel for identity platforms */}
                     {pwMethod?.password && (
                       <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">

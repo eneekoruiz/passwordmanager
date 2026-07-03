@@ -186,19 +186,32 @@ export class VaultStore {
       this.loadLocalItems(profileId),
       this.loadLocalCategories(profileId),
     ])
+    const db = await getVaultDb()
+    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    if (!profileRecord) throw new Error('Perfil no encontrado.')
+
+    const existingPrivateKey = profileRecord.asymmetricKeys?.privateKey
+      ? await this.vault.decryptString(profileRecord.asymmetricKeys.privateKey)
+      : null
+
     const { metadata, encryptedPayload } = await CryptoVault.createEncryptedVault(
       nextPassword,
       VAULT_VERIFICATION_MARKER,
     )
-    const db = await getVaultDb()
-    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
-    if (!profileRecord) throw new Error('Perfil no encontrado.')
+    if (existingPrivateKey && profileRecord.asymmetricKeys) {
+      const nextKey = await CryptoVault.deriveKey(nextPassword, base64ToBytes(metadata.salt))
+      metadata.asymmetricKeys = {
+        publicKey: profileRecord.asymmetricKeys.publicKey,
+        privateKey: await CryptoVault.encryptBytes(stringToBytes(existingPrivateKey), nextKey),
+      }
+    }
 
     const updatedProfile: ProfileRecord = {
       ...profileRecord,
       salt: metadata.salt,
       verification: encryptedPayload,
       recovery: await CryptoVault.createRecoveryBundle(recoveryPhrase, nextPassword),
+      asymmetricKeys: metadata.asymmetricKeys,
     }
     await db.put('meta', updatedProfile, `profile_${profileId}`)
     await this.vault.unlock(nextPassword, base64ToBytes(metadata.salt))
@@ -499,6 +512,7 @@ export class VaultStore {
         createdAt: profileRecord.createdAt,
         name: profileRecord.name,
         recovery: profileRecord.recovery,
+        asymmetricKeys: profileRecord.asymmetricKeys,
       },
       identities: identitiesData
     }
@@ -564,6 +578,7 @@ export class VaultStore {
       salt: databaseDump.meta.salt,
       verification: databaseDump.meta.verification,
       recovery: databaseDump.meta.recovery,
+      asymmetricKeys: databaseDump.meta.asymmetricKeys ?? profileRecord.asymmetricKeys,
     }
     await db.put('meta', updatedProfile, `profile_${profileId}`)
 
@@ -666,6 +681,7 @@ export class VaultStore {
         createdAt: profileRecord.createdAt,
         name: profileRecord.name,
         recovery: profileRecord.recovery,
+        asymmetricKeys: profileRecord.asymmetricKeys,
       },
       identities: identitiesData
     }
@@ -677,6 +693,7 @@ export class VaultStore {
       v: 1,
       salt: profileRecord.salt,
       recovery: profileRecord.recovery,
+      asymmetricKeys: profileRecord.asymmetricKeys,
       iv: encryptedPayload.iv,
       data: encryptedPayload.data
     }
@@ -725,6 +742,7 @@ export class VaultStore {
       salt: databaseDump.meta.salt,
       verification: databaseDump.meta.verification,
       recovery: databaseDump.meta.recovery ?? backup.recovery,
+      asymmetricKeys: databaseDump.meta.asymmetricKeys ?? backup.asymmetricKeys,
       createdAt: databaseDump.meta.createdAt || new Date().toISOString()
     }
     await db.put('meta', restoredProfile, `profile_${profileId}`)
@@ -788,6 +806,7 @@ export class VaultStore {
       salt: databaseDump.meta.salt,
       verification: databaseDump.meta.verification,
       recovery: databaseDump.meta.recovery ?? backup.recovery,
+      asymmetricKeys: databaseDump.meta.asymmetricKeys ?? backup.asymmetricKeys ?? profileRecord.asymmetricKeys,
       createdAt: databaseDump.meta.createdAt || profileRecord.createdAt,
     }
     const tx = db.transaction(['meta', 'platforms'], 'readwrite')
@@ -961,6 +980,7 @@ export class VaultStore {
         createdAt: profileRecord.createdAt,
         name: profileRecord.name,
         recovery: profileRecord.recovery,
+        asymmetricKeys: profileRecord.asymmetricKeys,
       },
       identities: identitiesData
     }

@@ -20,11 +20,6 @@ export function generateId(): string {
       .join('')
   }
 
-  // Math.random fallback (non-cryptographic, last resort)
-  return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {
-    const r = (Math.random() * 16) | 0
-    const v = c === 'x' ? r : (r & 0x3) | 0x8
-    return v.toString(16)
-  })
+  throw new Error('No hay generador criptográfico disponible para crear identificadores seguros.')
 }
 

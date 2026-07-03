@@ -54,6 +54,18 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
   const registerSW = () => {
     navigator.serviceWorker
       .register('/sw.js')
+      .then((registration) => {
+        registration.addEventListener('updatefound', () => {
+          const nextWorker = registration.installing
+          if (!nextWorker) return
+          nextWorker.addEventListener('statechange', () => {
+            if (nextWorker.state === 'installed' && navigator.serviceWorker.controller) {
+              window.location.reload()
+            }
+          })
+        })
+        void registration.update().catch(() => undefined)
+      })
       .catch((error) => logUnexpectedError('Error al registrar Service Worker', error))
   }
 

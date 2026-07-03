@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
 import { collection, query, where, onSnapshot } from 'firebase/firestore'
 import { auth, db } from './services/firebase'
@@ -252,6 +252,7 @@ function VaultApp() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [settingsInitialView, setSettingsInitialView] = useState<'health' | 'biometric' | 'hardwareKey' | 'credentials' | 'travel' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'main'>('health')
   const [editPlatformTrigger, setEditPlatformTrigger] = useState<string | null>(null)
+  const clearEditPlatformTrigger = useCallback(() => setEditPlatformTrigger(null), [])
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
@@ -1091,8 +1092,8 @@ function VaultApp() {
 
       {/* Row 3: Tabs selector (only on list view) */}
       {showExtraHeaderElements && (
-        <div className="grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
-          {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
+        <div className="grid grid-cols-4 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+          {(['identity', 'platform', 'local', 'inbox'] as VaultGroupMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -1103,7 +1104,7 @@ function VaultApp() {
                   : 'text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
+              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : mode === 'local' ? 'Locales' : 'Buzón'}
             </button>
           ))}
         </div>
@@ -1377,7 +1378,7 @@ function VaultApp() {
         {mobileTopBar}
         {globalOverlays}
         <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'} pb-16`}>
-          {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
+          {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null && groupMode !== 'inbox' ? (
             <Sidebar
               identities={displayIdentities}
               localItems={displayLocalItems}
@@ -1455,30 +1456,58 @@ function VaultApp() {
               isMobile={true}
               createTrigger={createTrigger}
               editPlatformTrigger={editPlatformTrigger}
+              onEditPlatformHandled={clearEditPlatformTrigger}
               sortMode={sortMode}
               searchQuery={localSearchTerm}
             />
           )}
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 translate-y-0 items-center justify-around border-t border-black/5 bg-white/95 px-6 shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 translate-y-0 items-center justify-around border-t border-black/5 bg-white/95 px-3 shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-xl">
           <button
             type="button"
             onClick={() => {
               requestNavigation(() => {
+                setGroupMode('platform')
                 setSelectedId(null)
                 setSelectedPlatformName(null)
                 setSelectedLocalCategory(null)
               })
             }}
             className={`flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
-              selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? 'text-text-primary' : 'text-text-tertiary'
+              groupMode === 'platform' && selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? 'text-text-primary' : 'text-text-tertiary'
             }`}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
             </svg>
             <span className="text-[10px] font-semibold">Plataformas</span>
+          </button>
+
+
+          <button
+            type="button"
+            onClick={() => {
+              requestNavigation(() => {
+                setGroupMode('inbox')
+                setSelectedId(null)
+                setSelectedPlatformName(null)
+                setSelectedLocalCategory(null)
+              })
+            }}
+            className={`relative flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
+              groupMode === 'inbox' ? 'text-text-primary' : 'text-text-tertiary'
+            }`}
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+            </svg>
+            <span className="text-[10px] font-semibold">Buzón</span>
+            {inboxCount > 0 && (
+              <span className="absolute top-0 right-2 flex h-4 min-w-4 items-center justify-center rounded-full bg-red-500 px-1 text-[9px] font-bold text-white ring-2 ring-white">
+                {inboxCount}
+              </span>
+            )}
           </button>
 
           <button
@@ -1514,7 +1543,6 @@ function VaultApp() {
               setSelectedPlatformName(identity.platforms.find(p => p.id === platformId)?.name || null)
               setEditPlatformTrigger(platformId)
               setSettingsOpen(false)
-              setTimeout(() => setEditPlatformTrigger(null), 100)
             }
           }}
           isOpen={settingsOpen}
@@ -1706,6 +1734,7 @@ function VaultApp() {
             isMobile={false}
             createTrigger={createTrigger}
             editPlatformTrigger={editPlatformTrigger}
+            onEditPlatformHandled={clearEditPlatformTrigger}
             sortMode={sortMode}
             searchQuery={globalSearchTerm}
           />

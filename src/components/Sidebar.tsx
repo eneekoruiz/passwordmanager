@@ -8,6 +8,7 @@ import { LOCAL_ITEM_LABELS, PRESET_LOCAL_CATEGORIES, normalizeLocalCategory } fr
 import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
+import { hasWeakPassword } from '../utils/security'
 
 interface SidebarProps {
   identities: Identity[]
@@ -99,24 +100,29 @@ export const Sidebar = memo(function Sidebar({
     [cloudIdentities, query],
   )
   const platformSummaries = useMemo(() => {
-    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string }>()
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean }>()
     for (const identity of cloudIdentities) {
       for (const platform of (identity?.platforms || [])) {
         const name = platform.name.trim()
         if (!name) continue
         const key = name.toLowerCase()
         const date = platform.createdAt || new Date(0).toISOString()
+        const accessDate = platform.lastAccessedAt || ''
         const existing = platformData.get(key)
         if (existing) {
           existing.count += 1
           if (date < existing.minDate) existing.minDate = date
           if (date > existing.maxDate) existing.maxDate = date
+          if (accessDate > existing.maxAccessDate) existing.maxAccessDate = accessDate
+          existing.hasWeakPassword = existing.hasWeakPassword || hasWeakPassword(platform)
         } else {
           platformData.set(key, {
             name,
             count: 1,
             minDate: date,
             maxDate: date,
+            maxAccessDate: accessDate,
+            hasWeakPassword: hasWeakPassword(platform),
           })
         }
       }
@@ -138,7 +144,7 @@ export const Sidebar = memo(function Sidebar({
         case 'created-asc':
           return a.minDate.localeCompare(b.minDate)
         case 'access-desc':
-          return b.maxDate.localeCompare(a.maxDate)
+          return (b.maxAccessDate || b.maxDate).localeCompare(a.maxAccessDate || a.maxDate)
         case 'usage-desc':
           return b.count - a.count || a.name.localeCompare(b.name)
         default:
@@ -292,7 +298,7 @@ export const Sidebar = memo(function Sidebar({
     </div>
   ) : null)
 
-  const renderPlatformItem = (platform: { name: string; count: number }) => {
+  const renderPlatformItem = (platform: { name: string; count: number; hasWeakPassword?: boolean }) => {
     const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
     const canonicalName = getCanonicalPlatformName(platform.name)
     return (
@@ -305,8 +311,17 @@ export const Sidebar = memo(function Sidebar({
           }`}
         >
           <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold text-text-primary">{canonicalName}</span>
+          <span className="min-w-0 flex-1 pr-5">
+            <span className="flex items-center gap-1.5">
+              <span className="block min-w-0 truncate text-sm font-bold text-text-primary">{canonicalName}</span>
+              {platform.hasWeakPassword && (
+                <span className="shrink-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              )}
+            </span>
             <span className="mt-1 block text-xs font-medium text-text-secondary">
               {platform.count} cuenta{platform.count !== 1 ? 's' : ''} vinculada{platform.count !== 1 ? 's' : ''}
             </span>

@@ -17,8 +17,8 @@ interface OnboardingState {
 export function useOnboarding(state: OnboardingState) {
   const recoveryWords = state.recoveryPhrase.split(' ').filter(Boolean)
   const seedChallengePassed =
-    recoveryWords.length === 12 &&
-    state.seedChallengeIndices.length === 3 &&
+    recoveryWords.length >= 12 &&
+    state.seedChallengeIndices.length >= 3 &&
     state.seedChallengeIndices.every(
       (index) => state.seedChallengeAnswers[index]?.trim().toLowerCase() === recoveryWords[index],
     )

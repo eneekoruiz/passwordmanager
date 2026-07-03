@@ -16,6 +16,7 @@ interface ToastContextValue {
 const MAX_VISIBLE_TOASTS = 3
 const TOAST_DURATION_MS = 5200
 const DISMISS_DRAG_DISTANCE = 30
+let toastSequence = 0
 
 const ToastContext = createContext<ToastContextValue | null>(null)
 
@@ -64,7 +65,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
     const cleanMessage = message.trim()
     if (!normalizeToastMessage(cleanMessage)) return
 
-    const id = `toast_${Date.now()}_${Math.random().toString(16).slice(2)}`
+    const id = `toast_${Date.now()}_${toastSequence += 1}`
 
     setToasts((prev) => {
       const duplicateIndex = prev.findIndex((toast) => areSimilarToastMessages(toast.message, cleanMessage))

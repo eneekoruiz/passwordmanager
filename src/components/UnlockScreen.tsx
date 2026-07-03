@@ -3,7 +3,8 @@ import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 import { PasswordField } from './ui/PasswordField'
 import { getFriendlyErrorMessage } from '../utils/errors'
-import { generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
+import { RECOVERY_PHRASE_WORD_COUNT, generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
+import { secureRandomInt } from '../utils/random'
 import { useOnboarding } from '../hooks/useOnboarding'
 import { useRecovery } from '../hooks/useRecovery'
 
@@ -307,17 +308,16 @@ function VaultSkeleton() {
 
 type OnboardingRecoveryStep = 'display' | 'verify'
 
-function createSeedChallengeIndices(): number[] {
-  const pool = Array.from({ length: 12 }, (_, index) => index)
-  const random = new Uint8Array(12)
-  crypto.getRandomValues(random)
+function createSeedChallengeIndices(wordCount: number): number[] {
+  const pool = Array.from({ length: wordCount }, (_, index) => index)
+  const challengeCount = Math.min(4, Math.max(3, Math.floor(wordCount / 6)))
 
   for (let index = pool.length - 1; index > 0; index -= 1) {
-    const swapIndex = random[index] % (index + 1)
+    const swapIndex = secureRandomInt(index + 1)
     ;[pool[index], pool[swapIndex]] = [pool[swapIndex], pool[index]]
   }
 
-  return pool.slice(0, 3).sort((a, b) => a - b)
+  return pool.slice(0, challengeCount).sort((a, b) => a - b)
 }
 
 export function UnlockScreen() {
@@ -334,7 +334,6 @@ export function UnlockScreen() {
     unlockOrRestoreVault,
     recoverVaultWithSeed,
     nukeAccount,
-    biometricAvailable,
     biometricRegistered,
     unlockWithBiometricSensor,
     hardwareKeyAvailable,
@@ -385,8 +384,10 @@ export function UnlockScreen() {
 
   useEffect(() => {
     if (cloudVaultExists === false && !recoveryPhrase) {
-      setRecoveryPhrase(generateRecoveryPhrase())
-      setSeedChallengeIndices(createSeedChallengeIndices())
+      const phrase = generateRecoveryPhrase()
+      const wordCount = phrase.split(' ').filter(Boolean).length
+      setRecoveryPhrase(phrase)
+      setSeedChallengeIndices(createSeedChallengeIndices(wordCount))
       setSeedChallengeAnswers({})
       setResponsibilityChecks({ masterPassword: false, seedSaved: false, totalLoss: false })
       setOnboardingRecoveryStep('display')
@@ -395,10 +396,10 @@ export function UnlockScreen() {
 
 
   useEffect(() => {
-    if (cloudVaultExists !== false && biometricAvailable && biometricRegistered) {
+    if (cloudVaultExists !== false && biometricRegistered) {
       handleBiometricVaultUnlock()
     }
-  }, [cloudVaultExists, biometricAvailable, biometricRegistered])
+  }, [cloudVaultExists, biometricRegistered])
 
   const handleCopyRecoveryPhrase = async () => {
     await navigator.clipboard.writeText(recoveryPhrase)
@@ -605,7 +606,7 @@ export function UnlockScreen() {
   }
 
   const isCloudLoading = cloudSyncStatus === 'syncing'
-  const canUseBiometricUnlock = cloudVaultExists !== false && biometricAvailable && biometricRegistered
+  const canUseBiometricUnlock = cloudVaultExists !== false && biometricRegistered
   const canUseHardwareKeyUnlock = cloudVaultExists !== false && hardwareKeyAvailable && hardwareKeyRegistered
   const { recoveryWords, canCreateVault } = useOnboarding({
     cloudVaultExists,
@@ -650,7 +651,7 @@ export function UnlockScreen() {
                 <textarea
                   value={recoveryInput}
                   onChange={(event) => setRecoveryInput(event.target.value)}
-                  placeholder="pega aquí tus 12 palabras de recuperación"
+                  placeholder={`pega aqui tus ${RECOVERY_PHRASE_WORD_COUNT} palabras de recuperacion`}
                   className="min-h-[92px] w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 focus:ring-2 focus:ring-black/[0.035]"
                 />
                 <PasswordField
@@ -759,7 +760,7 @@ export function UnlockScreen() {
                         <div>
                           <p className="text-xs font-bold text-amber-900">Kit de Recuperación de Emergencia</p>
                           <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
-                            Esta Frase Semilla es tu único salvavidas zero-knowledge. Si olvidas la Contraseña Maestra, estas 12 palabras son la única forma de recuperar y re-cifrar la bóveda. Guárdalas fuera de este dispositivo.
+                            Esta Frase Semilla es tu único salvavidas zero-knowledge. Si olvidas la Contraseña Maestra, estas palabras son la unica forma de recuperar y re-cifrar la bóveda. Guárdalas fuera de este dispositivo.
                           </p>
                         </div>
                         {onboardingRecoveryStep === 'display' ? (

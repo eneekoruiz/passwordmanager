@@ -2,6 +2,22 @@ import { useState } from 'react'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 
+function withTimeout<T>(promise: Promise<T>, timeoutMs: number, message: string): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => reject(new Error(message)), timeoutMs)
+    promise.then(
+      (value) => {
+        window.clearTimeout(timer)
+        resolve(value)
+      },
+      (error) => {
+        window.clearTimeout(timer)
+        reject(error)
+      },
+    )
+  })
+}
+
 export function MasterPasswordPromptModal() {
   const { isPromptingMasterPassword, resolveMasterPasswordPrompt, verifyCurrentMasterPassword } = useVault()
   const [password, setPassword] = useState('')
@@ -14,7 +30,11 @@ export function MasterPasswordPromptModal() {
     e.preventDefault()
     setLoading(true)
     try {
-      const valid = await verifyCurrentMasterPassword(password)
+      const valid = await withTimeout(
+        verifyCurrentMasterPassword(password),
+        20000,
+        'La verificación no respondió. Inténtalo de nuevo.',
+      )
       if (valid) {
         resolveMasterPasswordPrompt(true)
         setPassword('')

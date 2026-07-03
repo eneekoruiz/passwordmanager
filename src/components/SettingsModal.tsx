@@ -925,7 +925,7 @@ export function SettingsModal({
                 <textarea
                   value={recoveryPhrase}
                   onChange={(event) => setRecoveryPhrase(event.target.value)}
-                  placeholder="Frase de recuperación de 12 palabras"
+                  placeholder="Frase de recuperación"
                   className="min-h-20 w-full resize-y rounded-lg border border-border-subtle bg-surface px-3 py-2.5 text-xs font-medium text-text-primary outline-none transition-colors focus:border-border"
                 />
                 <div className="rounded-xl border border-blue-100 bg-blue-50 p-3 text-[11px] font-medium leading-relaxed text-blue-900">

@@ -202,16 +202,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
   const [isPromptingMasterPassword, setIsPromptingMasterPassword] = useState(false)
   const masterPasswordResolver = useRef<((success: boolean) => void) | null>(null)
+  const masterPasswordPromptPromise = useRef<Promise<boolean> | null>(null)
 
   const promptMasterPassword = useCallback(() => {
-    return new Promise<boolean>((resolve) => {
+    if (masterPasswordPromptPromise.current) return masterPasswordPromptPromise.current
+
+    const promptPromise = new Promise<boolean>((resolve) => {
       setIsPromptingMasterPassword(true)
       masterPasswordResolver.current = resolve
     })
+    masterPasswordPromptPromise.current = promptPromise
+    return promptPromise
   }, [])
 
   const resolveMasterPasswordPrompt = useCallback((success: boolean) => {
     setIsPromptingMasterPassword(false)
+    masterPasswordPromptPromise.current = null
     if (masterPasswordResolver.current) {
       masterPasswordResolver.current(success)
       masterPasswordResolver.current = null
@@ -227,9 +233,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
   const [hasUnsyncedChanges, setHasUnsyncedChanges] = useState(false)
   const [biometricAvailable, setBiometricAvailable] = useState(() => typeof window !== 'undefined' ? localStorage.getItem('contras.biometricAvailable') === 'true' : false)
-  const [biometricRegistered, setBiometricRegistered] = useState(false)
+  const [biometricRegistered, setBiometricRegistered] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('contras.biometricRegistered.default') === 'true'
+  })
   const [hardwareKeyAvailable, setHardwareKeyAvailable] = useState(false)
-  const [hardwareKeyRegistered, setHardwareKeyRegistered] = useState(false)
+  const [hardwareKeyRegistered, setHardwareKeyRegistered] = useState(() => {
+    if (typeof window === 'undefined') return false
+    return window.localStorage.getItem('contras.hardwareKeyRegistered.default') === 'true'
+  })
 
   const { showToast } = useToast()
 
@@ -330,13 +342,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (!mounted) return
         setBiometricRegistered(registered)
         if (registered) localStorage.setItem('contras.biometricRegistered.default', 'true')
-        else localStorage.removeItem('contras.biometricRegistered.default')
       }),
       storeRef.current.hasHardwareKeyBundle('default').then((registered) => {
         if (!mounted) return
         setHardwareKeyRegistered(registered)
         if (registered) localStorage.setItem('contras.hardwareKeyRegistered.default', 'true')
-        else localStorage.removeItem('contras.hardwareKeyRegistered.default')
       }),
     ]).finally(() => {
       if (mounted) setIsReady(true)
@@ -1033,6 +1043,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!currentProfileId) return
 
       try {
+        const accessedAt = new Date().toISOString()
         if (identityId) {
           // Es una plataforma dentro de una identidad
           const identity = identities.find(i => i.id === identityId)
@@ -1042,10 +1053,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               const updatedPlatform = {
                 ...platform,
                 accessCount: (platform.accessCount || 0) + 1,
-                lastAccessedAt: new Date().toISOString()
+                lastAccessedAt: accessedAt
               }
               const updatedIdentity = {
                 ...identity,
+                updatedAt: accessedAt,
                 platforms: identity.platforms.map(p => p.id === itemId ? updatedPlatform : p)
               }
               await storeRef.current.saveIdentity(currentProfileId, updatedIdentity)
@@ -1058,17 +1070,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             const updatedItem = {
               ...localItem,
               accessCount: (localItem.accessCount || 0) + 1,
-              lastAccessedAt: new Date().toISOString()
+              lastAccessedAt: accessedAt
             }
             await storeRef.current.saveLocalItem(currentProfileId, updatedItem)
           }
         }
         await refreshVaultData()
+        triggerCloudSync()
       } catch (error) {
         console.warn('Failed to track item access:', error)
       }
     },
-    [currentProfileId, identities, localItems, refreshVaultData],
+    [currentProfileId, identities, localItems, refreshVaultData, triggerCloudSync],
   )
 
   const loginWithGoogleCloud = useCallback((): Promise<void> => {
@@ -1485,7 +1498,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
     
     // Si tiene biometría activa, la preferimos – pero siempre hacemos fallback al modal.
-    if (biometricAvailable && biometricRegistered) {
+    if (biometricRegistered) {
       const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
       if (!bundle) {
         localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
@@ -1538,14 +1551,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     // Fallback: siempre pedimos la clave maestra mediante el modal
-    const authorized = await promptMasterPassword()
+    const authorized = await withTimeout(
+      promptMasterPassword(),
+      120000,
+      'La verificación tardó demasiado. Vuelve a intentarlo.',
+    ).catch((error) => {
+      resolveMasterPasswordPrompt(false)
+      throw error
+    })
     if (!authorized) {
       showToast('Autorización cancelada.', 'error')
       return false
     }
     lastAuthorizedTimeRef.current = Date.now()
     return true
-  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword, showToast])
+  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword, resolveMasterPasswordPrompt, showToast])
 
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return

@@ -21,8 +21,10 @@ export function WeakPasswordWarningPopover({ onIgnore, onDisableGlobally, classN
     return () => document.removeEventListener('mousedown', handleClickOutside)
   }, [open])
 
+  const positioned = /(?:^|\s)(absolute|fixed|sticky)(?:\s|$)/.test(className)
+
   return (
-    <div className={`relative ${className}`} ref={containerRef} onClick={(e) => e.stopPropagation()}>
+    <div className={`${positioned ? '' : 'relative'} ${className}`} ref={containerRef} onClick={(e) => e.stopPropagation()}>
       <button
         type="button"
         onClick={() => setOpen(!open)}
@@ -35,7 +37,7 @@ export function WeakPasswordWarningPopover({ onIgnore, onDisableGlobally, classN
       </button>
 
       {open && (
-        <div className="absolute right-0 top-full mt-2 w-64 z-50 rounded-2xl bg-white border border-black/5 p-3 shadow-[0_15px_40px_rgba(0,0,0,0.12)] animate-in zoom-in-95 duration-150">
+        <div className="absolute right-0 top-6 mt-2 w-64 max-w-[calc(100vw-2rem)] z-50 rounded-2xl bg-white border border-black/5 p-3 shadow-[0_15px_40px_rgba(0,0,0,0.12)] animate-in zoom-in-95 duration-150">
           <h4 className="text-sm font-bold text-slate-900">Alerta de Seguridad</h4>
           <p className="mt-1 text-xs text-slate-600">Esta contraseña es débil o ha sido reutilizada en otra plataforma.</p>
           <div className="mt-3 flex flex-col gap-1.5">

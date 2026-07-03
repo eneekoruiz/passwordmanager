@@ -172,12 +172,7 @@ export async function registerBiometricCredential(
   const credentialId = bytesToBase64(credentialIdBytes)
 
   if (!prfResult) {
-    // Plan B: Conveniencia. Guardar entropía local en localStorage
-    const randomBytes = new Uint8Array(32)
-    crypto.getRandomValues(randomBytes)
-    const fallbackKey = `contras_biometric_fallback_${credentialId}`
-    localStorage.setItem(fallbackKey, bytesToBase64(randomBytes))
-    prfResult = randomBytes.buffer
+    throw new Error(getBiometricUnavailableMessage())
   }
 
   const prfKey = await derivePrfKey(new Uint8Array(prfResult))
@@ -244,13 +239,7 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
   let prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
 
   if (!prfResult) {
-    const fallbackKey = `contras_biometric_fallback_${bundle.credentialId}`
-    const stored = localStorage.getItem(fallbackKey)
-    if (stored) {
-      prfResult = bytesToArrayBuffer(new Uint8Array(base64ToBytes(stored)))
-    } else {
-      throw new Error('No se pudo derivar la clave de la llave de acceso local. Vuelve a activar el desbloqueo biométrico en este dispositivo.')
-    }
+    throw new Error('Esta llave local no entrega una clave PRF verificable. Vuelve a activar el desbloqueo local en un navegador/dispositivo compatible o usa la Contraseña Maestra.')
   }
 
   const prfKey = await derivePrfKey(new Uint8Array(prfResult))

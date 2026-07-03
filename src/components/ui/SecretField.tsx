@@ -50,13 +50,20 @@ export function SecretField({
         setVisible(true)
         onAccess?.()
       }
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo verificar tu identidad.', 'error')
     } finally {
       setAuthenticating(false)
     }
   }
 
   const handleCopy = async () => {
-    if (!(await authenticate())) return
+    try {
+      if (!(await authenticate())) return
+    } catch (error) {
+      showToast(error instanceof Error ? error.message : 'No se pudo verificar tu identidad.', 'error')
+      return
+    }
     onAccess?.()
     const ok = await copyToClipboard(value)
     if (ok) {

@@ -1,3 +1,5 @@
+import { secureRandomInt } from './random'
+
 const RECOVERY_WORDS = [
   'acero', 'aguila', 'alba', 'ambar', 'ancla', 'arbol', 'arena', 'astro',
   'aula', 'aurora', 'avion', 'azul', 'balsa', 'bambu', 'barco', 'brisa',
@@ -17,10 +19,13 @@ const RECOVERY_WORDS = [
   'pluma', 'costa', 'marea', 'bosque', 'nodo', 'puerto', 'ronda', 'marca',
 ]
 
-export function generateRecoveryPhrase(wordCount = 12): string {
-  const indexes = new Uint8Array(wordCount)
-  crypto.getRandomValues(indexes)
-  return Array.from(indexes, (index) => RECOVERY_WORDS[index & 127]).join(' ')
+export const RECOVERY_PHRASE_WORD_COUNT = 18
+
+export function generateRecoveryPhrase(wordCount = RECOVERY_PHRASE_WORD_COUNT): string {
+  return Array.from(
+    { length: wordCount },
+    () => RECOVERY_WORDS[secureRandomInt(RECOVERY_WORDS.length)],
+  ).join(' ')
 }
 
 export function normalizeRecoveryPhrase(value: string): string {

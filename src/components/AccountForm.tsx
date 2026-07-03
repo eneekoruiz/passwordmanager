@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
+import { useState, useEffect, useCallback, useRef, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
 import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType, FileAttachment } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
@@ -279,6 +279,8 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, on
         setRevealed(true)
         onAccess?.()
       }
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
     } finally {
       setAuthenticating(false)
     }
@@ -286,7 +288,12 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, on
 
   const handleCopy = async (event?: MouseEvent) => {
     event?.stopPropagation()
-    if (isSecret && !(await authenticate())) return
+    try {
+      if (isSecret && !(await authenticate())) return
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return
+    }
     if (isSecret) onAccess?.()
     const ok = await copyToClipboard(value)
     if (ok) {
@@ -374,13 +381,21 @@ function SecuritySummaryCard({
         setRevealed(true)
         onAccess?.()
       }
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
     } finally {
       setAuthenticating(false)
     }
   }
 
   const handleCopy = async () => {
-    if (!secret || !(await authenticate())) return
+    if (!secret) return
+    try {
+      if (!(await authenticate())) return
+    } catch (error) {
+      showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
+      return
+    }
     onAccess?.()
     const ok = await copyToClipboard(secret)
     if (ok) {
@@ -501,6 +516,7 @@ export function AccountForm({
   const [isDragging, setIsDragging] = useState(false)
   const [ssoProviderQuery, setSsoProviderQuery] = useState('')
   const [platformQuery, setPlatformQuery] = useState(() => account.name)
+  const accessTrackedRef = useRef(false)
 
   useEffect(() => {
     setPlatformQuery(account.name)
@@ -517,6 +533,12 @@ export function AccountForm({
       void trackItemAccess(account.id, targetIdentityId)
     }
   }, [account.id, targetIdentityId, isEditing, trackItemAccess])
+
+  useEffect(() => {
+    if (mode !== 'edit' || isEditing || accessTrackedRef.current || !account.id || !targetIdentityId) return
+    accessTrackedRef.current = true
+    void trackItemAccess(account.id, targetIdentityId)
+  }, [account.id, isEditing, mode, targetIdentityId, trackItemAccess])
 
   const handleGlobalUnlock = async () => {
     if (isUnlocked) return
@@ -1551,7 +1573,7 @@ export function AccountForm({
               />
               <button
                 type="button"
-                onClick={() => updateField('accountCreatedAt', '')}
+                onClick={() => updateField('accountCreatedAt', null)}
                 className="text-xs font-semibold text-text-tertiary transition-colors hover:text-text-primary"
               >
                 Quitar fecha
