@@ -471,7 +471,9 @@ function VaultApp() {
       }
 
       for (const platform of identity.platforms) {
-        const haystack = [platform.name, platform.username, identity.email, platform.notes].filter(Boolean).join(' ')
+        // Excluimos identity.email del haystack de la plataforma para no inundar
+        // los resultados con todas las plataformas cuando se busca por el email de la identidad.
+        const haystack = [platform.name, platform.username, platform.notes].filter(Boolean).join(' ')
         if (fuzzyMatch(haystack, query)) {
           results.push({
             id: `platform-${identity.id}-${platform.id}`,
@@ -509,7 +511,18 @@ function VaultApp() {
       }
     }
 
-    return results
+    // Deduplicar resultados exactos (mismo título y subtítulo)
+    const uniqueResults: GlobalSearchResult[] = []
+    const seen = new Set<string>()
+    for (const res of results) {
+      const key = `${res.title}::${res.subtitle}`
+      if (!seen.has(key)) {
+        seen.add(key)
+        uniqueResults.push(res)
+      }
+    }
+
+    return uniqueResults
   }, [displayIdentities, displayLocalItems, globalSearchTerm])
 
 
