@@ -10,6 +10,7 @@ import { SettingsModal } from './components/SettingsModal'
 import { MasterPasswordPromptModal } from './components/MasterPasswordPromptModal'
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
+import { LinkPreview } from './components/LinkPreview'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
 import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
 import { isInMemoryFallbackActive } from './storage/vaultDb'
@@ -88,9 +89,33 @@ function VaultApp() {
   const { showToast } = useToast()
 
   const [mounted, setMounted] = useState(false)
+  const [linkData, setLinkData] = useState<{ id: string; key: string } | null>(null)
+
   useEffect(() => {
     setMounted(true)
+    const hash = window.location.hash
+    if (hash.startsWith('#/link/')) {
+      const parts = hash.split('#')
+      if (parts.length >= 3) {
+        const id = parts[1].replace('/link/', '')
+        const key = parts[2]
+        setLinkData({ id, key })
+      }
+    }
   }, [])
+
+  if (linkData) {
+    return (
+      <LinkPreview
+        linkId={linkData.id}
+        base64Key={linkData.key}
+        onClose={() => {
+          window.location.hash = ''
+          setLinkData(null)
+        }}
+      />
+    )
+  }
 
   const warningBanner = null
 
@@ -731,6 +756,7 @@ function VaultApp() {
       setSelectedId(id)
       setSelectedPlatformName(null)
       setSelectedLocalCategory(null)
+      setGlobalSearchTerm('')
       setSidebarOpen(false)
     })
   }
@@ -740,6 +766,7 @@ function VaultApp() {
       setSelectedPlatformName(platformName)
       setSelectedId(null)
       setSelectedLocalCategory(null)
+      setGlobalSearchTerm('')
       setSidebarOpen(false)
     })
   }
@@ -760,6 +787,7 @@ function VaultApp() {
       setSelectedLocalCategory(category)
       setSelectedId(null)
       setSelectedPlatformName(null)
+      setGlobalSearchTerm('')
       setSidebarOpen(false)
     })
   }
@@ -868,7 +896,8 @@ function VaultApp() {
     setSelectedPlatformName(null)
   }
 
-  const showExtraHeaderElements = selectedId === null && selectedLocalCategory === null && selectedPlatformName === null
+  // La barra de búsqueda extra en móvil siempre se muestra
+  const showExtraHeaderElements = true
 
   const mobileTopBar = isMobile ? (
     <div className="fixed left-0 right-0 top-0 z-50 flex flex-col bg-white/85 backdrop-blur-xl border-b border-black/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
@@ -913,7 +942,7 @@ function VaultApp() {
               type="search"
               value={localSearchTerm}
               onChange={(event) => setLocalSearchTerm(event.target.value)}
-              placeholder="Buscar en esta sección..."
+              placeholder={selectedId ? 'Buscar en esta identidad...' : selectedPlatformName ? 'Buscar cuentas...' : 'Buscar...'}
               className="h-10 w-full rounded-xl border border-black/[0.06] bg-white/90 pl-9 pr-12 text-base font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white"
               aria-label="Búsqueda local de la sección"
             />
@@ -1309,7 +1338,6 @@ function VaultApp() {
               isMobile={true}
               createTrigger={createTrigger}
               sortMode={sortMode}
-              onSortModeChange={setSortMode}
               searchQuery={localSearchTerm}
             />
           )}
@@ -1549,6 +1577,7 @@ function VaultApp() {
             isMobile={false}
             createTrigger={createTrigger}
             sortMode={sortMode}
+            searchQuery={globalSearchTerm}
           />
         </main>
       </div>

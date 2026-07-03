@@ -261,8 +261,25 @@ export class CryptoVault {
       key,
     )
 
+    // Generar llaves asimétricas (RSA-OAEP) para Compartición segura
+    const { generateAsymmetricKeyPair, exportKeyToJwkString } = await import('./asymmetric')
+    const keyPair = await generateAsymmetricKeyPair()
+    const publicKeyJwk = await exportKeyToJwkString(keyPair.publicKey)
+    const privateKeyJwk = await exportKeyToJwkString(keyPair.privateKey)
+    
+    const encryptedPrivateKey = await CryptoVault.encryptBytes(
+      stringToBytes(privateKeyJwk),
+      key,
+    )
+
+    const metadata = CryptoVault.createVaultMetadata(salt)
+    metadata.asymmetricKeys = {
+      publicKey: publicKeyJwk,
+      privateKey: encryptedPrivateKey
+    }
+
     return {
-      metadata: CryptoVault.createVaultMetadata(salt),
+      metadata,
       encryptedPayload,
     }
   }

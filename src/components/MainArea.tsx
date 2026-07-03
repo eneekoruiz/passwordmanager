@@ -6,12 +6,24 @@ import { hasWeakPassword } from '../utils/security'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
-import { SearchBar } from './SearchBar'
 import { VaultItemForm } from './VaultItemForm'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
+import { ShareModal, type SharePayload } from './ShareModal'
+import { InboxArea } from './InboxArea'
 
 type ViewMode = 'grid' | 'create' | 'edit'
+
+const getPlatformUrl = (name: string): string => {
+  const cleanName = name.trim().toLowerCase()
+  if (cleanName.startsWith('http://') || cleanName.startsWith('https://')) {
+    return cleanName
+  }
+  if (cleanName.includes('.')) {
+    return `https://${cleanName}`
+  }
+  return `https://${cleanName}.com`
+}
 
 interface MainAreaProps {
   identities: Identity[]
@@ -36,9 +48,7 @@ interface MainAreaProps {
   isMobile?: boolean
   createTrigger?: number
   sortMode: SortMode
-  onSortModeChange?: (mode: SortMode) => void
   searchQuery?: string
-  onSearchChange?: (query: string) => void
   syncing?: boolean
 }
 
@@ -59,14 +69,6 @@ interface PlatformQuickPick {
   count: number
 }
 
-const SORT_LABELS: Record<SortMode, string> = {
-  'alpha-asc': 'Alfabético (A-Z)',
-  'alpha-desc': 'Alfabético (Z-A)',
-  'created-desc': 'Recién creadas',
-  'created-asc': 'Más antiguas',
-  'access-desc': 'Recién consultadas',
-  'usage-desc': 'Más usadas',
-}
 
 export const MainArea = memo(function MainArea({
   identities,
@@ -91,14 +93,14 @@ export const MainArea = memo(function MainArea({
   isMobile = false,
   createTrigger = 0,
   sortMode,
-  onSortModeChange,
   searchQuery = '',
-  onSearchChange,
   syncing = false,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
   const [editingLocalItem, setEditingLocalItem] = useState<LocalVaultItem | null>(null)
+  const [showShareModal, setShowShareModal] = useState<SharePayload | null>(null)
+  const [quickTravelCopied, setQuickTravelCopied] = useState<string | null>(null)
   const [hideWarnings, setHideWarnings] = useState(() => {
     return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
   })
@@ -474,7 +476,7 @@ export const MainArea = memo(function MainArea({
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(itemQuery))
   })
-  const showInnerTools = !isFormView && Boolean(localCategory || selectedPlatformName || identity)
+
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -543,7 +545,24 @@ export const MainArea = memo(function MainArea({
           </p>
         </div>
 
-        {(groupMode === 'platform' && !localCategory) || isMobile ? null : (
+        {identity && !localCategory && (
+          <button
+            type="button"
+            title="Compartir identidad completa"
+            onClick={() => setShowShareModal({
+              type: 'bundle',
+              identity: identity,
+              platforms: identity.platforms || []
+            })}
+            className="rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-medium text-text-primary shadow-subtle transition-colors hover:bg-surface-hover flex items-center gap-1.5"
+          >
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
+            </svg>
+            <span className="hidden sm:block">Compartir</span>
+          </button>
+        )}
+        {(localCategory || identity) && (
           <button
             type="button"
             onClick={() => {
@@ -567,29 +586,17 @@ export const MainArea = memo(function MainArea({
       )}
 
       <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
-        {view === 'grid' && (
+        {view === 'grid' && groupMode === 'inbox' ? (
+          <InboxArea 
+            onSavePlatform={async (platform) => {
+              if (identities.length > 0) {
+                await onAddPlatform(identities[0].id, platform)
+              }
+            }} 
+          />
+        ) : view === 'grid' && (
           <>
-            {showInnerTools && (
-              <div className="mb-4 flex gap-2">
-                <div className="min-w-0 flex-1">
-                  <SearchBar
-                    value={searchQuery}
-                    onChange={onSearchChange ?? (() => undefined)}
-                    placeholder={identity ? 'Buscar en esta identidad...' : selectedPlatformName ? 'Buscar cuentas...' : 'Buscar secretos...'}
-                  />
-                </div>
-                <select
-                  value={sortMode}
-                  onChange={(event) => onSortModeChange?.(event.target.value as SortMode)}
-                  className="h-11 shrink-0 rounded-xl border border-black/[0.06] bg-white px-3 text-xs font-bold text-text-secondary shadow-subtle outline-none focus:border-black/15"
-                  aria-label="Ordenar"
-                >
-                  {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
-                    <option key={mode} value={mode}>{SORT_LABELS[mode]}</option>
-                  ))}
-                </select>
-              </div>
-            )}
+
             {localCategory ? (
               filteredLocalItems.length === 0 ? (
                 renderProactiveEmptyState({
@@ -645,64 +652,125 @@ export const MainArea = memo(function MainArea({
                 })
               ) : (
                 <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredPlatformAccounts.map(({ identityId, identityEmail, platform }, index) => (
-                    <button
-                      key={`${identityId}-${platform.id}`}
-                      type="button"
-                      onClick={() => {
-                        setEditingPlatform({ identityId, identityEmail, platform })
-                        setView('edit')
-                      }}
-                      style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
-                    >
-                      <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-                      <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
-                      <span className="min-w-0 flex-1">
-                        <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px] pr-5">
-                          {platform.username}
-                        </span>
-                        {(!hideWarnings && hasWeakPassword(platform)) && (
-                          <WeakPasswordWarningPopover
-                            className="absolute right-3 top-3"
-                            onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
-                            onDisableGlobally={() => {
-                              window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
-                              window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
-                              window.dispatchEvent(new Event('contras:open-settings'))
-                            }}
-                          />
-                        )}
-                        <span className="mt-1 block truncate text-xs text-text-secondary">
-                          {identityEmail}
-                        </span>
-                        <span className="mt-3 flex flex-wrap gap-1.5">
-                          {(platform?.accessMethods || [])
-                            .filter((method) => method?.type === 'SSO')
-                            .map((method) => {
-                              const providers = Array.isArray(method?.providers)
-                                ? method.providers
-                                : (typeof method?.providers === 'string' ? [method.providers] : [])
-                              return (
-                                <span key={method?.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                                  {providers.join(', ')}
-                                </span>
-                              )
-                            })}
-                          {(platform?.accessMethods || []).some((method) => method?.type === 'PASSKEY') && (
-                            <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                              Passkey
-                            </span>
+                  {filteredPlatformAccounts.map(({ identityId, identityEmail, platform }, index) => {
+                    const pwMethod = (platform.accessMethods || []).find((m: any) => m?.type === 'PASSWORD') as any
+                    const hasUrl = !!(platform as any).url
+                    return (
+                    <div key={`${identityId}-${platform.id}`} className="relative group">
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setEditingPlatform({ identityId, identityEmail, platform })
+                          setView('edit')
+                        }}
+                        style={{ animationDelay: `${index * 45}ms` }}
+                        className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                      >
+                        <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+                        <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px] pr-5">
+                            {platform.username}
+                          </span>
+                          {(!hideWarnings && hasWeakPassword(platform)) && (
+                            <WeakPasswordWarningPopover
+                              className="absolute right-3 top-3"
+                              onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
+                              onDisableGlobally={() => {
+                                window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                                window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                                window.dispatchEvent(new Event('contras:open-settings'))
+                              }}
+                            />
                           )}
-                          {platform?.twoFactorAuth && (
-                            <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                              2FA
-                            </span>
-                          )}
+                          <span className="mt-1 block truncate text-xs text-text-secondary">
+                            {identityEmail}
+                          </span>
+                          <span className="mt-3 flex flex-wrap gap-1.5">
+                            {(platform?.accessMethods || [])
+                              .filter((method) => method?.type === 'SSO')
+                              .map((method) => {
+                                const providers = Array.isArray(method?.providers)
+                                  ? method.providers
+                                  : (typeof method?.providers === 'string' ? [method.providers] : [])
+                                return (
+                                  <span key={method?.id} className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                                    {providers.join(', ')}
+                                  </span>
+                                )
+                              })}
+                            {(platform?.accessMethods || []).some((method) => method?.type === 'PASSKEY') && (
+                              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                                Passkey
+                              </span>
+                            )}
+                            {platform?.twoFactorAuth && (
+                              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                                2FA
+                              </span>
+                            )}
+                          </span>
                         </span>
-                      </span>
-                    </button>
-                  ))}
+                      </button>
+                      {/* Quick Travel Button */}
+                      {(pwMethod?.password || hasUrl) && (
+                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                          {pwMethod?.password && (
+                            <>
+                              <button
+                                type="button"
+                                title="Copiar contraseña"
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  try {
+                                    await navigator.clipboard.writeText(pwMethod.password)
+                                    setQuickTravelCopied(`${identityId}-${platform.id}-pw`)
+                                    setTimeout(() => setQuickTravelCopied(null), 2000)
+                                  } catch {}
+                                }}
+                                className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
+                                  quickTravelCopied === `${identityId}-${platform.id}-pw`
+                                    ? 'bg-green-500 text-white border-green-400'
+                                    : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                                }`}
+                              >
+                                {quickTravelCopied === `${identityId}-${platform.id}-pw` ? (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                                )}
+                              </button>
+                              <button
+                                type="button"
+                                title="Viaje Rápido (Copiar y abrir)"
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  try {
+                                    await navigator.clipboard.writeText(pwMethod.password)
+                                    setQuickTravelCopied(`${identityId}-${platform.id}-travel`)
+                                    setTimeout(() => setQuickTravelCopied(null), 2000)
+                                    window.open(getPlatformUrl(platform.name), '_blank')
+                                  } catch {}
+                                }}
+                                className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
+                                  quickTravelCopied === `${identityId}-${platform.id}-travel`
+                                    ? 'bg-green-500 text-white border-green-400'
+                                    : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                                }`}
+                              >
+                                {quickTravelCopied === `${identityId}-${platform.id}-travel` ? (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                                )}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      )}
+                    </div>
+                    )
+                  })}
                 </div>
               )
             ) : identity && identityPlatforms.length === 0 && !itemQuery ? (
@@ -719,21 +787,23 @@ export const MainArea = memo(function MainArea({
               />
             ) : (
                 <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                {identityPlatforms.map((platform, index) => (
-                  <button
-                    key={platform.id}
-                    type="button"
-                    onClick={() => {
-                      setEditingPlatform({
-                        identityId: identity?.id ?? '',
-                        identityEmail: identity?.email ?? '',
-                        platform,
-                      })
-                      setView('edit')
-                    }}
-                    style={{ animationDelay: `${index * 45}ms` }}
-                    className="animate-vault-slide-up relative flex min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
-                  >
+                {identityPlatforms.map((platform, index) => {
+                  const pwMethod = (platform.accessMethods || []).find((m: any) => m?.type === 'PASSWORD') as any
+                  return (
+                  <div key={platform.id} className="relative group">
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setEditingPlatform({
+                          identityId: identity?.id ?? '',
+                          identityEmail: identity?.email ?? '',
+                          platform,
+                        })
+                        setView('edit')
+                      }}
+                      style={{ animationDelay: `${index * 45}ms` }}
+                      className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                    >
                     <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                     <PlatformLogo name={platform.name} className="h-9 w-9" />
                     <span className="min-w-0 flex-1">
@@ -804,8 +874,62 @@ export const MainArea = memo(function MainArea({
                         ) : null}
                       </span>
                     </span>
-                  </button>
-                ))}
+                    </button>
+                           {/* Quick Travel for identity platforms */}
+                    {pwMethod?.password && (
+                      <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <button
+                          type="button"
+                          title="Copiar contraseña"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await navigator.clipboard.writeText(pwMethod.password)
+                              setQuickTravelCopied(`identity-${platform.id}-pw`)
+                              setTimeout(() => setQuickTravelCopied(null), 2000)
+                            } catch {}
+                          }}
+                          className={`p-1.5 rounded-lg shadow-sm border transition-all ${
+                            quickTravelCopied === `identity-${platform.id}-pw`
+                              ? 'bg-green-500 text-white border-green-400'
+                              : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                          }`}
+                        >
+                          {quickTravelCopied === `identity-${platform.id}-pw` ? (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>
+                          )}
+                        </button>
+                        <button
+                          type="button"
+                          title="Viaje Rápido (Copiar y abrir)"
+                          onClick={async (e) => {
+                            e.stopPropagation()
+                            try {
+                              await navigator.clipboard.writeText(pwMethod.password)
+                              setQuickTravelCopied(`identity-${platform.id}-travel`)
+                              setTimeout(() => setQuickTravelCopied(null), 2000)
+                              window.open(getPlatformUrl(platform.name), '_blank')
+                            } catch {}
+                          }}
+                          className={`p-1.5 rounded-lg shadow-sm border transition-all ${
+                            quickTravelCopied === `identity-${platform.id}-travel`
+                              ? 'bg-green-500 text-white border-green-400'
+                              : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                          }`}
+                        >
+                          {quickTravelCopied === `identity-${platform.id}-travel` ? (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                          ) : (
+                            <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                          )}
+                        </button>
+                      </div>
+                    )}
+                  </div>
+                  )
+                })}
               </div>
             )}
           </>
@@ -845,6 +969,7 @@ export const MainArea = memo(function MainArea({
               await onDeletePlatform(editingPlatform.identityId, editingPlatform.platform.id)
               resetView()
             }}
+            onShare={() => editingPlatform && setShowShareModal({ type: 'single', platform: editingPlatform.platform })}
           />
         )}
 
@@ -875,6 +1000,13 @@ export const MainArea = memo(function MainArea({
               await onDeleteLocalItem(editingLocalItem.id)
               resetView()
             }}
+          />
+        )}
+        
+        {showShareModal && (
+          <ShareModal
+            payload={showShareModal}
+            onClose={() => setShowShareModal(null)}
           />
         )}
       </div>

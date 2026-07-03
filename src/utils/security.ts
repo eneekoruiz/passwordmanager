@@ -21,6 +21,13 @@ export function generateSecurePassword(length: number = 16): string {
   return password.split('').sort(() => 0.5 - Math.random()).join('')
 }
 
+export async function hashEmailForDirectory(email: string): Promise<string> {
+  const data = new TextEncoder().encode(email.trim().toLowerCase())
+  const hashBuffer = await crypto.subtle.digest('SHA-256', data)
+  const hashArray = Array.from(new Uint8Array(hashBuffer))
+  return hashArray.map(b => b.toString(16).padStart(2, '0')).join('')
+}
+
 export function evaluatePassword(password: string): { isWeak: boolean, reasons: string[], recommendations: string[] } {
   const reasons: string[] = []
   const recommendations: string[] = []

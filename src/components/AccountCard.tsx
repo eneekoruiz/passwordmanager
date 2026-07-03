@@ -7,9 +7,10 @@ import { PlatformLogo } from './ui/PlatformLogo'
 interface AccountCardProps {
   account: Platform
   onEdit: () => void
+  onShare?: () => void
 }
 
-export function AccountCard({ account, onEdit }: AccountCardProps) {
+export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
   const [copied, setCopied] = useState(false)
 
   const handleCopyPassword = async () => {
@@ -52,20 +53,35 @@ export function AccountCard({ account, onEdit }: AccountCardProps) {
             </p>
           )}
         </button>
-        <button
-          type="button"
-          onClick={handleCopyPassword}
-          className="shrink-0 rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-active hover:text-text-secondary"
-          aria-label="Copiar contraseña"
-        >
-          {copied ? (
-            <span className="text-xs text-green-600">Copiado</span>
-          ) : (
-            <span className="text-sm font-mono tracking-wider text-text-tertiary">
-              ••••••••
-            </span>
+        <div className="flex shrink-0 items-center gap-1">
+          {onShare && (
+            <button
+              type="button"
+              onClick={onShare}
+              className="shrink-0 rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-active hover:text-text-secondary"
+              aria-label="Compartir contraseña"
+              title="Compartir con otro usuario"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+              </svg>
+            </button>
           )}
-        </button>
+          <button
+            type="button"
+            onClick={handleCopyPassword}
+            className="shrink-0 rounded-md p-1.5 text-text-tertiary transition-colors hover:bg-surface-active hover:text-text-secondary"
+            aria-label="Copiar contraseña"
+          >
+            {copied ? (
+              <span className="text-[10px] font-bold uppercase text-green-600">Copiado</span>
+            ) : (
+              <span className="text-sm font-mono tracking-wider text-text-tertiary">
+                ••••••••
+              </span>
+            )}
+          </button>
+        </div>
       </div>
     </div>
   )

@@ -83,6 +83,7 @@ interface VaultContextValue {
   saveLocalCategory: (category: LocalCategory) => Promise<void>
   trackItemAccess: (itemId: string, identityId?: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
+  getAsymmetricPrivateKey: () => Promise<string | undefined>
   verifyCurrentMasterPassword: (masterPassword: string) => Promise<boolean>
   changeCurrentMasterPassword: (currentPassword: string, nextPassword: string, recoveryPhrase: string) => Promise<void>
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
@@ -757,6 +758,23 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           'La subida a Google Cloud excedió el tiempo límite (10s). Revisa tu conexión a internet.'
         )
 
+        // Fase 2: Compartición segura (Subir Llave Pública y Directorio)
+        const publicKey = await storeRef.current.getAsymmetricPublicKey(currentProfileId)
+        if (publicKey && user.email) {
+          const { hashEmailForDirectory } = await import('../utils/security')
+          const emailHash = await hashEmailForDirectory(user.email)
+          
+          await setDoc(doc(dbClient, 'publicKeys', user.uid), {
+            publicKey,
+            updatedAt: new Date().toISOString()
+          })
+          
+          await setDoc(doc(dbClient, 'directory', emailHash), {
+            uid: user.uid,
+            updatedAt: new Date().toISOString()
+          })
+        }
+
         setCloudVaultExists(true)
         setCloudSyncStatus('synced')
         return {
@@ -1269,6 +1287,24 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           encrypted_vault_blob: encryptedBlob,
           updated_at: new Date().toISOString(),
         })
+
+        // Fase 2: Compartición segura (Subir Llave Pública y Directorio)
+        const publicKey = await storeRef.current.getAsymmetricPublicKey(profileId)
+        if (publicKey && user.email) {
+          const { hashEmailForDirectory } = await import('../utils/security')
+          const emailHash = await hashEmailForDirectory(user.email)
+          
+          await setDoc(doc(dbClient, 'publicKeys', user.uid), {
+            publicKey,
+            updatedAt: new Date().toISOString()
+          })
+          
+          await setDoc(doc(dbClient, 'directory', emailHash), {
+            uid: user.uid,
+            updatedAt: new Date().toISOString()
+          })
+        }
+
         setCloudSyncStatus('synced')
         setCloudVaultExists(true)
         await listProfiles()
@@ -1602,6 +1638,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     [currentProfileId],
   )
 
+  const getAsymmetricPrivateKey = useCallback(
+    async () => {
+      if (!currentProfileId) throw new Error('No hay un perfil activo para obtener la llave.')
+      return await storeRef.current.getAsymmetricPrivateKey(currentProfileId)
+    },
+    [currentProfileId],
+  )
+
   const verifyCurrentMasterPassword = useCallback(
     async (masterPassword: string) => {
       if (!currentProfileId) throw new Error('No hay un perfil activo para verificar.')
@@ -1662,6 +1706,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       saveLocalCategory,
       trackItemAccess,
       exportBackup,
+      getAsymmetricPrivateKey,
       verifyCurrentMasterPassword,
       changeCurrentMasterPassword,
       importBackup,
@@ -1714,6 +1759,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       deletePlatform,
       downloadLatestCloudVault,
       exportBackup,
+      getAsymmetricPrivateKey,
       verifyCurrentMasterPassword,
       changeCurrentMasterPassword,
       identities,

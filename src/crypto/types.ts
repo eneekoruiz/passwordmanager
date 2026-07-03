@@ -20,6 +20,11 @@ export interface RecoveryBundle {
   createdAt: string
 }
 
+export interface AsymmetricKeyBundle {
+  publicKey: string
+  privateKey: EncryptedPayload
+}
+
 /**
  * Metadatos de bóveda almacenables en persistencia.
  * El salt es público: su función es impedir ataques con tablas precalculadas (rainbow tables),
@@ -28,4 +33,5 @@ export interface RecoveryBundle {
 export interface VaultMetadata {
   salt: string
   createdAt: string
+  asymmetricKeys?: AsymmetricKeyBundle
 }

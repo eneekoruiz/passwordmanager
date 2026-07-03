@@ -1,5 +1,5 @@
 import { deleteDB, openDB, type DBSchema, type IDBPDatabase } from 'idb'
-import type { EncryptedPayload } from '../crypto/types'
+import type { EncryptedPayload, AsymmetricKeyBundle } from '../crypto/types'
 
 const DB_NAME = 'contras-vault'
 const DB_VERSION = 3
@@ -10,6 +10,7 @@ export interface StoredVaultMeta {
   verification: EncryptedPayload
   id?: string
   name?: string
+  asymmetricKeys?: AsymmetricKeyBundle
 }
 
 export interface BiometricBundleRecord {

@@ -23,6 +23,7 @@ interface ProfileRecord {
   verification: EncryptedPayload
   recovery?: RecoveryBundle
   createdAt: string
+  asymmetricKeys?: import('../crypto/types').AsymmetricKeyBundle
 }
 
 /**
@@ -132,6 +133,7 @@ export class VaultStore {
         ? await CryptoVault.createRecoveryBundle(recoveryPhrase, password)
         : undefined,
       createdAt: metadata.createdAt,
+      asymmetricKeys: metadata.asymmetricKeys,
     }
     await db.put('meta', profileRecord, `profile_${profileId}`)
     return profileId
@@ -208,6 +210,30 @@ export class VaultStore {
     for (const category of localCategories) {
       await this.saveLocalCategory(profileId, category)
     }
+  }
+
+  /**
+   * Obtiene la llave pública asimétrica de un perfil.
+   */
+  async getAsymmetricPublicKey(profileId: string): Promise<string | undefined> {
+    const db = await getVaultDb()
+    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    return profileRecord?.asymmetricKeys?.publicKey
+  }
+
+  /**
+   * Obtiene y descifra la llave privada asimétrica de un perfil.
+   */
+  async getAsymmetricPrivateKey(profileId: string): Promise<string | undefined> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para acceder a la llave privada.')
+    }
+    const db = await getVaultDb()
+    const profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    const encryptedKey = profileRecord?.asymmetricKeys?.privateKey
+    if (!encryptedKey) return undefined
+    
+    return await this.vault.decryptString(encryptedKey)
   }
 
   /**

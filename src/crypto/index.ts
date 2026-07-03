@@ -16,4 +16,5 @@ export {
   unlockWithHardwareKey
 } from './hardwareKey'
 export type { HardwareKeyBundle } from './hardwareKey'
-
+export * from './asymmetric'
+export * from './symmetric'

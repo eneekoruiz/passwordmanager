@@ -21,6 +21,7 @@ interface AccountFormProps {
   onSave: (account: Account, targetIdentityId?: string) => Promise<void>
   onCancel: () => void
   onDelete?: () => Promise<void>
+  onShare?: () => void
   onUnsavedStateChange?: (dirty: boolean, actions: UnsavedFormActions | null) => void
   onRequestNavigation?: (action: () => void) => void
 }
@@ -472,6 +473,7 @@ export function AccountForm({
   onSave,
   onCancel,
   onDelete,
+  onShare,
   onUnsavedStateChange,
   onRequestNavigation,
 }: AccountFormProps) {
@@ -1136,6 +1138,11 @@ export function AccountForm({
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
+          {mode === 'edit' && onShare && (
+            <button type="button" onClick={onShare} className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95">
+              Compartir
+            </button>
+          )}
           {mode === 'edit' && onDelete && (
             <button type="button" onClick={() => setShowDeleteModal(true)} className="rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95">
               Eliminar
