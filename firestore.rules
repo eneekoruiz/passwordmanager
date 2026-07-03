@@ -16,27 +16,28 @@ service cloud.firestore {
     }
     
     match /shares/{shareId} {
-      // Un usuario solo puede leer shares dirigidos a él
-      allow read: if request.auth != null && resource.data.recipientUid == request.auth.uid;
+      // Un usuario puede leer shares dirigidos a él o creados por él
+      allow read: if request.auth != null && (resource.data.recipientUid == request.auth.uid || resource.data.senderUid == request.auth.uid);
       // Cualquier usuario autenticado puede crear un share
       allow create: if request.auth != null && request.resource.data.senderUid == request.auth.uid;
-      // Solo el destinatario puede eliminar un share (al aceptarlo/rechazarlo)
-      allow delete: if request.auth != null && resource.data.recipientUid == request.auth.uid;
+      // El destinatario o el emisor pueden eliminar un share (revocación/aceptación)
+      allow delete: if request.auth != null && (resource.data.recipientUid == request.auth.uid || resource.data.senderUid == request.auth.uid);
     }
     
     match /links/{linkId} {
-      // Cualquiera puede leer si no ha expirado y no ha sido quemado
-      allow read: if (resource.data.expiresAt == null || resource.data.expiresAt > request.time.toMillis())
-                  && resource.data.burned != true;
+      // Cualquiera puede leer si no ha expirado y no ha sido quemado, o si es el emisor
+      allow read: if ((resource.data.expiresAt == null || resource.data.expiresAt > request.time.toMillis())
+                  && resource.data.burned != true) || (request.auth != null && resource.data.senderUid == request.auth.uid);
       // Solo un usuario autenticado puede crearlos
       allow create: if request.auth != null && request.resource.data.senderUid == request.auth.uid;
       // Quien lo creó puede borrarlo
       allow delete: if request.auth != null && resource.data.senderUid == request.auth.uid;
-      // Cualquiera (incluso anónimo) puede quemar el enlace si burnAfterRead es true
-      // Solo puede actualizar el campo burned a true (no otros campos)
-      allow update: if resource.data.burnAfterRead == true
-                    && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['burned'])
-                    && request.resource.data.burned == true;
+      // Quien lo creó puede actualizar el enlace (ej: extender expiración, quemar manualmente)
+      // O cualquiera puede quemar si es burnAfterRead
+      allow update: if (request.auth != null && resource.data.senderUid == request.auth.uid)
+                    || (resource.data.burnAfterRead == true
+                     && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['burned'])
+                     && request.resource.data.burned == true);
     }
   }
 }

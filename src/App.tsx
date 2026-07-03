@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { createPortal } from 'react-dom'
+import { collection, query, where, onSnapshot } from 'firebase/firestore'
+import { auth, db } from './services/firebase'
 import { VaultProvider, useVault } from './context/VaultContext'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { SyncDiffViewer } from './components/SyncDiffViewer'
@@ -90,6 +92,33 @@ function VaultApp() {
 
   const [mounted, setMounted] = useState(false)
   const [linkData, setLinkData] = useState<{ id: string; key: string } | null>(null)
+  const [inboxCount, setInboxCount] = useState(0)
+
+  useEffect(() => {
+    if (!auth || !db) return
+    let unsubscribe: (() => void) | undefined
+
+    const setupListener = (user: any) => {
+      if (unsubscribe) {
+        unsubscribe()
+        unsubscribe = undefined
+      }
+      if (user && db) {
+        const q = query(collection(db, 'shares'), where('recipientUid', '==', user.uid))
+        unsubscribe = onSnapshot(q, (snapshot) => {
+          setInboxCount(snapshot.docs.length)
+        })
+      } else {
+        setInboxCount(0)
+      }
+    }
+
+    const unregisterAuth = auth.onAuthStateChanged(setupListener)
+    return () => {
+      unregisterAuth()
+      if (unsubscribe) unsubscribe()
+    }
+  }, [])
 
   useEffect(() => {
     setMounted(true)
@@ -1183,10 +1212,15 @@ function VaultApp() {
         <button
           type="button"
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className="flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-sm shadow-[0_4px_10px_rgba(0,0,0,0.03)] hover:bg-indigo-100 hover:shadow-md transition-all active:scale-95 ml-2"
+          className="relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-sm shadow-[0_4px_10px_rgba(0,0,0,0.03)] hover:bg-indigo-100 hover:shadow-md transition-all active:scale-95 ml-2"
           aria-label="Menú de usuario"
         >
           {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
+          {inboxCount > 0 && (
+            <span className="absolute -top-1 -right-1 flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm ring-2 ring-white">
+              {inboxCount}
+            </span>
+          )}
         </button>
         {showUserMenu && (
           <>
@@ -1213,6 +1247,26 @@ function VaultApp() {
                   </svg>
                 </div>
                 Mi Perfil y Ajustes
+              </button>
+
+              <button
+                type="button"
+                onClick={() => { setShowUserMenu(false); setGroupMode('inbox') }}
+                className="flex items-center justify-between w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
+              >
+                <div className="flex items-center gap-3">
+                  <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-indigo-50 text-indigo-600">
+                    <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                  </div>
+                  Buzón
+                </div>
+                {inboxCount > 0 && (
+                  <span className="flex h-5 w-5 items-center justify-center rounded-full bg-red-500 text-[10px] font-bold text-white shadow-sm">
+                    {inboxCount}
+                  </span>
+                )}
               </button>
 
               <button

@@ -1,6 +1,6 @@
 import { useState, FormEvent } from 'react'
 import type { Platform, Identity } from '../types'
-import { db } from '../services/firebase'
+import { db, auth } from '../services/firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { hashEmailForDirectory } from '../utils/security'
 import { generateId } from '../utils/id'
@@ -92,10 +92,13 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
 
       const shareId = generateId()
       const label = payload.type === 'single' ? payload.platform.name : `Bundle: ${payload.identity.email}`
+      const currentUser = auth?.currentUser
       await setDoc(doc(db, 'shares', shareId), {
         id: shareId,
         recipientUid,
-        senderEmail: 'usuario-anonimo',
+        recipientEmail: email,
+        senderUid: currentUser?.uid || 'anonymous',
+        senderEmail: currentUser?.email || 'usuario-anonimo',
         platformName: label,
         payloadType: payload.type,
         encryptedPayload: encryptedData,
@@ -131,6 +134,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
 
       const linkId = generateId()
       const label = payload.type === 'single' ? payload.platform.name : `${payload.identity.email} (${payload.platforms.length} cuentas)`
+      const currentUser = auth?.currentUser
       await setDoc(doc(db, 'links', linkId), {
         id: linkId,
         iv,
@@ -141,7 +145,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
         burned: false,
         payloadType: payload.type,
         platformName: label,
-        senderUid: 'anonymous'
+        senderUid: currentUser?.uid || 'anonymous'
       })
 
       const base = window.location.href.split('#')[0]

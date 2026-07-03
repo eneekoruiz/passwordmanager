@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
-import { db } from '../services/firebase'
-import { collection, query, where, onSnapshot, deleteDoc, doc } from 'firebase/firestore'
+import { db, auth } from '../services/firebase'
+import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { useVault } from '../context/VaultContext'
 import type { Platform } from '../types'
 import { PlatformLogo } from './ui/PlatformLogo'
@@ -8,11 +8,26 @@ import { PlatformLogo } from './ui/PlatformLogo'
 interface ShareItem {
   id: string
   senderEmail: string
+  recipientEmail?: string
+  senderUid?: string
   platformName: string
   payloadType?: 'single' | 'bundle'
   encryptedPayload: string
   createdAt: string
   recipientUid: string
+}
+
+interface LinkItem {
+  id: string
+  iv: string
+  encryptedPayload: string
+  createdAt: string
+  expiresAt: number | null
+  burnAfterRead: boolean
+  burned: boolean
+  payloadType?: 'single' | 'bundle'
+  platformName: string
+  senderUid: string
 }
 
 interface ShareCardProps {
@@ -63,8 +78,8 @@ function ShareCard({ share, onAccept, onReject, processingId }: ShareCardProps) 
         )}
         <div className="flex-1 min-w-0 pr-14">
           <h3 className="truncate text-base font-bold text-text-primary">{share.platformName}</h3>
-          <p className="mt-0.5 text-xs font-medium text-text-secondary">
-            {isBundle ? 'Identidad completa compartida' : 'Contraseña compartida'}
+          <p className="mt-0.5 text-xs font-semibold text-indigo-600 truncate">
+            De: {share.senderEmail || 'Usuario Contras'}
           </p>
           <p className="text-[10px] text-text-tertiary mt-1">{new Date(share.createdAt).toLocaleString()}</p>
         </div>
@@ -122,19 +137,28 @@ function SkeletonCard() {
 
 export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platform) => Promise<void> }) {
   const { currentProfileId, getAsymmetricPrivateKey } = useVault()
+  const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'links'>('inbox')
+
   const [shares, setShares] = useState<ShareItem[]>([])
+  const [sentShares, setSentShares] = useState<ShareItem[]>([])
+  const [magicLinks, setMagicLinks] = useState<LinkItem[]>([])
+
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState('')
   const [processingId, setProcessingId] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!db || !currentProfileId) {
+    const currentUser = auth?.currentUser
+    if (!db || !currentUser) {
       setLoading(false)
       return
     }
 
-    const q = query(collection(db, 'shares'), where('recipientUid', '==', currentProfileId))
-    const unsubscribe = onSnapshot(q, (snapshot) => {
+    const uid = currentUser.uid
+
+    // 1. Listen to Received Shares (Inbox)
+    const qInbox = query(collection(db, 'shares'), where('recipientUid', '==', uid))
+    const unsubInbox = onSnapshot(qInbox, (snapshot) => {
       const items: ShareItem[] = []
       snapshot.forEach(d => items.push(d.data() as ShareItem))
       setShares(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
@@ -145,7 +169,31 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
       setLoading(false)
     })
 
-    return () => unsubscribe()
+    // 2. Listen to Sent Shares (Outbox P2P)
+    const qSent = query(collection(db, 'shares'), where('senderUid', '==', uid))
+    const unsubSent = onSnapshot(qSent, (snapshot) => {
+      const items: ShareItem[] = []
+      snapshot.forEach(d => items.push(d.data() as ShareItem))
+      setSentShares(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+    }, (err) => {
+      console.error('Error fetching sent shares:', err)
+    })
+
+    // 3. Listen to Sent Links (Magic Links)
+    const qLinks = query(collection(db, 'links'), where('senderUid', '==', uid))
+    const unsubLinks = onSnapshot(qLinks, (snapshot) => {
+      const items: LinkItem[] = []
+      snapshot.forEach(d => items.push(d.data() as LinkItem))
+      setMagicLinks(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+    }, (err) => {
+      console.error('Error fetching magic links:', err)
+    })
+
+    return () => {
+      unsubInbox()
+      unsubSent()
+      unsubLinks()
+    }
   }, [currentProfileId])
 
   const handleAccept = async (share: ShareItem) => {
@@ -194,12 +242,64 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
     }
   }
 
+  const handleRevokeShare = async (shareId: string) => {
+    if (!confirm('¿Seguro que deseas revocar este acceso? El destinatario ya no podrá aceptar esta contraseña.')) return
+    try {
+      setProcessingId(shareId)
+      if (db) await deleteDoc(doc(db, 'shares', shareId))
+    } catch (err: any) {
+      console.error('Error revoking share:', err)
+      alert('Error al revocar: ' + err.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleRevokeLink = async (linkId: string) => {
+    if (!confirm('¿Seguro que deseas revocar este enlace? Se eliminará de forma permanente y nadie más podrá acceder.')) return
+    try {
+      setProcessingId(linkId)
+      if (db) await deleteDoc(doc(db, 'links', linkId))
+    } catch (err: any) {
+      console.error('Error revoking link:', err)
+      alert('Error al revocar enlace: ' + err.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
+  const handleExtendLink = async (linkId: string, currentExpiresAt: number | null) => {
+    try {
+      setProcessingId(linkId)
+      if (!db) return
+      
+      let newExpiresAt: number
+      if (!currentExpiresAt || currentExpiresAt < Date.now()) {
+        // Expirado o ilimitado -> alargar 24h a partir de ahora
+        newExpiresAt = Date.now() + 24 * 60 * 60 * 1000
+      } else {
+        // Alargar 24h sobre el tiempo restante
+        newExpiresAt = currentExpiresAt + 24 * 60 * 60 * 1000
+      }
+
+      await updateDoc(doc(db, 'links', linkId), {
+        expiresAt: newExpiresAt,
+        burned: false
+      })
+    } catch (err: any) {
+      console.error('Error extending link:', err)
+      alert('Error al alargar el acceso: ' + err.message)
+    } finally {
+      setProcessingId(null)
+    }
+  }
+
   if (loading) {
     return (
-      <div className="px-4 py-6 lg:px-8">
+      <div className="px-4 py-6 lg:px-8 animate-pulse">
         <div className="mb-6 flex items-baseline justify-between">
-          <h2 className="text-xl font-black tracking-tight text-text-primary">Buzón</h2>
-          <div className="h-6 w-20 rounded-full bg-slate-100 animate-pulse" />
+          <div className="h-6 w-32 rounded-lg bg-slate-100" />
+          <div className="h-6 w-20 rounded-full bg-slate-100" />
         </div>
         <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
           {[1, 2, 3].map(i => <SkeletonCard key={i} />)}
@@ -221,43 +321,243 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
     )
   }
 
-  if (shares.length === 0) {
-    return (
-      <div className="flex h-full flex-col items-center justify-center p-8 text-center animate-in fade-in zoom-in-95 duration-300">
-        <div className="mb-6 flex h-24 w-24 items-center justify-center rounded-[2rem] bg-gradient-to-br from-slate-100 to-slate-50 shadow-inner">
-          <svg className="h-10 w-10 text-slate-300" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
-            <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-          </svg>
-        </div>
-        <h3 className="mb-2 text-xl font-bold tracking-tight text-text-primary">Bandeja Vacía</h3>
-        <p className="max-w-[260px] text-sm text-text-secondary">
-          No tienes contraseñas compartidas pendientes de aceptar.
-        </p>
-      </div>
-    )
-  }
-
   return (
     <div className="px-4 py-6 lg:px-8">
-      <div className="mb-6 flex items-baseline justify-between">
-        <h2 className="text-xl font-black tracking-tight text-text-primary">Buzón</h2>
-        <span className="rounded-full bg-blue-100 px-3 py-1 text-xs font-bold text-blue-700">
-          {shares.length} {shares.length === 1 ? 'pendiente' : 'pendientes'}
-        </span>
+      {/* Header */}
+      <div className="mb-6">
+        <h2 className="text-2xl font-black tracking-tight text-text-primary">Buzón y Compartidos</h2>
+        <p className="text-xs text-text-tertiary mt-0.5">Gestiona contraseñas que has recibido o compartido.</p>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
-        {shares.map((share, index) => (
-          <div key={share.id} style={{ animationDelay: `${index * 50}ms` }}>
-            <ShareCard
-              share={share}
-              onAccept={handleAccept}
-              onReject={handleReject}
-              processingId={processingId}
-            />
-          </div>
-        ))}
+      {/* Tabs */}
+      <div className="flex border-b border-black/5 mb-6">
+        <button
+          onClick={() => setActiveTab('inbox')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors mr-6 flex items-center gap-1.5 ${
+            activeTab === 'inbox' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-text-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <span>Recibidos</span>
+          {shares.length > 0 && (
+            <span className="bg-indigo-100 text-indigo-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">{shares.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('sent')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors mr-6 flex items-center gap-1.5 ${
+            activeTab === 'sent' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-text-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <span>Enviados P2P</span>
+          {sentShares.length > 0 && (
+            <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">{sentShares.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('links')}
+          className={`pb-3 text-sm font-bold border-b-2 transition-colors flex items-center gap-1.5 ${
+            activeTab === 'links' ? 'border-indigo-600 text-indigo-700' : 'border-transparent text-text-tertiary hover:text-text-secondary'
+          }`}
+        >
+          <span>Enlaces Mágicos</span>
+          {magicLinks.length > 0 && (
+            <span className="bg-slate-100 text-slate-700 text-[10px] px-1.5 py-0.5 rounded-full font-extrabold">{magicLinks.length}</span>
+          )}
+        </button>
       </div>
+
+      {/* Tab Content */}
+      {activeTab === 'inbox' && (
+        shares.length === 0 ? (
+          <div className="flex h-[300px] flex-col items-center justify-center text-center animate-in fade-in duration-300">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-text-primary">Bandeja Vacía</h3>
+            <p className="max-w-[240px] text-xs text-text-tertiary mt-1">No tienes contraseñas compartidas pendientes de aceptar.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {shares.map((share, index) => (
+              <div key={share.id} style={{ animationDelay: `${index * 50}ms` }}>
+                <ShareCard
+                  share={share}
+                  onAccept={handleAccept}
+                  onReject={handleReject}
+                  processingId={processingId}
+                />
+              </div>
+            ))}
+          </div>
+        )
+      )}
+
+      {activeTab === 'sent' && (
+        sentShares.length === 0 ? (
+          <div className="flex h-[300px] flex-col items-center justify-center text-center animate-in fade-in duration-300">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-text-primary">Sin envíos directos</h3>
+            <p className="max-w-[240px] text-xs text-text-tertiary mt-1">Aún no has enviado contraseñas directamente a otros usuarios de Contras.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {sentShares.map((share, index) => {
+              const isBundle = share.payloadType === 'bundle'
+              const isProcessing = processingId === share.id
+              return (
+                <div
+                  key={share.id}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  className="animate-vault-slide-up relative flex flex-col justify-between overflow-hidden rounded-2xl border border-black/5 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-300"
+                >
+                  <div className="flex items-start gap-4">
+                    {isBundle ? (
+                      <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 shadow-sm">
+                        <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <PlatformLogo name={share.platformName} className="h-12 w-12 rounded-xl shadow-sm shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <h3 className="truncate text-base font-bold text-text-primary">{share.platformName}</h3>
+                      <p className="mt-0.5 text-xs font-semibold text-indigo-600 truncate">
+                        Para: {share.recipientEmail || 'Usuario Contras'}
+                      </p>
+                      <p className="text-[10px] text-text-tertiary mt-1">Enviado: {new Date(share.createdAt).toLocaleString()}</p>
+                    </div>
+                  </div>
+
+                  <div className="mt-4 flex gap-2">
+                    <button
+                      onClick={() => handleRevokeShare(share.id)}
+                      disabled={isProcessing}
+                      className="w-full rounded-xl bg-red-50 hover:bg-red-100 text-red-600 py-2.5 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isProcessing ? (
+                        <span className="w-4 h-4 border-2 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
+                      ) : 'Revocar Acceso'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
+
+      {activeTab === 'links' && (
+        magicLinks.length === 0 ? (
+          <div className="flex h-[300px] flex-col items-center justify-center text-center animate-in fade-in duration-300">
+            <div className="mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-slate-50 text-slate-300">
+              <svg className="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={1.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1" />
+              </svg>
+            </div>
+            <h3 className="text-base font-bold text-text-primary">Sin enlaces activos</h3>
+            <p className="max-w-[240px] text-xs text-text-tertiary mt-1">Aún no has generado enlaces mágicos públicos para compartir.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 gap-4 lg:grid-cols-2 xl:grid-cols-3">
+            {magicLinks.map((link, index) => {
+              const isBundle = link.payloadType === 'bundle'
+              const isBurned = link.burned
+              const isExpired = link.expiresAt ? link.expiresAt < Date.now() : false
+              const isActive = !isBurned && !isExpired
+              const isProcessing = processingId === link.id
+
+              return (
+                <div
+                  key={link.id}
+                  style={{ animationDelay: `${index * 50}ms` }}
+                  className="animate-vault-slide-up relative flex flex-col justify-between overflow-hidden rounded-2xl border border-black/5 bg-white p-5 shadow-sm hover:shadow-md transition-all duration-300"
+                >
+                  <div className="flex items-start gap-4">
+                    {isBundle ? (
+                      <div className="h-12 w-12 rounded-xl bg-indigo-100 flex items-center justify-center shrink-0 shadow-sm">
+                        <svg className="w-6 h-6 text-indigo-600" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                        </svg>
+                      </div>
+                    ) : (
+                      <PlatformLogo name={link.platformName} className="h-12 w-12 rounded-xl shadow-sm shrink-0" />
+                    )}
+                    <div className="flex-1 min-w-0 pr-6">
+                      <h3 className="truncate text-base font-bold text-text-primary">{link.platformName}</h3>
+                      <div className="mt-1 flex flex-wrap gap-1.5">
+                        {link.burnAfterRead && (
+                          <span className="bg-orange-100 text-orange-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Un solo uso
+                          </span>
+                        )}
+                        {isActive ? (
+                          <span className="bg-emerald-100 text-emerald-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Activo
+                          </span>
+                        ) : isBurned ? (
+                          <span className="bg-orange-100 text-orange-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Quemado 🔥
+                          </span>
+                        ) : (
+                          <span className="bg-red-100 text-red-800 text-[9px] px-2 py-0.5 rounded-full font-bold uppercase tracking-wider">
+                            Expirado ⌛
+                          </span>
+                        )}
+                      </div>
+                      <p className="text-[10px] text-text-tertiary mt-2">
+                        Creado: {new Date(link.createdAt).toLocaleString()}
+                      </p>
+                      {link.expiresAt && (
+                        <p className="text-[10px] text-text-tertiary mt-0.5">
+                          Expira: {new Date(link.expiresAt).toLocaleString()}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="mt-5 flex gap-2 border-t border-black/5 pt-3">
+                    {link.expiresAt !== null && (
+                      <button
+                        onClick={() => handleExtendLink(link.id, link.expiresAt)}
+                        disabled={isProcessing}
+                        className="flex-1 rounded-xl bg-slate-100 hover:bg-slate-200 text-text-secondary py-2 text-xs font-bold transition-all flex items-center justify-center gap-1"
+                        title="Añadir 24 horas de acceso"
+                      >
+                        {isProcessing ? (
+                          <span className="w-3 h-3 border-2 border-slate-400/20 border-t-slate-600 rounded-full animate-spin" />
+                        ) : (
+                          <>
+                            <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                            </svg>
+                            <span>+24h</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleRevokeLink(link.id)}
+                      disabled={isProcessing}
+                      className="flex-1 rounded-xl bg-red-50 hover:bg-red-100 text-red-600 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                    >
+                      {isProcessing ? (
+                        <span className="w-4 h-4 border-2 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
+                      ) : 'Revocar'}
+                    </button>
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )
+      )}
     </div>
   )
 }
