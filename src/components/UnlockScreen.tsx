@@ -128,6 +128,7 @@ function NativeIdentityStep({
                 value={password}
                 onChange={setPassword}
                 required
+                hideCopy
                 placeholder="Escribe tu contraseña de acceso"
               />
 
@@ -151,6 +152,7 @@ function NativeIdentityStep({
               value={confirmPassword}
               onChange={setConfirmPassword}
               required
+              hideCopy
               placeholder="Repite tu contraseña de acceso"
             />
           )}
@@ -656,6 +658,7 @@ export function UnlockScreen() {
                   value={newMasterPassword}
                   onChange={setNewMasterPassword}
                   required
+                  hideCopy
                   placeholder="Nueva contraseña"
                 />
                 <PasswordField
@@ -663,6 +666,7 @@ export function UnlockScreen() {
                   value={confirmNewMasterPassword}
                   onChange={setConfirmNewMasterPassword}
                   required
+                  hideCopy
                   placeholder="Repite la nueva contraseña"
                 />
                       <button
@@ -720,6 +724,7 @@ export function UnlockScreen() {
                         value={masterPassword}
                         onChange={setMasterPassword}
                         required
+                        hideCopy
                         placeholder="Contraseña Maestra"
                       />
 
@@ -743,6 +748,7 @@ export function UnlockScreen() {
                           value={confirmMasterPassword}
                           onChange={setConfirmMasterPassword}
                           required
+                          hideCopy
                           placeholder="Repite tu contraseña"
                         />
                       )}

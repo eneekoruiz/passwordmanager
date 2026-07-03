@@ -250,6 +250,8 @@ function VaultApp() {
   }
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
+  const [settingsInitialView, setSettingsInitialView] = useState<'health' | 'biometric' | 'hardwareKey' | 'credentials' | 'travel' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'main'>('health')
+  const [editPlatformTrigger, setEditPlatformTrigger] = useState<string | null>(null)
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
@@ -643,7 +645,7 @@ function VaultApp() {
   }, [isUnlocked, logoutProfile, showToast])
 
   useEffect(() => {
-    const handleOpenSettings = () => setSettingsOpen(true)
+    const handleOpenSettings = () => { setSettingsInitialView('health'); setSettingsOpen(true); }
     const handleClipboardCleared = () => showToast('Portapapeles limpiado por seguridad', 'info')
     
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -1125,7 +1127,11 @@ function VaultApp() {
             <div className="mt-3 flex gap-2">
               <button
                 type="button"
-                onClick={() => setSettingsOpen(true)}
+                onClick={() => {
+                  setSettingsInitialView('biometric')
+                  setSettingsOpen(true)
+                  dismissBiometricPrompt()
+                }}
                 className="flex h-8 items-center justify-center rounded-lg bg-text-primary px-3 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
               >
                 Configurar
@@ -1448,6 +1454,7 @@ function VaultApp() {
               onDeleteLocalItem={deleteLocalItem}
               isMobile={true}
               createTrigger={createTrigger}
+              editPlatformTrigger={editPlatformTrigger}
               sortMode={sortMode}
               searchQuery={localSearchTerm}
             />
@@ -1499,6 +1506,17 @@ function VaultApp() {
         </div>
 
         <SettingsModal
+          initialView={settingsInitialView}
+          onEditPlatform={(platformId) => {
+            const identity = identities.find(id => id.platforms.some(p => p.id === platformId))
+            if (identity) {
+              setSelectedId(identity.id)
+              setSelectedPlatformName(identity.platforms.find(p => p.id === platformId)?.name || null)
+              setEditPlatformTrigger(platformId)
+              setSettingsOpen(false)
+              setTimeout(() => setEditPlatformTrigger(null), 100)
+            }
+          }}
           isOpen={settingsOpen}
           onClose={() => setSettingsOpen(false)}
           onExport={handleExportBackup}
@@ -1687,6 +1705,7 @@ function VaultApp() {
             onDeleteLocalItem={deleteLocalItem}
             isMobile={false}
             createTrigger={createTrigger}
+            editPlatformTrigger={editPlatformTrigger}
             sortMode={sortMode}
             searchQuery={globalSearchTerm}
           />
@@ -1694,6 +1713,17 @@ function VaultApp() {
       </div>
 
       <SettingsModal
+        initialView={settingsInitialView}
+        onEditPlatform={(platformId) => {
+          const identity = identities.find(id => id.platforms.some(p => p.id === platformId))
+          if (identity) {
+            setSelectedId(identity.id)
+            setSelectedPlatformName(identity.platforms.find(p => p.id === platformId)?.name || null)
+            setEditPlatformTrigger(platformId)
+            setSettingsOpen(false)
+            setTimeout(() => setEditPlatformTrigger(null), 100)
+          }
+        }}
         isOpen={settingsOpen}
         onClose={() => setSettingsOpen(false)}
         onExport={handleExportBackup}

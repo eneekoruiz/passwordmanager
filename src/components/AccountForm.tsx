@@ -1006,9 +1006,16 @@ export function AccountForm({
             <PlatformLogo name={account.name} className="h-8 w-8 shrink-0 rounded-xl" />
             <h2 className="truncate text-lg font-bold tracking-tight text-text-primary">{account.name}</h2>
           </div>
-          <button type="button" onClick={() => setIsEditing(true)} className="shrink-0 rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95">
-            Editar
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            {onShare && (
+              <button type="button" onClick={onShare} className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95">
+                Compartir
+              </button>
+            )}
+            <button type="button" onClick={() => setIsEditing(true)} className="shrink-0 rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95">
+              Editar
+            </button>
+          </div>
         </header>
 
         <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 lg:px-8">
@@ -1138,11 +1145,6 @@ export function AccountForm({
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {mode === 'edit' && onShare && (
-            <button type="button" onClick={onShare} className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95">
-              Compartir
-            </button>
-          )}
           {mode === 'edit' && onDelete && (
             <button type="button" onClick={() => setShowDeleteModal(true)} className="rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95">
               Eliminar
@@ -1243,7 +1245,7 @@ export function AccountForm({
             Contraseña Tradicional
           </label>
           <div className={`grid transition-all duration-200 ${passwordEnabled && passwordMethod ? 'grid-rows-[1fr] opacity-100' : 'grid-rows-[0fr] opacity-0'}`}>
-            <div className="overflow-hidden space-y-3">
+            <div className={`space-y-3 ${passwordEnabled && passwordMethod ? 'overflow-visible' : 'overflow-hidden'}`}>
               {passwordEnabled && passwordMethod && (
                 <>
                   <PasswordField
@@ -1549,7 +1551,7 @@ export function AccountForm({
               />
               <button
                 type="button"
-                onClick={() => updateField('accountCreatedAt', null)}
+                onClick={() => updateField('accountCreatedAt', '')}
                 className="text-xs font-semibold text-text-tertiary transition-colors hover:text-text-primary"
               >
                 Quitar fecha

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { copyToClipboard } from '../../utils/clipboard'
 import { generateSecurePassword } from '../../utils/security'
 import { inputClassName } from './FormField'
@@ -26,6 +26,8 @@ interface PasswordFieldProps {
   forceVisible?: boolean
   /** Callback opcional cuando se interactúa con el campo (ver/copiar) */
   onAccess?: () => void
+  /** Oculta el botón de copiar si no es necesario (ej. UnlockScreen) */
+  hideCopy?: boolean
 }
 
 
@@ -56,7 +58,9 @@ export function PasswordField({
   showGenerator = false,
   forceVisible = false,
   onAccess,
+  hideCopy = false,
 }: PasswordFieldProps) {
+  const inputRef = useRef<HTMLInputElement>(null)
   const [internalVisible, setInternalVisible] = useState(false)
   const visible = forceVisible || internalVisible
   const [copied, setCopied] = useState(false)
@@ -100,6 +104,7 @@ export function PasswordField({
       </span>
       <div className="relative flex items-stretch">
         <input
+          ref={inputRef}
           type={visible ? 'text' : 'password'}
           value={value}
           onChange={(e) => onChange(e.target.value)}
@@ -148,6 +153,9 @@ export function PasswordField({
             type="button"
             onClick={(e) => { 
               e.preventDefault()
+              if (inputRef.current && inputRef.current.value !== value) {
+                onChange(inputRef.current.value)
+              }
               const nextVisible = !internalVisible
               setInternalVisible(nextVisible)
               if (nextVisible) onAccess?.()
@@ -168,18 +176,20 @@ export function PasswordField({
             <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">{visible ? 'Ocultar' : 'Mostrar'}</span>
           </button>
 
-          <button
-            type="button"
-            onClick={handleCopy}
-            disabled={!value || disabled}
-            className="group relative rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150 disabled:opacity-40"
-            aria-label="Copiar al portapapeles"
-          >
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.646.049 1.288.11 1.927.184 1.102.124 1.99 1.003 1.99 2.122v6.228a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18.75v-6.228c0-1.12.888-2.002 1.99-2.122A48.394 48.394 0 0112 3c.775 0 1.545.09 2.298.266" />
-            </svg>
-            <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">Copiar</span>
-          </button>
+          {!hideCopy && (
+            <button
+              type="button"
+              onClick={handleCopy}
+              disabled={!value || disabled}
+              className="group relative rounded-md p-1.5 text-text-tertiary hover:bg-surface-hover hover:text-text-secondary active:scale-95 transition-all duration-150 disabled:opacity-40"
+              aria-label="Copiar al portapapeles"
+            >
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.646.049 1.288.11 1.927.184 1.102.124 1.99 1.003 1.99 2.122v6.228a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 18.75v-6.228c0-1.12.888-2.002 1.99-2.122A48.394 48.394 0 0112 3c.775 0 1.545.09 2.298.266" />
+              </svg>
+              <span className="pointer-events-none absolute -top-8 left-1/2 -translate-x-1/2 rounded-md bg-slate-900 px-2 py-1 text-[10px] font-medium text-white opacity-0 transition-opacity group-hover:opacity-100 whitespace-nowrap shadow-lg">Copiar</span>
+            </button>
+          )}
         </div>
       </div>
 

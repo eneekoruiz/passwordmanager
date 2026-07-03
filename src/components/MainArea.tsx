@@ -47,6 +47,7 @@ interface MainAreaProps {
   onDeleteLocalItem: (itemId: string) => Promise<void>
   isMobile?: boolean
   createTrigger?: number
+  editPlatformTrigger?: string | null
   sortMode: SortMode
   searchQuery?: string
   syncing?: boolean
@@ -92,6 +93,7 @@ export const MainArea = memo(function MainArea({
   onDeleteLocalItem,
   isMobile = false,
   createTrigger = 0,
+  editPlatformTrigger = null,
   sortMode,
   searchQuery = '',
   syncing = false,
@@ -141,6 +143,23 @@ export const MainArea = memo(function MainArea({
       }
     }
   }, [createTrigger])
+
+  useEffect(() => {
+    if (editPlatformTrigger) {
+      const list = identities.flatMap((item) =>
+        (item?.platforms || []).map((platform) => ({
+          identityId: item.id,
+          identityEmail: item.email,
+          platform,
+        })),
+      )
+      const target = list.find((t) => t.platform.id === editPlatformTrigger)
+      if (target) {
+        setEditingPlatform(target)
+        setView('edit')
+      }
+    }
+  }, [editPlatformTrigger, identities])
 
   const platformAccounts = useMemo<PlatformAccount[]>(() => {
     if (groupMode !== 'platform' || !selectedPlatformName) return []

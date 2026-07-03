@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
-import { passwordStrengthIssue, evaluatePassword, generateSecurePassword, checkPasswordBreach } from '../utils/security'
+import { passwordStrengthIssue, evaluatePassword, checkPasswordBreach } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 
 type PlaintextExportFormat = 'csv' | 'json'
@@ -39,6 +39,8 @@ interface SettingsModalProps {
   focusCsvExport?: boolean
   onCsvExportFocused?: () => void
   onUpdatePlatform?: (identityId: string, platformId: string, updates: any) => void | Promise<void>
+  initialView?: 'health' | 'biometric' | 'hardwareKey' | 'credentials' | 'travel' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'main'
+  onEditPlatform?: (platformId: string) => void
 }
 
 /**
@@ -69,6 +71,8 @@ export function SettingsModal({
   focusCsvExport = false,
   onCsvExportFocused,
   onUpdatePlatform,
+  initialView = 'health',
+  onEditPlatform,
 }: SettingsModalProps) {
   const [exportPassword, setExportPassword] = useState('')
   const [importPassword, setImportPassword] = useState('')
@@ -123,8 +127,17 @@ export function SettingsModal({
   const [biometricPassword, setBiometricPassword] = useState('')
       const [loadingHardwareKey, setLoadingHardwareKey] = useState(false)
   const [hardwareKeyPassword, setHardwareKeyPassword] = useState('')
-      const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>('health')
+      const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>(initialView)
       const [activeTab, setActiveTab] = useState<'settings' | 'profile'>('settings')
+
+  useEffect(() => {
+    if (isOpen) {
+      setView(initialView)
+      if (initialView === 'biometric' || initialView === 'hardwareKey') {
+        setActiveTab('settings')
+      }
+    }
+  }, [isOpen, initialView])
 
   // Memory scrubbing: Limpiar contraseñas al desmontar
   useEffect(() => {
@@ -1336,16 +1349,18 @@ export function SettingsModal({
                           <button
                             type="button"
                             onClick={() => {
-                              const newPw = generateSecurePassword(16)
-                              navigator.clipboard.writeText(newPw)
-                              showToast('Contraseña sugerida copiada al portapapeles', 'success')
+                              if (onEditPlatform) {
+                                onEditPlatform(platformId)
+                                onClose()
+                              }
                             }}
                             className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800"
                           >
                             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M15.536 8.464a5 5 0 010 7.072m2.828-9.9a9 9 0 010 12.728M5.586 15H4a1 1 0 01-1-1v-4a1 1 0 011-1h1.586l4.707-4.707C10.923 3.663 12 4.109 12 5v14c0 .891-1.077 1.337-1.707.707L5.586 15z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.112l-2.83.849a.5.5 0 01-.632-.632l.849-2.83a4.5 4.5 0 011.112-1.89l13.43-13.43z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5" />
                             </svg>
-                            Generar y copiar sugerencia
+                            Editar plataforma
                           </button>
                         </div>
                       </div>
