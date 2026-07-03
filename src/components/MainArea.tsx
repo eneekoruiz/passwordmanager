@@ -714,7 +714,7 @@ export const MainArea = memo(function MainArea({
                       </button>
                       {/* Quick Travel Button */}
                       {(pwMethod?.password || hasUrl) && (
-                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                           {pwMethod?.password && (
                             <>
                               <button
@@ -877,7 +877,7 @@ export const MainArea = memo(function MainArea({
                     </button>
                            {/* Quick Travel for identity platforms */}
                     {pwMethod?.password && (
-                      <div className="absolute bottom-2 right-2 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
                         <button
                           type="button"
                           title="Copiar contraseña"

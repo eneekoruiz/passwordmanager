@@ -741,6 +741,63 @@ function VaultApp() {
     return () => window.removeEventListener('contras:lock-vault', lockHandler)
   }, [requestNavigation])
 
+  const handleAddClickRef = useRef(handleAddClick)
+  const handleLockRef = useRef(handleLock)
+  useEffect(() => {
+    handleAddClickRef.current = handleAddClick
+    handleLockRef.current = handleLock
+  })
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      const activeEl = document.activeElement
+      const isTyping = activeEl && (
+        activeEl.tagName === 'INPUT' ||
+        activeEl.tagName === 'TEXTAREA' ||
+        (activeEl instanceof HTMLElement && activeEl.contentEditable === 'true')
+      )
+
+      if (e.key === 'Escape') {
+        if (isTyping) {
+          (activeEl as HTMLElement).blur()
+        } else {
+          setSettingsOpen(false)
+          setImportTextOpen(false)
+          setSelectedId(null)
+          setSelectedPlatformName(null)
+          setSelectedLocalCategory(null)
+          setGlobalSearchTerm('')
+          setLocalSearchTerm('')
+        }
+        return
+      }
+
+      if (isTyping) return
+
+      if (e.key === '/') {
+        e.preventDefault()
+        const searchInput = document.getElementById('global-search-input') || document.querySelector('input[type="search"]')
+        if (searchInput) (searchInput as HTMLInputElement).focus()
+        return
+      }
+
+      if (e.key === 'n' || e.key === 'N') {
+        e.preventDefault()
+        handleAddClickRef.current()
+        return
+      }
+
+      if (e.key === 'l' || e.key === 'L') {
+        e.preventDefault()
+        handleLockRef.current()
+        return
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [])
+
   if (!mounted || !isReady) {
     return (
       <div className="flex min-h-dvh items-center justify-center bg-surface">
@@ -1819,7 +1876,7 @@ function GlobalSearch({
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Buscar en toda la bóveda..."
+          placeholder="Buscar en toda la bóveda... (Pulsa /)"
           className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035]"
           aria-label="Búsqueda global de la bóveda"
         />
