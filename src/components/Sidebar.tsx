@@ -538,15 +538,15 @@ export const Sidebar = memo(function Sidebar({
 
         <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
           {syncing && localLooksEmpty ? (
-            <div className="space-y-4 px-3 py-4 animate-pulse">
-              <div className="h-3 bg-black/10 rounded w-1/3 dark:bg-white/10 mb-6"></div>
+            <div className="space-y-4 px-3 py-4">
+              <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
-                  <div key={i} className="flex items-center gap-3 py-1">
-                    <div className="h-8 w-8 rounded-xl bg-black/10 dark:bg-white/10" />
-                    <div className="flex-1 space-y-1.5">
-                      <div className="h-3 bg-black/10 rounded w-3/4 dark:bg-white/10" />
-                      <div className="h-2.5 bg-black/10 rounded w-1/2 dark:bg-white/10" />
+                  <div key={i} className="flex items-center gap-3 py-2">
+                    <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200/50 shimmer" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-3.5 w-3/4 rounded-full bg-slate-200/70 shimmer" />
+                      <div className="h-2.5 w-1/2 rounded-full bg-slate-100/60 shimmer" />
                     </div>
                   </div>
                 ))}
