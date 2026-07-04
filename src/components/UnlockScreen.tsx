@@ -243,20 +243,34 @@ function BiometricMasterPasswordShortcut({
       <div className="flex items-center justify-between gap-3">
         <div>
           <p className={`text-xs font-bold ${failed ? 'text-amber-950' : 'text-emerald-950'}`}>
-            {failed ? 'Autenticación fallida' : 'Desbloqueo biométrico disponible'}
+            {failed ? 'Biometría no disponible' : 'Desbloqueo biométrico disponible'}
           </p>
           <p className={`mt-0.5 text-[11px] leading-relaxed ${failed ? 'text-amber-800' : 'text-emerald-800'}`}>
-            {failed ? '¿Intentar de nuevo con tu huella o Face ID?' : 'Usa la llave de acceso local protegida por Face ID, huella o Windows Hello.'}
+            {failed
+              ? 'El dispositivo no pudo verificar la biometría. Usa tu Contraseña Maestra debajo para entrar.'
+              : 'Usa la llave de acceso local protegida por Face ID, huella o Windows Hello.'}
           </p>
         </div>
-        <button
-          type="button"
-          onClick={onUnlock}
-          disabled={loading}
-          className={`shrink-0 rounded-xl px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98] ${failed ? 'bg-amber-600' : 'bg-emerald-950'}`}
-        >
-          {loading ? 'Verificando...' : (failed ? 'Reintentar' : 'Desbloquear')}
-        </button>
+        {!failed && (
+          <button
+            type="button"
+            onClick={onUnlock}
+            disabled={loading}
+            className="shrink-0 rounded-xl bg-emerald-950 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+          >
+            {loading ? 'Verificando...' : 'Desbloquear'}
+          </button>
+        )}
+        {failed && (
+          <button
+            type="button"
+            onClick={onUnlock}
+            disabled={loading}
+            className="shrink-0 rounded-xl bg-amber-600 px-3 py-2 text-[11px] font-bold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+          >
+            {loading ? 'Verificando...' : 'Reintentar'}
+          </button>
+        )}
       </div>
     </div>
   )
@@ -633,8 +647,31 @@ export function UnlockScreen() {
   })
 
   return (
-    <div className="flex min-h-dvh items-center justify-center bg-surface px-4 py-8 select-none">
-      <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
+    <div className="flex h-dvh max-h-dvh flex-col lg:flex-row overflow-hidden bg-surface select-none">
+      
+      {/* Desktop Skeleton Sidebar */}
+      <div className="hidden lg:flex w-80 flex-col border-r border-border-subtle bg-surface p-5 opacity-70">
+        <div className="flex items-center gap-2 mb-8">
+          <div className="h-6 w-24 rounded-full bg-slate-200/80 shimmer" />
+        </div>
+        <div className="space-y-4">
+          <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
+          <div className="space-y-3">
+            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+              <div key={i} className="flex items-center gap-3 py-2">
+                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200/50 shimmer" />
+                <div className="flex-1 space-y-2">
+                  <div className="h-3.5 w-3/4 rounded-full bg-slate-200/70 shimmer" />
+                  <div className="h-2.5 w-1/2 rounded-full bg-slate-100/60 shimmer" />
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </div>
+
+      <div className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-surface-elevated m-2 lg:m-3 lg:ml-0 rounded-3xl border border-border-subtle shadow-sm relative px-4 py-8">
+        <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
           <NativeIdentityStep
             loading={loading || isCloudLoading}
@@ -904,6 +941,7 @@ export function UnlockScreen() {
             </div>
           </div>
         )}
+        </div>
       </div>
       {showNukeModal && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center bg-red-950/35 p-4 backdrop-blur-md animate-vault-morph">

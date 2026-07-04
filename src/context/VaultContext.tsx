@@ -89,6 +89,7 @@ interface VaultContextValue {
   importBackup: (backupJsonString: string, masterPassword: string) => Promise<void>
   importMassiveAccounts: (parsedRows: Array<{ identityEmail: string; platform: Platform }>) => Promise<string | null>
   cloudUserEmail: string | null
+  cloudUserId: string | null
   cloudSyncStatus: 'checking_storage' | 'idle' | 'syncing' | 'synced' | 'error'
   isInMemory: boolean
   cloudVaultExists: boolean | null
@@ -121,6 +122,7 @@ interface VaultContextValue {
   registerHardwareKeyUnlock: (masterPassword: string) => Promise<void>
   unlockWithHardwareKeySensor: () => Promise<void>
   disableHardwareKeyUnlock: () => Promise<void>
+  masterKey: CryptoKey | null
 }
 
 export interface CloudSyncResult {
@@ -228,6 +230,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [currentProfileId, setCurrentProfileId] = useState<string | null>(null)
   const [currentProfileName, setCurrentProfileName] = useState<string | null>(null)
   const [cloudUserEmail, setCloudUserEmail] = useState<string | null>(null)
+  const [cloudUserId, setCloudUserId] = useState<string | null>(null)
   const [cloudSyncStatus, setCloudSyncStatus] = useState<'checking_storage' | 'idle' | 'syncing' | 'synced' | 'error'>('checking_storage')
   const [isInMemory, setIsInMemory] = useState(isInMemoryFallbackActive())
   const [cloudVaultExists, setCloudVaultExists] = useState<boolean | null>(null)
@@ -409,6 +412,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       firebaseUserRef.current = user
       setCloudUserEmail(user?.email ?? null)
+      setCloudUserId(user?.uid ?? null)
       setIsAuthReady(true)
 
       if (!user) {
@@ -823,29 +827,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     // Storage and Auth are ready!
     if (isInMemoryFallbackActive()) {
       setIsInMemory(true)
-      setCloudSyncStatus('idle')
-      return
     }
 
-    // Storage is persistent!
     const user = firebaseUserRef.current
     if (user && currentProfileId) {
       // Both user logged in and profile unlocked.
       // Trigger auto-sync!
       setCloudSyncStatus('syncing')
       void syncActiveProfileToCloud(true).then((result) => {
-        if (result.action === 'downloaded' || result.action === 'uploaded' || result.action === 'idle') {
+        if (result.action === 'downloaded' || result.action === 'uploaded') {
           setCloudSyncStatus('synced')
         } else if (result.action === 'download_available') {
           setCloudSyncStatus('idle')
           setHasUnsyncedChanges(true)
+        } else if (result.action === 'idle') {
+          setCloudSyncStatus('idle')
         }
       }).catch((err) => {
         logUnexpectedError('Auto sync failed at boot state machine', err)
         setCloudSyncStatus('error')
       })
     } else {
-      // Local persistent storage, not logged in or profile not unlocked yet
+      // Not logged in or profile not unlocked yet
       setCloudSyncStatus('idle')
     }
   }, [isReady, isAuthReady, currentProfileId, cloudUserEmail, syncActiveProfileToCloud])
@@ -1515,12 +1518,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         // Continuamos con el fallback
       } else {
         try {
-          showToast('Verifica tu identidad en el navegador...', 'info')
-          const masterPassword = await withTimeout(
-            unlockWithBiometrics(bundle as BiometricBundle),
-            5000,
-            'La verificación biométrica no respondió a tiempo.',
+          showToast('Verifica tu identidad en el dispositivo...', 'info')
+          // Race: si la biometría no responde en 7s, caemos al fallback de contraseña
+          const biometricTimeout = new Promise<never>((_, reject) =>
+            setTimeout(() => reject(new Error('biometric_timeout')), 7000)
           )
+          const masterPassword = await Promise.race([
+            unlockWithBiometrics(bundle as BiometricBundle),
+            biometricTimeout
+          ])
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
           if (passwordIsValid) {
             lastAuthorizedTimeRef.current = Date.now()
@@ -1528,11 +1534,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
           // Si la contraseña no es válida (bundle corrupto), continuamos al fallback
         } catch (err) {
-          console.warn('Biometría cancelada o fallida, usando fallback.', err)
+          const msg = err instanceof Error ? err.message : ''
+          if (msg === 'biometric_timeout') {
+            console.warn('Biometría no respondió a tiempo, usando fallback.')
+          } else {
+            console.warn('Biometría cancelada o fallida, usando fallback.', err)
+          }
           // Siempre continuamos al fallback
         }
       }
     }
+
 
     // Si tiene llave física activa, la usamos.
     if (hardwareKeyAvailable && hardwareKeyRegistered) {
@@ -1542,12 +1554,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setHardwareKeyRegistered(false)
       } else {
         try {
-          showToast('Verifica tu llave de seguridad en el navegador...', 'info')
-          const masterPassword = await withTimeout(
-            unlockWithHardwareKey(bundle as HardwareKeyBundle),
-            15000,
-            'La llave de seguridad no respondió a tiempo.',
-          )
+          showToast('Verifica tu llave de seguridad...', 'info')
+          const masterPassword = await unlockWithHardwareKey(bundle as HardwareKeyBundle)
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
           if (passwordIsValid) {
             lastAuthorizedTimeRef.current = Date.now()
@@ -1741,6 +1749,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       importBackup,
       importMassiveAccounts,
       cloudUserEmail,
+      cloudUserId,
       cloudSyncStatus,
       isInMemory,
       cloudVaultExists,
@@ -1771,12 +1780,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       disableHardwareKeyUnlock,
       isPromptingMasterPassword,
       resolveMasterPasswordPrompt,
+      masterKey: isUnlocked ? vaultRef.current.masterKey : null,
     }),
     [
       addIdentity,
       addPlatform,
       cloudSyncStatus,
       cloudUserEmail,
+      cloudUserId,
       cloudVaultExists,
       isInMemory,
       createProfile,

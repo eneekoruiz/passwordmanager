@@ -1,0 +1,19 @@
+rules_version = '2';
+
+// Craft rules based on the provided project requirements
+service firebase.storage {
+  match /b/{bucket}/o {
+    
+    // Default deny
+    match /{allPaths=**} {
+      allow read, write: if false;
+    }
+
+    // Document vault rules
+    // Path structure: /users/{userId}/documents/{documentId}
+    match /users/{userId}/documents/{documentId} {
+      // Only the owner can read/write their own documents
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}

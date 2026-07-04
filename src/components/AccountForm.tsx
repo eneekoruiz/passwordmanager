@@ -1,5 +1,5 @@
 import { useState, useEffect, useCallback, useRef, type FormEvent, type CSSProperties, type MouseEvent } from 'react'
-import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType, FileAttachment } from '../types'
+import type { Account, ApiKeyEntry, CustomFieldEntry, SsoProvider, TwoFactorConfig, TwoFactorType } from '../types'
 import { createEmptyAccount } from '../utils/account'
 import { createApiKeyEntry, normalizeAccount } from '../utils/normalizeAccount'
 import { generateId } from '../utils/id'
@@ -14,6 +14,7 @@ import { Combobox } from './ui/Combobox'
 import { POPULAR_SERVICES } from '../data/popularServices'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
+import { AttachmentsList } from './ui/AttachmentsList'
 
 interface AccountFormProps {
   mode: 'create' | 'edit'
@@ -115,129 +116,6 @@ function ApiKeyItem({ keyEntry, updateApiKey, removeApiKey }: ApiKeyItemProps) {
             )}
           </button>
         </div>
-      </div>
-    </div>
-  )
-}
-
-function AttachmentItem({
-  attachment,
-  updateAttachment,
-  removeAttachment,
-  downloadAttachment,
-  onAccess
-}: {
-  attachment: FileAttachment
-  updateAttachment: (id: string, field: 'name' | 'description', value: string) => void
-  removeAttachment: (id: string) => void
-  downloadAttachment: (attachment: FileAttachment) => void
-  onAccess?: () => void
-}) {
-  const { authorizeSensitiveAction } = useVault()
-  const { showToast } = useToast()
-  const [unblurred, setUnblurred] = useState(false)
-  const [revealing, setRevealing] = useState(false)
-
-  const isImage = attachment.mimeType?.startsWith('image/') || /\.(jpg|jpeg|png|webp|gif)$/i.test(attachment.fileName)
-
-  const handleRevealImage = async () => {
-    if (unblurred) {
-      setUnblurred(false)
-      return
-    }
-
-    setRevealing(true)
-    try {
-      const ok = await authorizeSensitiveAction()
-      if (ok) {
-        setUnblurred(true)
-        onAccess?.()
-      }
-    } catch (error) {
-      const msg = error instanceof Error ? error.message : 'No se pudo verificar tu identidad.'
-      if (!msg.toLowerCase().includes('cancel')) {
-        showToast(msg, 'error')
-      }
-    } finally {
-      setRevealing(false)
-    }
-  }
-
-  return (
-    <div className="flex flex-col gap-3 rounded-2xl border border-black/[0.06] bg-white/60 p-4 shadow-sm transition-all focus-within:border-border focus-within:bg-white focus-within:shadow-md hover:bg-white/90">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-2 overflow-hidden">
-          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-blue-100 text-blue-600">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0zM9.75 9.75c0 .414-.168.75-.375.75S9 10.164 9 9.75 9.168 9 9.375 9s.375.336.375.75zm-.375 0h.008v.015h-.008V9.75zm5.625 0c0 .414-.168.75-.375.75s-.375-.336-.375-.75.168-.75.375-.75.375.336.375.75zm-.375 0h.008v.015h-.008V9.75z" />
-            </svg>
-          </div>
-          <div className="min-w-0">
-            <p className="truncate text-xs font-bold text-text-primary">{attachment.fileName}</p>
-            <p className="text-[10px] text-text-tertiary">{(attachment.size / 1024).toFixed(1)} KB</p>
-          </div>
-        </div>
-        <div className="flex gap-1">
-          <button type="button" onClick={() => downloadAttachment(attachment)} className="rounded-lg p-1.5 text-blue-600 hover:bg-blue-50 transition-colors" title="Descargar">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-          </button>
-          <button type="button" onClick={() => removeAttachment(attachment.id)} className="rounded-lg p-1.5 text-red-600 hover:bg-red-50 transition-colors" title="Eliminar">
-            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" /></svg>
-          </button>
-        </div>
-      </div>
-
-      {isImage && (
-        <div className="relative mt-1 aspect-video overflow-hidden rounded-xl border border-black/5 bg-slate-100 flex items-center justify-center">
-          <img
-            src={attachment.data}
-            alt={attachment.name || attachment.fileName}
-            className={`h-full w-full object-cover transition-all duration-300 ${unblurred ? 'blur-0' : 'blur-xl select-none pointer-events-none'}`}
-          />
-          <div className="absolute inset-0 flex items-center justify-center bg-black/5 backdrop-blur-[0.5px]">
-            <button
-              type="button"
-              onClick={handleRevealImage}
-              disabled={revealing}
-              className={`flex items-center gap-2 rounded-xl px-4 py-2 text-xs font-bold text-white shadow-md transition-all active:scale-95 ${unblurred ? 'bg-black/60 hover:bg-black/80' : 'bg-slate-900 hover:bg-slate-800'}`}
-            >
-              {revealing ? (
-                <span>Cargando...</span>
-              ) : unblurred ? (
-                <>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
-                  </svg>
-                  Ocultar
-                </>
-              ) : (
-                <>
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                  </svg>
-                  Ver imagen
-                </>
-              )}
-            </button>
-          </div>
-        </div>
-      )}
-
-      <div className="space-y-2">
-        <input
-          type="text"
-          value={attachment.name}
-          onChange={(e) => updateAttachment(attachment.id, 'name', e.target.value)}
-          placeholder="Nombre identificativo (ej. Llave AWS)"
-          className="w-full rounded-xl border border-black/5 bg-white px-3 py-2 text-xs font-semibold text-text-primary outline-none transition-colors focus:border-border"
-        />
-        <input
-          type="text"
-          value={attachment.description}
-          onChange={(e) => updateAttachment(attachment.id, 'description', e.target.value)}
-          placeholder="Descripción (opcional)"
-          className="w-full rounded-xl border border-black/5 bg-white px-3 py-2 text-xs text-text-primary outline-none transition-colors focus:border-border"
-        />
       </div>
     </div>
   )
@@ -514,7 +392,7 @@ export function AccountForm({
 
   const [recoveryCodesVisible, setRecoveryCodesVisible] = useState(false)
   const [recoveryCodesCopied, setRecoveryCodesCopied] = useState(false)
-  const [isDragging, setIsDragging] = useState(false)
+  // const [isDragging, setIsDragging] = useState(false) // removed unused state
   const [ssoProviderQuery, setSsoProviderQuery] = useState('')
   const [platformQuery, setPlatformQuery] = useState(() => account.name)
   const accessTrackedRef = useRef(false)
@@ -551,29 +429,7 @@ export function AccountForm({
     }
   }
 
-  const downloadAttachment = (attachment: FileAttachment) => {
-    handleItemAccessed()
-    try {
-      const parts = attachment.data.split(';base64,')
-      const base64Data = parts.length > 1 ? parts[1] : parts[0]
-      const binaryString = window.atob(base64Data)
-      const bytes = new Uint8Array(binaryString.length)
-      for (let i = 0; i < binaryString.length; i++) {
-        bytes[i] = binaryString.charCodeAt(i)
-      }
-      const blob = new Blob([bytes], { type: attachment.mimeType || 'application/octet-stream' })
-      const url = URL.createObjectURL(blob)
-      const link = document.createElement('a')
-      link.href = url
-      link.download = attachment.fileName
-      document.body.appendChild(link)
-      link.click()
-      document.body.removeChild(link)
-      URL.revokeObjectURL(url)
-    } catch (e) {
-      showToast('Error al descargar el archivo: Formato inválido.', 'error')
-    }
-  }
+
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -730,95 +586,6 @@ export function AccountForm({
     }))
   }, [])
 
-  const readFileAsDataUrl = (file: File) =>
-    new Promise<string>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onload = (event) => resolve(String(event.target?.result ?? ''))
-      reader.onerror = () => reject(new Error(`No se pudo leer el archivo ${file.name}.`))
-      reader.readAsDataURL(file)
-    })
-
-  const compressImageAttachment = (file: File) =>
-    new Promise<{ data: string; mimeType: string; size: number }>((resolve) => {
-      if (!file.type.startsWith('image/')) {
-        resolve({ data: '', mimeType: file.type || 'application/octet-stream', size: file.size })
-        return
-      }
-
-      const image = new Image()
-      const url = URL.createObjectURL(file)
-      image.onload = () => {
-        URL.revokeObjectURL(url)
-        const maxSide = 1600
-        const scale = Math.min(1, maxSide / Math.max(image.width, image.height))
-        const canvas = document.createElement('canvas')
-        canvas.width = Math.max(1, Math.round(image.width * scale))
-        canvas.height = Math.max(1, Math.round(image.height * scale))
-        const ctx = canvas.getContext('2d')
-        if (!ctx) {
-          resolve({ data: '', mimeType: file.type || 'image/*', size: file.size })
-          return
-        }
-        ctx.drawImage(image, 0, 0, canvas.width, canvas.height)
-        const data = canvas.toDataURL('image/webp', 0.82)
-        const base64 = data.split(',')[1] ?? ''
-        resolve({ data, mimeType: 'image/webp', size: Math.ceil((base64.length * 3) / 4) })
-      }
-      image.onerror = () => {
-        URL.revokeObjectURL(url)
-        resolve({ data: '', mimeType: file.type || 'image/*', size: file.size })
-      }
-      image.src = url
-    })
-
-  const addAttachmentFromFile = async (file: File) => {
-    if (file.size > 10 * 1024 * 1024) {
-      showToast(`El archivo ${file.name} es demasiado grande. El límite es 10MB.`, 'error')
-      return
-    }
-
-    try {
-      const compressed = await compressImageAttachment(file)
-      const data = compressed.data || await readFileAsDataUrl(file)
-      const mimeType = compressed.data ? compressed.mimeType : (file.type || 'application/octet-stream')
-      const size = compressed.data ? compressed.size : file.size
-
-      setAccount((prev) => ({
-        ...prev,
-        attachments: [
-          ...(prev.attachments ?? []),
-          {
-            id: generateId(),
-            name: file.name.split('.')[0],
-            description: compressed.data ? 'Imagen comprimida y cifrada dentro de la bóveda' : '',
-            fileName: compressed.data ? file.name.replace(/\.[^.]+$/, '.webp') : file.name,
-            mimeType,
-            size,
-            data,
-            createdAt: new Date().toISOString()
-          }
-        ]
-      }))
-    } catch (caughtError) {
-      showToast(getFriendlyErrorMessage(caughtError, `No se pudo leer el archivo ${file.name}.`))
-    }
-  }
-
-  const updateAttachment = (id: string, field: 'name' | 'description', value: string) => {
-    setAccount((prev) => ({
-      ...prev,
-      attachments: (prev.attachments ?? []).map((att) =>
-        att.id === id ? { ...att, [field]: value } : att,
-      ),
-    }))
-  }
-
-  const removeAttachment = (id: string) => {
-    setAccount((prev) => ({
-      ...prev,
-      attachments: (prev.attachments ?? []).filter((att) => att.id !== id),
-    }))
-  }
 
   const accountForPersistence = (value: Account): Account => ({
     ...value,
@@ -1019,7 +786,7 @@ export function AccountForm({
     return (
       <div className="w-full font-sans animate-vault-morph">
         {/* Sticky Header — Vista Lectura */}
-        <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
+        <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
           <div className="flex items-center gap-3 min-w-0">
             <button type="button" onClick={onCancel} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1029,18 +796,26 @@ export function AccountForm({
             <PlatformLogo name={account.name} className="h-8 w-8 shrink-0 rounded-xl" />
             <h2 className="truncate text-lg font-bold tracking-tight text-text-primary">{account.name}</h2>
           </div>
-          <div className="flex items-center gap-2 shrink-0">
-            {!isUnlocked && (
+          <div className="flex flex-wrap items-center gap-2 shrink-0">
+            {!isUnlocked ? (
               <button
                 type="button"
                 onClick={handleGlobalUnlock}
                 className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95"
+                title="Desbloquear vista completa"
               >
-                <svg className="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h16.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
-                <span className="hidden sm:inline">Desbloquear</span>
+                <span className="hidden sm:inline">Desbloquear vista</span>
               </button>
+            ) : (
+              <div className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 sm:px-4 text-sm font-semibold text-emerald-700">
+                <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75M3.75 21.75h16.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                </svg>
+                <span className="hidden sm:inline">Vista desbloqueada</span>
+              </div>
             )}
             {onShare && (
               <button type="button" onClick={onShare} className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95" title="Compartir">
@@ -1177,6 +952,14 @@ export function AccountForm({
             onAccess={handleItemAccessed}
           />
         ))}
+        {(account.attachments ?? []).length > 0 && (
+          <div className="mt-4 rounded-2xl border border-black/5 bg-black/[0.02] p-4 shadow-sm">
+            <AttachmentsList
+              attachments={account.attachments || []}
+              readOnly={true}
+            />
+          </div>
+        )}
         </div>
       </div>
     )
@@ -1204,8 +987,24 @@ export function AccountForm({
               Eliminar
             </button>
           )}
-          <button type="submit" disabled={saving} className="rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
-            {saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar'}
+          <button type="submit" disabled={saving} title={saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar cambios'} className="flex items-center justify-center gap-1.5 rounded-xl bg-text-primary px-3 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
+            {saving ? (
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : mode === 'create' ? (
+              <>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span className="hidden sm:inline">Crear cuenta</span>
+              </>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
           </button>
         </div>
       </header>
@@ -1816,52 +1615,13 @@ export function AccountForm({
                 </div>
               </div>
 
-              <div
-                className={`relative flex flex-col items-center justify-center gap-2 rounded-2xl border-2 border-dashed p-6 text-center transition-colors ${isDragging ? 'border-blue-400 bg-blue-50/50' : 'border-border bg-surface-elevated hover:bg-surface-hover'}`}
-                onDragOver={(e) => { e.preventDefault(); setIsDragging(true) }}
-                onDragLeave={() => setIsDragging(false)}
-                onDrop={(e) => {
-                  e.preventDefault()
-                  setIsDragging(false)
-                  if (e.dataTransfer.files && e.dataTransfer.files.length > 0) {
-                    addAttachmentFromFile(e.dataTransfer.files[0])
-                  }
-                }}
-              >
-                <div className="flex h-10 w-10 items-center justify-center rounded-full bg-surface text-text-tertiary shadow-sm">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
-                  </svg>
-                </div>
-                <div>
-                  <p className="text-xs font-semibold text-text-primary">Arrastra un archivo aquí o haz clic para subir</p>
-                  <p className="mt-1 text-[10px] text-text-tertiary">Límite recomendado: 10MB</p>
-                </div>
-                <input
-                  type="file"
-                  className="absolute inset-0 cursor-pointer opacity-0"
-                  onChange={(e) => {
-                    if (e.target.files && e.target.files.length > 0) {
-                      addAttachmentFromFile(e.target.files[0])
-                      e.target.value = ''
-                    }
-                  }}
+
+              <div className="mt-4 rounded-2xl border border-black/5 bg-black/[0.02] p-4 shadow-sm">
+                <AttachmentsList
+                  attachments={account.attachments || []}
+                  onAttachmentsChange={(newAttachments) => setAccount({ ...account, attachments: newAttachments })}
                 />
               </div>
-
-              {(account.attachments ?? []).length > 0 && (
-                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 mt-4">
-                  {(account.attachments ?? []).map((att) => (
-                    <AttachmentItem
-                      key={att.id}
-                      attachment={att}
-                      updateAttachment={updateAttachment}
-                      removeAttachment={removeAttachment}
-                      downloadAttachment={downloadAttachment}
-                    />
-                  ))}
-                </div>
-              )}
             </div>
           </div>
         </Accordion>

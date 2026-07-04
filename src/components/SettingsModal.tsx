@@ -98,6 +98,9 @@ export function SettingsModal({
   const [currentMasterPassword, setCurrentMasterPassword] = useState('')
   const [nextMasterPassword, setNextMasterPassword] = useState('')
   const [recoveryPhrase, setRecoveryPhrase] = useState('')
+  const [isCheckingBreaches, setIsCheckingBreaches] = useState(false)
+  const [lastBreachCheck, setLastBreachCheck] = useState<string | null>(null)
+  const [breachedPasswords, setBreachedPasswords] = useState<string[]>([])
   const [travelPassword, setTravelPassword] = useState('')
   const { showToast } = useToast()
   
@@ -109,11 +112,6 @@ export function SettingsModal({
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
   const [weakPasswordsModalOpen, setWeakPasswordsModalOpen] = useState(false)
   const [selectedWeakPasswords, setSelectedWeakPasswords] = useState<string[]>([])
-  
-  const [breachedPasswords, setBreachedPasswords] = useState<Array<{ identityEmail: string, platform: Identity['platforms'][number], count: number }>>([])
-  const [isCheckingBreaches, setIsCheckingBreaches] = useState(false)
-  const [lastBreachCheck, setLastBreachCheck] = useState<string | null>(null)
-  const [breachAuditModalOpen, setBreachAuditModalOpen] = useState(false)
   
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
@@ -152,40 +150,8 @@ export function SettingsModal({
       setBiometricPassword('')
       setHardwareKeyPassword('')
       setBackupFile(null)
-      setBreachedPasswords([])
     }
   }, [])
-  
-  const performBreachAudit = async () => {
-    setIsCheckingBreaches(true)
-    const newBreached: Array<{ identityEmail: string, platform: Identity['platforms'][number], count: number }> = []
-    
-    const allAccounts = (identities || []).flatMap((identity) =>
-      (identity?.platforms || []).map((platform) => ({
-        identityEmail: identity?.email,
-        platform,
-        password: passwordForPlatform(platform),
-      }))
-    )
-    
-    for (const acc of allAccounts) {
-      if (acc.password) {
-        const count = await checkPasswordBreach(acc.password)
-        if (count > 0) {
-          newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
-        }
-      }
-    }
-    
-    setBreachedPasswords(newBreached)
-    setLastBreachCheck(new Date().toISOString())
-    setIsCheckingBreaches(false)
-    if (newBreached.length > 0) {
-      setBreachAuditModalOpen(true)
-    } else {
-      showToast('¡Felicidades! Ninguna de tus contraseñas aparece en filtraciones públicas.', 'success')
-    }
-  }
 
   const selectedIdentities =
     selectedIdentityIds.length === 0
@@ -282,6 +248,32 @@ export function SettingsModal({
       setExportError(getFriendlyErrorMessage(error, 'Error al exportar la copia de seguridad.'))
     } finally {
       setLoadingExport(false)
+    }
+  }
+
+  const performBreachAudit = async () => {
+    if (isCheckingBreaches) return
+    setIsCheckingBreaches(true)
+    try {
+      const breached: string[] = []
+      for (const idn of identities) {
+        for (const p of idn.platforms) {
+          const pass = passwordForPlatform(p)
+          if (pass) {
+            const isBreached = await checkPasswordBreach(pass)
+            if (isBreached) {
+              breached.push(pass)
+            }
+          }
+        }
+      }
+      setBreachedPasswords(breached)
+      setLastBreachCheck(new Date().toISOString())
+      showToast(`Revisión completada. ${breached.length} vulneradas.`, breached.length > 0 ? 'warning' : 'success')
+    } catch (e) {
+      showToast('Error al revisar vulnerabilidades.', 'error')
+    } finally {
+      setIsCheckingBreaches(false)
     }
   }
 
@@ -632,10 +624,10 @@ export function SettingsModal({
                   <section>
                     <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Seguridad y Acceso</h3>
                     <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm flex flex-col divide-y divide-black/[0.04]">
-                      <div className="flex w-full items-center justify-between gap-3 p-4">
-                        <div>
-                          <span className="block text-sm font-bold text-slate-800">Bloqueo por inactividad</span>
-                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">Tiempo para bloquear automáticamente.</span>
+                      <div className="flex w-full flex-col sm:flex-row sm:items-center justify-between gap-3 p-4">
+                        <div className="min-w-0 pr-2">
+                          <span className="block text-sm font-bold text-slate-800 truncate">Bloqueo por inactividad</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500 sm:truncate">Tiempo para bloquear automáticamente.</span>
                         </div>
                         <select
                           value={autoLockTimeout}
@@ -645,7 +637,7 @@ export function SettingsModal({
                             window.localStorage.setItem('contras.autoLockTimeout', val.toString())
                             window.dispatchEvent(new Event('contras:auto-lock-changed'))
                           }}
-                          className="h-9 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
+                          className="h-9 w-full sm:w-auto shrink-0 rounded-lg border border-slate-200 bg-slate-50 px-2 text-sm font-medium text-slate-700 outline-none focus:border-indigo-300 focus:ring-2 focus:ring-indigo-100"
                         >
                           <option value={1}>1 minuto</option>
                           <option value={5}>5 minutos</option>
@@ -1373,62 +1365,6 @@ export function SettingsModal({
                   ¡No se encontraron contraseñas débiles!
                 </div>
               )}
-            </div>
-          </div>
-        </div>
-      )}
-      {breachAuditModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4 backdrop-blur-sm animate-vault-morph">
-          <div className="w-full max-w-md overflow-hidden rounded-3xl bg-white shadow-2xl">
-            <header className="border-b border-black/5 bg-slate-50/50 px-6 py-4 flex items-center justify-between">
-              <div>
-                <h3 className="font-bold text-slate-900">Resultados de Auditoría</h3>
-                <p className="text-[11px] font-medium text-slate-500">Filtraciones en Have I Been Pwned</p>
-              </div>
-              <button
-                type="button"
-                onClick={() => setBreachAuditModalOpen(false)}
-                className="flex h-8 w-8 items-center justify-center rounded-full bg-black/5 text-slate-500 hover:bg-black/10 hover:text-slate-900"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
-            </header>
-            <div className="max-h-[420px] overflow-y-auto p-2 scrollbar-thin">
-              {breachedPasswords.map((entry) => {
-                const key = `${entry.identityEmail}-${entry.platform.id}`
-                return (
-                  <div key={key} className="flex gap-4 rounded-2xl p-3 transition-colors hover:bg-slate-50">
-                    <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-100 text-red-600">
-                      <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                    </div>
-                    <div className="flex-1 overflow-hidden pt-0.5">
-                      <div className="flex items-center justify-between">
-                        <p className="truncate text-sm font-bold text-slate-900">{entry.platform.name}</p>
-                        <span className="shrink-0 rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-black text-red-700">
-                          {entry.count.toLocaleString()} filtraciones
-                        </span>
-                      </div>
-                      <p className="mt-0.5 truncate text-[11px] font-medium text-slate-500">{entry.identityEmail}</p>
-                      <p className="mt-1 text-[11px] font-medium leading-relaxed text-red-600/90">
-                        ¡Cámbiala de inmediato! Esta contraseña circula públicamente por internet.
-                      </p>
-                    </div>
-                  </div>
-                )
-              })}
-            </div>
-            <div className="border-t border-black/5 p-4 bg-slate-50/50">
-              <button
-                type="button"
-                onClick={() => setBreachAuditModalOpen(false)}
-                className="w-full rounded-xl bg-slate-900 px-4 py-3 text-sm font-bold text-white transition-all hover:bg-slate-800"
-              >
-                Entendido
-              </button>
             </div>
           </div>
         </div>

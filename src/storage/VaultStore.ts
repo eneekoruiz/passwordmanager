@@ -640,14 +640,19 @@ export class VaultStore {
 
     const identitiesData: { id: string; payload: EncryptedPayload }[] = []
     for (const key of allKeys) {
-      if (
-        key.startsWith(prefix) &&
-        !key.includes(LOCAL_ITEM_KEY_SEGMENT) &&
-        !key.includes(LOCAL_CATEGORY_KEY_SEGMENT)
-      ) {
+      if (key.startsWith(prefix)) {
         const payload = await tx.store.get(key)
         if (payload) {
           try {
+            if (key.includes(LOCAL_ITEM_KEY_SEGMENT) || key.includes(LOCAL_CATEGORY_KEY_SEGMENT)) {
+              const platformId = key.substring(prefix.length)
+              identitiesData.push({
+                id: platformId,
+                payload
+              })
+              continue
+            }
+
             const itemStr = await this.vault.decryptString(payload)
             const identity = JSON.parse(itemStr)
             if (identity && identity.email !== LOCAL_IDENTITY_EMAIL) {

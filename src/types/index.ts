@@ -8,12 +8,10 @@ export interface ApiKeyEntry {
 export interface FileAttachment {
   id: string
   name: string
-  description: string
-  fileName: string
-  mimeType: string
   size: number
-  data: string
-  createdAt: string
+  mimeType: string
+  uploadedAt: string
+  chunks: number
 }
 
 export interface CustomFieldEntry {
@@ -90,6 +88,7 @@ export interface BaseVaultItem {
   isLocalOnly?: boolean
   sensitive?: boolean
   customFields?: CustomFieldEntry[]
+  attachments?: FileAttachment[]
   accessCount?: number
   lastAccessedAt?: string
 }
@@ -145,6 +144,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   passwordHistory?: PasswordHistoryEntry[]
   sensitive?: boolean
   ignoreWeakPasswordWarning?: boolean
+  ignoreExposedPasswordWarning?: boolean
 }
 
 /** Plataforma concreta dentro de una identidad: Amazon, Netflix, GitHub, etc. */

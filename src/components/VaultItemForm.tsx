@@ -7,6 +7,7 @@ import { FormField, FormTextarea } from './ui/FormField'
 import { SecretField } from './ui/SecretField'
 import { UnsavedFormActions } from './AccountForm'
 import { useVault } from '../context/VaultContext'
+import { AttachmentsList } from './ui/AttachmentsList'
 
 interface VaultItemFormProps {
   item: LocalVaultItem
@@ -373,6 +374,15 @@ export function VaultItemForm({
               })}
             </div>
           </div>
+        </div>
+      </section>
+
+      <section className="mt-6 mb-6">
+        <div className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 shadow-sm">
+          <AttachmentsList
+            attachments={draft.attachments || []}
+            onAttachmentsChange={(newAttachments) => setDraft((prev) => ({ ...prev, attachments: newAttachments }))}
+          />
         </div>
       </section>
 

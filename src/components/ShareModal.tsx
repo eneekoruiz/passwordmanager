@@ -151,7 +151,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       })
 
       const base = window.location.href.split('#')[0]
-      const url = `${base}#/link/${linkId}#${base64Key}`
+      const url = `${base}#/link/${linkId}?key=${base64Key}`
       setGeneratedLink(url)
       
       try {

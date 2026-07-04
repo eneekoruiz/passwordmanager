@@ -28,6 +28,7 @@ import {
   type Auth,
 } from 'firebase/auth'
 import { initializeFirestore, memoryLocalCache, getFirestore, type Firestore } from 'firebase/firestore'
+import { getStorage, type FirebaseStorage } from 'firebase/storage'
 
 const configuredAuthDomain = import.meta.env.VITE_FIREBASE_AUTH_DOMAIN?.trim() ?? ''
 
@@ -193,3 +194,15 @@ function initFirestore(): Firestore | null {
 }
 
 export const db: Firestore | null = initFirestore()
+
+function initStorage(): FirebaseStorage | null {
+  if (!app) return null
+  try {
+    return getStorage(app)
+  } catch (error) {
+    console.warn('Firebase Storage initialization failed:', error)
+    return null
+  }
+}
+
+export const storage: FirebaseStorage | null = initStorage()

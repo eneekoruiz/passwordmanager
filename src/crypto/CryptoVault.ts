@@ -151,6 +151,14 @@ export class CryptoVault {
   }
 
   /**
+   * Obtiene la referencia opaca a la clave maestra para operaciones de streaming o chunking en StorageService.
+   * La clave en sí misma no es extraíble (extractable: false).
+   */
+  get masterKey(): CryptoKey {
+    return this.getSessionKey()
+  }
+
+  /**
    * Cifra una cadena de texto sin formato usando la clave de sesión activa.
    * @param {string} plaintext - Cadena de texto a cifrar.
    * @returns {Promise<EncryptedPayload>} Payload cifrado serializable.

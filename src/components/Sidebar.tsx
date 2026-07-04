@@ -661,7 +661,7 @@ export const Sidebar = memo(function Sidebar({
                     )}
                   </>
                 )
-              ) : groupMode === 'local' ? (
+              ) : (
                 /* groupMode === 'local' */
                 <>
                   <div className="mt-2 flex items-center justify-between px-3 pb-2">
@@ -686,22 +686,6 @@ export const Sidebar = memo(function Sidebar({
                       {sidebarLocalCategories.map(renderLocalCategoryItem)}
                     </ul>
                   )}
-                </>
-              ) : (
-                /* groupMode === 'inbox' */
-                <>
-                  <div className="mt-2 flex items-center justify-between px-3 pb-2">
-                    <span className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                      Buzón de Compartidos
-                    </span>
-                  </div>
-                  <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
-                    Aquí aparecerán las contraseñas que otros usuarios compartan contigo de forma segura mediante encriptación asimétrica.
-                  </p>
-                  <div className="mx-3 mt-4 rounded-2xl border border-dashed border-border bg-white/70 px-4 py-8 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] animate-vault-morph">
-                    <p className="text-sm font-bold text-text-primary">Bandeja Vacía</p>
-                    <p className="mt-2 text-xs text-text-tertiary">Todavía no has recibido contraseñas compartidas.</p>
-                  </div>
                 </>
               )}
             </>
