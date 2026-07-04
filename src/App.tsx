@@ -1092,8 +1092,8 @@ function VaultApp() {
 
       {/* Row 3: Tabs selector (only on list view) */}
       {showExtraHeaderElements && (
-        <div className="grid grid-cols-4 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
-          {(['identity', 'platform', 'local', 'inbox'] as VaultGroupMode[]).map((mode) => (
+        <div className="grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+          {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
             <button
               key={mode}
               type="button"
@@ -1104,7 +1104,7 @@ function VaultApp() {
                   : 'text-text-secondary hover:bg-surface-hover'
               }`}
             >
-              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : mode === 'local' ? 'Locales' : 'Buzón'}
+              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
             </button>
           ))}
         </div>

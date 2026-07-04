@@ -1518,7 +1518,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           showToast('Verifica tu identidad en el navegador...', 'info')
           const masterPassword = await withTimeout(
             unlockWithBiometrics(bundle as BiometricBundle),
-            15000,
+            5000,
             'La verificación biométrica no respondió a tiempo.',
           )
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)

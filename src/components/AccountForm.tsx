@@ -8,6 +8,7 @@ import { FormField, FormTextarea } from './ui/FormField'
 import { PasswordField } from './ui/PasswordField'
 import { copyToClipboard } from '../utils/clipboard'
 import { getFriendlyErrorMessage } from '../utils/errors'
+import { hasWeakPassword } from '../utils/security'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { Combobox } from './ui/Combobox'
 import { POPULAR_SERVICES } from '../data/popularServices'
@@ -1033,12 +1034,12 @@ export function AccountForm({
               <button
                 type="button"
                 onClick={handleGlobalUnlock}
-                className="flex items-center gap-1.5 rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95"
+                className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95"
               >
-                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <svg className="w-4 h-4 sm:w-3.5 sm:h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 119 0v3.75M3.75 21.75h16.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
-                Desbloquear
+                <span className="hidden sm:inline">Desbloquear</span>
               </button>
             )}
             {onShare && (
@@ -1056,7 +1057,19 @@ export function AccountForm({
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ReadOnlyField label="Usuario" value={account.username} />
-          {passwordMethod && <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret />}
+          {passwordMethod && (
+            <div className="flex flex-col gap-2">
+              <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret />
+              {!account.ignoreWeakPasswordWarning && hasWeakPassword(account) && (
+                <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 border border-amber-100">
+                  <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                  Contraseña débil o reutilizada.
+                </div>
+              )}
+            </div>
+          )}
           {account.linkedPhone && <ReadOnlyField label="Teléfono vinculado" value={account.linkedPhone} />}
           {ssoMethod && <ReadOnlyField label={`Login con ${ssoMethod.providers.join(', ')}`} value={ssoMethod.email || identityEmail} />}
           {passkeyEnabled && <ReadOnlyField label="Biometría / Passkey" value="Activado" />}
@@ -1280,6 +1293,14 @@ export function AccountForm({
                     forceVisible={isUnlocked}
                     onAccess={handleItemAccessed}
                   />
+                  {!account.ignoreWeakPasswordWarning && hasWeakPassword(account) && (
+                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 border border-amber-100">
+                      <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                      </svg>
+                      Contraseña débil o reutilizada. Considera generar una nueva.
+                    </div>
+                  )}
                   
                   <label className="mt-4 flex items-center gap-3 rounded-xl border border-amber-100 bg-amber-50 p-3 transition-colors hover:bg-amber-100/50 cursor-pointer">
                     <input
