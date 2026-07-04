@@ -505,6 +505,18 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
               const isActive = !isBurned && !isExpired
               const isProcessing = processingId === link.id
 
+              let localLinkUrl = null
+              try {
+                const keysStr = localStorage.getItem('contras_magic_keys')
+                if (keysStr) {
+                  const keyObj = JSON.parse(keysStr)
+                  if (keyObj[link.id]) {
+                    const base = window.location.href.split('#')[0]
+                    localLinkUrl = `${base}#/link/${link.id}#${keyObj[link.id]}`
+                  }
+                }
+              } catch (e) {}
+
               return (
                 <div
                   key={link.id}
@@ -583,6 +595,25 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
                         <span className="w-4 h-4 border-2 border-red-500/20 border-t-red-600 rounded-full animate-spin" />
                       ) : 'Revocar'}
                     </button>
+                    {localLinkUrl && isActive && (
+                      <button
+                        onClick={async () => {
+                          try {
+                            await navigator.clipboard.writeText(localLinkUrl as string)
+                            showToast('Enlace copiado al portapapeles', 'success')
+                          } catch {
+                            showToast('Error al copiar el enlace', 'error')
+                          }
+                        }}
+                        className="flex-1 rounded-xl bg-indigo-50 hover:bg-indigo-100 text-indigo-700 py-2 text-xs font-bold transition-all flex items-center justify-center gap-1.5"
+                        title="Copiar enlace mágico"
+                      >
+                        <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                          <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 17.25v3.375c0 .621-.504 1.125-1.125 1.125h-9.75a1.125 1.125 0 01-1.125-1.125V7.875c0-.621.504-1.125 1.125-1.125H6.75a9.06 9.06 0 011.5.124m7.5 10.376h3.375c.621 0 1.125-.504 1.125-1.125V11.25c0-4.46-3.243-8.161-7.5-8.876a9.06 9.06 0 00-1.5-.124H9.375c-.621 0-1.125.504-1.125 1.125v3.5m7.5 10.375H9.375a1.125 1.125 0 01-1.125-1.125v-9.25m12 6.625v-1.875a3.375 3.375 0 00-3.375-3.375h-1.5a1.125 1.125 0 01-1.125-1.125v-1.5a3.375 3.375 0 00-3.375-3.375H9.75" />
+                        </svg>
+                        <span>Copiar</span>
+                      </button>
+                    )}
                   </div>
                 </div>
               )

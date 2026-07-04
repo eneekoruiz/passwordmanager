@@ -153,6 +153,16 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       const base = window.location.href.split('#')[0]
       const url = `${base}#/link/${linkId}#${base64Key}`
       setGeneratedLink(url)
+      
+      try {
+        const localKeysStr = localStorage.getItem('contras_magic_keys') || '{}'
+        const localKeys = JSON.parse(localKeysStr)
+        localKeys[linkId] = base64Key
+        localStorage.setItem('contras_magic_keys', JSON.stringify(localKeys))
+      } catch (e) {
+        console.warn('Could not save magic key locally', e)
+      }
+
       setLinkStatus('success')
     } catch (error: any) {
       console.error('Error generating link:', error)
@@ -253,13 +263,11 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
                 </p>
 
                 <div className="mt-4 flex flex-col gap-2">
-                  <input
-                    type="text"
-                    readOnly
-                    value={generatedLink}
-                    className="w-full px-3 py-2 bg-white border border-indigo-100 rounded-lg text-xs font-mono text-text-secondary outline-none"
-                    onClick={(e) => e.currentTarget.select()}
-                  />
+                  <div className="w-full px-3 py-2 bg-white border border-indigo-100 rounded-lg text-[10px] font-mono text-text-secondary overflow-hidden flex flex-col items-center justify-center">
+                    <span className="break-all select-all text-center leading-relaxed">
+                      {generatedLink}
+                    </span>
+                  </div>
                   <button
                     type="button"
                     onClick={copyToClipboard}
