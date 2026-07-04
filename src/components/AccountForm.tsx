@@ -1043,12 +1043,19 @@ export function AccountForm({
               </button>
             )}
             {onShare && (
-              <button type="button" onClick={onShare} className="rounded-xl border border-black/10 px-4 py-2 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95">
-                Compartir
+              <button type="button" onClick={onShare} className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95" title="Compartir">
+                <svg className="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
+                </svg>
+                <span className="hidden sm:inline">Compartir</span>
               </button>
             )}
-            <button type="button" onClick={() => setIsEditing(true)} className="shrink-0 rounded-xl bg-text-primary px-5 py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95">
-              Editar
+            <button type="button" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 shrink-0 rounded-xl bg-text-primary px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95" title="Editar">
+              <svg className="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.89l12.685-12.684z" />
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5" />
+              </svg>
+              <span className="hidden sm:inline">Editar</span>
             </button>
           </div>
         </header>

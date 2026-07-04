@@ -9,6 +9,7 @@ import { Sidebar } from './components/Sidebar'
 import { MainArea } from './components/MainArea'
 import { UnlockScreen } from './components/UnlockScreen'
 import { SettingsModal } from './components/SettingsModal'
+import { InboxModal } from './components/InboxModal'
 import { MasterPasswordPromptModal } from './components/MasterPasswordPromptModal'
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
@@ -93,6 +94,7 @@ function VaultApp() {
   const [mounted, setMounted] = useState(false)
   const [linkData, setLinkData] = useState<{ id: string; key: string } | null>(null)
   const [inboxCount, setInboxCount] = useState(0)
+  const [inboxModalOpen, setInboxModalOpen] = useState(false)
 
   useEffect(() => {
     if (!auth || !db) return
@@ -1315,7 +1317,7 @@ function VaultApp() {
 
               <button
                 type="button"
-                onClick={() => { setShowUserMenu(false); setGroupMode('inbox') }}
+                onClick={() => { setShowUserMenu(false); setInboxModalOpen(true) }}
                 className="flex items-center justify-between w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
               >
                 <div className="flex items-center gap-3">
@@ -1378,7 +1380,7 @@ function VaultApp() {
         {mobileTopBar}
         {globalOverlays}
         <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'} pb-16`}>
-          {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null && groupMode !== 'inbox' ? (
+          {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
               localItems={displayLocalItems}
@@ -1487,16 +1489,9 @@ function VaultApp() {
 
           <button
             type="button"
-            onClick={() => {
-              requestNavigation(() => {
-                setGroupMode('inbox')
-                setSelectedId(null)
-                setSelectedPlatformName(null)
-                setSelectedLocalCategory(null)
-              })
-            }}
+            onClick={() => setInboxModalOpen(true)}
             className={`relative flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
-              groupMode === 'inbox' ? 'text-text-primary' : 'text-text-tertiary'
+              inboxModalOpen ? 'text-text-primary' : 'text-text-tertiary hover:text-text-primary'
             }`}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1579,6 +1574,11 @@ function VaultApp() {
               setSelectedLocalCategory(null)
             }
           }}
+        />
+
+        <InboxModal 
+          isOpen={inboxModalOpen} 
+          onClose={() => setInboxModalOpen(false)} 
         />
 
         <IOSInstallPrompt />

@@ -10,8 +10,6 @@ import { VaultItemForm } from './VaultItemForm'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
-import { InboxArea } from './InboxArea'
-
 type ViewMode = 'grid' | 'create' | 'edit'
 
 const getPlatformUrl = (name: string): string => {
@@ -205,7 +203,7 @@ export const MainArea = memo(function MainArea({
 
   const rawDisplayName = platformAccounts[0]?.platform.name ?? selectedPlatformName ?? ''
   const selectedPlatformDisplayName = getCanonicalPlatformName(rawDisplayName)
-  const hasVaultSelection = groupMode === 'inbox' || Boolean(identity || localCategory || selectedPlatformName)
+  const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
   const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
     const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean }>()
     identities.forEach((item) => {
@@ -615,15 +613,7 @@ export const MainArea = memo(function MainArea({
       )}
 
       <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
-        {view === 'grid' && groupMode === 'inbox' ? (
-          <InboxArea 
-            onSavePlatform={async (platform) => {
-              if (identities.length > 0) {
-                await onAddPlatform(identities[0].id, platform)
-              }
-            }} 
-          />
-        ) : view === 'grid' && (
+        {view === 'grid' && (
           <>
 
             {localCategory ? (

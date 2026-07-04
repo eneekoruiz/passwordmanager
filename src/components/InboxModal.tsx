@@ -135,8 +135,13 @@ function SkeletonCard() {
   )
 }
 
-export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platform) => Promise<void> }) {
-  const { currentProfileId, getAsymmetricPrivateKey } = useVault()
+interface InboxModalProps {
+  isOpen: boolean
+  onClose: () => void
+}
+
+export function InboxModal({ isOpen, onClose }: InboxModalProps) {
+  const { currentProfileId, getAsymmetricPrivateKey, identities, addPlatform, addIdentity } = useVault()
   const [activeTab, setActiveTab] = useState<'inbox' | 'sent' | 'links'>('inbox')
 
   const [shares, setShares] = useState<ShareItem[]>([])
@@ -148,6 +153,7 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
   const [processingId, setProcessingId] = useState<string | null>(null)
 
   useEffect(() => {
+    if (!isOpen) return
     const currentUser = auth?.currentUser
     if (!db || !currentUser) {
       setLoading(false)
@@ -194,30 +200,39 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
       unsubSent()
       unsubLinks()
     }
-  }, [currentProfileId])
+  }, [currentProfileId, isOpen])
 
   const handleAccept = async (share: ShareItem) => {
     try {
       setProcessingId(share.id)
 
-      const { importKeyFromJwkString, decryptWithPrivateKey } = await import('../crypto/asymmetric')
       const privateKeyJwk = await getAsymmetricPrivateKey()
       if (!privateKeyJwk) throw new Error('Llave privada no encontrada. La cuenta debe estar desbloqueada.')
 
+      const { importKeyFromJwkString, decryptWithPrivateKey } = await import('../crypto/asymmetric')
       const privateKey = await importKeyFromJwkString(privateKeyJwk, 'private')
       const decryptedString = await decryptWithPrivateKey(privateKey, share.encryptedPayload)
       const parsed = JSON.parse(decryptedString)
 
+      const handleSavePlatform = async (platform: Platform) => {
+        let identityId = identities[0]?.id
+        if (!identityId) {
+          const newId = await addIdentity('Mis Cuentas')
+          identityId = newId.id
+        }
+        await addPlatform(identityId, platform)
+      }
+
       // Handle both single and bundle payloads
       if (parsed.type === 'bundle' && Array.isArray(parsed.data)) {
         for (const platform of parsed.data as Platform[]) {
-          await onSavePlatform(platform)
+          await handleSavePlatform(platform)
         }
       } else if (parsed.type === 'single' && parsed.data) {
-        await onSavePlatform(parsed.data as Platform)
+        await handleSavePlatform(parsed.data as Platform)
       } else {
         // Legacy single platform (no wrapper)
-        await onSavePlatform(parsed as Platform)
+        await handleSavePlatform(parsed as Platform)
       }
 
       if (db) await deleteDoc(doc(db, 'shares', share.id))
@@ -294,6 +309,8 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
     }
   }
 
+  if (!isOpen) return null
+
   if (loading) {
     return (
       <div className="px-4 py-6 lg:px-8 animate-pulse">
@@ -322,12 +339,27 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
   }
 
   return (
-    <div className="px-4 py-6 lg:px-8">
-      {/* Header */}
-      <div className="mb-6">
-        <h2 className="text-2xl font-black tracking-tight text-text-primary">Buzón y Compartidos</h2>
-        <p className="text-xs text-text-tertiary mt-0.5">Gestiona contraseñas que has recibido o compartido.</p>
-      </div>
+    <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/30 backdrop-blur-sm animate-vault-fade-in" onClick={onClose}>
+      <div 
+        className="w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-3xl bg-surface-primary shadow-2xl flex flex-col"
+        onClick={e => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-black/[0.06] bg-surface-elevated px-6 py-5">
+          <div>
+            <h2 className="text-xl font-bold tracking-tight text-text-primary">Buzón de Compartidos</h2>
+            <p className="text-sm text-text-secondary mt-0.5">Gestiona contraseñas que has recibido o enviado.</p>
+          </div>
+          <button
+            onClick={onClose}
+            className="flex h-10 w-10 items-center justify-center rounded-full text-text-tertiary transition-colors hover:bg-black/5 hover:text-text-primary"
+          >
+            <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+            </svg>
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-y-auto px-6 py-6">
 
       {/* Tabs */}
       <div className="flex border-b border-black/5 mb-6">
@@ -558,6 +590,8 @@ export function InboxArea({ onSavePlatform }: { onSavePlatform: (platform: Platf
           </div>
         )
       )}
+    </div>
+      </div>
     </div>
   )
 }

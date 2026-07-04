@@ -156,15 +156,20 @@ export async function registerBiometricCredential(
       publicKey: createOptions,
     }) as PublicKeyCredential | null
   } catch (error) {
-    if (error instanceof DOMException && error.name === 'InvalidStateError') {
-      throw new Error('Apple Passwords ya tiene una llave de acceso para Contras en este dispositivo. Usa esa llave para entrar o desactiva la llave local en Ajustes antes de crear una nueva.')
+    if (error instanceof DOMException) {
+      if (error.name === 'InvalidStateError') {
+        throw new Error('Apple Passwords ya tiene una llave de acceso para Contras en este dispositivo. Usa esa llave para entrar o desactiva la llave local en Ajustes antes de crear una nueva.')
+      }
+      if (error.name === 'NotAllowedError' || error.name === 'SecurityError') {
+        throw new Error('Autorización rechazada. Asegúrate de tener configurado un bloqueo de pantalla (PIN, patrón o biometría) en los ajustes de tu dispositivo.')
+      }
     }
     throw error
   } finally {
     setPromptState(false)
   }
 
-  if (!credential) throw new Error('El registro de la llave de acceso local fue cancelado.')
+  if (!credential) throw new Error('El registro de la llave de acceso local fue cancelado o rechazado por el sistema.')
 
   const extResults = (credential as any).getClientExtensionResults?.() ?? {}
   let prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first

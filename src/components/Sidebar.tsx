@@ -79,7 +79,7 @@ export const Sidebar = memo(function Sidebar({
   onAddClick,
   sortMode,
 }: SidebarProps) {
-  const { cloudUserEmail, cloudSyncStatus, localCategories, saveLocalCategory } = useVault()
+  const { cloudUserEmail, cloudSyncStatus, cloudVaultExists, localCategories, saveLocalCategory } = useVault()
   const { showToast } = useToast()
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [adding, setAdding] = useState(false)
@@ -537,7 +537,7 @@ export const Sidebar = memo(function Sidebar({
         )}
 
         <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
-          {syncing && localLooksEmpty ? (
+          {(syncing || (cloudVaultExists === true && cloudSyncStatus === 'idle')) && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4">
               <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
               <div className="space-y-3">
