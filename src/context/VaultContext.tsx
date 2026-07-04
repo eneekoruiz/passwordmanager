@@ -1459,7 +1459,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await storeRef.current.deleteBiometricBundle(profileId)
         localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
         setBiometricRegistered(false)
-        throw new Error('El dispositivo ya no encuentra la llave de acceso local de Contras. Vuelve a activarla desde Ajustes despues de entrar con tu Contraseña Maestra.')
+        throw new Error('El dispositivo ya no encuentra la llave de acceso local de Contras. Vuelve a activarla desde Ajustes después de entrar con tu Contraseña Maestra.')
+      }
+      // Si el PRF no es compatible en este navegador/dispositivo, limpiamos el bundle
+      // para que el usuario pueda volver a entrar con contraseña sin quedar bloqueado.
+      const errorMessage = error instanceof Error ? error.message : ''
+      if (errorMessage.includes('PRF') || errorMessage.includes('prf')) {
+        await storeRef.current.deleteBiometricBundle(profileId)
+        localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+        setBiometricRegistered(false)
+        throw new Error('La llave local ya no es compatible con este navegador o dispositivo. Se ha desactivado automáticamente. Entra con tu Contraseña Maestra y vuelve a activarla desde Ajustes si lo deseas.')
       }
       throw error
     }

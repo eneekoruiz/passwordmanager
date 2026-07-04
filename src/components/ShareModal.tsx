@@ -93,12 +93,13 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       const shareId = generateId()
       const label = payload.type === 'single' ? payload.platform.name : `Bundle: ${payload.identity.email}`
       const currentUser = auth?.currentUser
+      if (!currentUser?.uid) throw new Error('Debes estar autenticado para compartir. Recarga la app e inicia sesión.')
       await setDoc(doc(db, 'shares', shareId), {
         id: shareId,
         recipientUid,
         recipientEmail: email,
-        senderUid: currentUser?.uid || 'anonymous',
-        senderEmail: currentUser?.email || 'usuario-anonimo',
+        senderUid: currentUser.uid,
+        senderEmail: currentUser.email || '',
         platformName: label,
         payloadType: payload.type,
         encryptedPayload: encryptedData,
@@ -135,6 +136,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       const linkId = generateId()
       const label = payload.type === 'single' ? payload.platform.name : `${payload.identity.email} (${payload.platforms.length} cuentas)`
       const currentUser = auth?.currentUser
+      if (!currentUser?.uid) throw new Error('Debes estar autenticado para generar un enlace. Recarga la app e inicia sesión.')
       await setDoc(doc(db, 'links', linkId), {
         id: linkId,
         iv,
@@ -145,7 +147,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
         burned: false,
         payloadType: payload.type,
         platformName: label,
-        senderUid: currentUser?.uid || 'anonymous'
+        senderUid: currentUser.uid
       })
 
       const base = window.location.href.split('#')[0]

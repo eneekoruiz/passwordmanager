@@ -1,4 +1,4 @@
-import { useEffect, useState, type FormEvent } from 'react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 import { PasswordField } from './ui/PasswordField'
@@ -366,6 +366,8 @@ export function UnlockScreen() {
   const [biometricLoading, setBiometricLoading] = useState(false)
   const [biometricFailed, setBiometricFailed] = useState(false)
   const [hardwareKeyLoading, setHardwareKeyLoading] = useState(false)
+  // Guard: solo lanzar biometría automáticamente una vez al montar la pantalla de desbloqueo
+  const hasMountedBiometricRef = useRef(false)
 
   useEffect(() => {
     return () => {
@@ -396,10 +398,14 @@ export function UnlockScreen() {
 
 
   useEffect(() => {
-    if (cloudVaultExists !== false && biometricRegistered) {
+    if (cloudVaultExists !== false && biometricRegistered && !hasMountedBiometricRef.current) {
+      hasMountedBiometricRef.current = true
       handleBiometricVaultUnlock()
     }
-  }, [cloudVaultExists, biometricRegistered])
+  // Solo debe ejecutarse cuando la pantalla se monta y tenemos datos de la nube.
+  // No re-ejecutar si cambia biometricRegistered (eso causaría el bucle).
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [cloudVaultExists])
 
   const handleCopyRecoveryPhrase = async () => {
     await navigator.clipboard.writeText(recoveryPhrase)
