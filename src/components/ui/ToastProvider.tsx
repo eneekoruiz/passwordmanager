@@ -190,6 +190,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       onPointerUp={(event) => {
         event.currentTarget.releasePointerCapture(event.pointerId)
         setDragging(false)
+        startRef.current = null
         if (Math.abs(dragX) > DISMISS_DRAG_DISTANCE || dragY < -DISMISS_DRAG_DISTANCE) {
           dismiss()
           return
@@ -200,6 +201,7 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
       }}
       onPointerCancel={() => {
         setDragging(false)
+        startRef.current = null
         setDragX(0)
         setDragY(0)
         timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)

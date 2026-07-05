@@ -83,6 +83,7 @@ export interface BaseVaultItem {
   title: string
   categoryId?: string | null
   categoryLabel?: string | null
+  section?: string | null
   createdAt: string
   updatedAt: string
   isLocalOnly?: boolean

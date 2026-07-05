@@ -230,6 +230,13 @@ export function VaultItemForm({
             placeholder="Nombre visible en la bóveda"
           />
 
+          <FormField
+            label="Sección"
+            value={draft.section || ''}
+            onChange={(event) => setDraft((prev) => ({ ...prev, section: event.target.value }))}
+            placeholder="Ej. Universidad, Banca, Personal... (opcional)"
+          />
+
           <div className="border-t border-border-subtle pt-4 space-y-4">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold uppercase tracking-wider text-text-secondary">Campos del Registro</span>

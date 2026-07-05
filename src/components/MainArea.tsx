@@ -106,6 +106,7 @@ export const MainArea = memo(function MainArea({
   const [editingLocalItem, setEditingLocalItem] = useState<LocalVaultItem | null>(null)
   const [showShareModal, setShowShareModal] = useState<SharePayload | null>(null)
   const [quickTravelCopied, setQuickTravelCopied] = useState<string | null>(null)
+  const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set())
   const [hideWarnings, setHideWarnings] = useState(() => {
     return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
   })
@@ -407,33 +408,50 @@ export const MainArea = memo(function MainArea({
 
                   {groupMode === 'platform' ? (
                     featuredPlatforms.length > 0 ? (
-                      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
-                        {featuredPlatforms.map((platform, index) => (
-                          <button
-                            key={platform.name}
-                            type="button"
-                            onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
-                            className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white"
-                            style={{ animationDelay: `${index * 40}ms` }}
-                          >
-                            <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
-                            <span className="min-w-0 flex-1 relative">
-                              <span className="block truncate text-sm font-semibold text-text-primary pr-5">{getCanonicalPlatformName(platform.name)}</span>
-                              {(!hideWarnings && platform.hasWeakPassword) && (
-                                <div className="absolute right-0 top-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
-                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
-                                    <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
-                                  </svg>
-                                </div>
-                              )}
-                              <span className="mt-1 block text-xs text-text-secondary">
-                                {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registradas
-                              </span>
-                            </span>
-                            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary">
-                              Abrir
-                            </span>
-                          </button>
+                      <div className="space-y-6">
+                        {(sortMode === 'alpha-asc' || sortMode === 'alpha-desc' ? Array.from(
+                          featuredPlatforms.reduce((acc, platform) => {
+                            const first = platform.name[0]?.toUpperCase() ?? '#'
+                            const letter = /^[A-Z]/.test(first) ? first : '#'
+                            if (!acc.has(letter)) acc.set(letter, [])
+                            acc.get(letter)!.push(platform)
+                            return acc
+                          }, new Map<string, typeof featuredPlatforms>())
+                        ).sort(([a], [b]) => sortMode === 'alpha-asc' ? a.localeCompare(b) : b.localeCompare(a)) : [['', featuredPlatforms]] as const).map(([letter, platforms]) => (
+                          <div key={letter || 'all'}>
+                            {letter && (
+                              <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-tertiary dark:text-[#6b6b70] border-b border-border-subtle dark:border-white/5 pb-2">{letter}</h3>
+                            )}
+                            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                              {platforms.map((platform, index) => (
+                                <button
+                                  key={platform.name}
+                                  type="button"
+                                  onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
+                                  className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 dark:border-white/10 dark:bg-slate-800 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white dark:hover:bg-slate-700"
+                                  style={{ animationDelay: `${index * 40}ms` }}
+                                >
+                                  <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
+                                  <span className="min-w-0 flex-1 relative">
+                                    <span className="block truncate text-sm font-semibold text-text-primary pr-5 dark:text-white">{getCanonicalPlatformName(platform.name)}</span>
+                                    {(!hideWarnings && platform.hasWeakPassword) && (
+                                      <div className="absolute right-0 top-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
+                                        <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
+                                          <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                                        </svg>
+                                      </div>
+                                    )}
+                                    <span className="mt-1 block text-xs text-text-secondary dark:text-slate-400">
+                                      {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registradas
+                                    </span>
+                                  </span>
+                                  <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary dark:bg-slate-900 dark:text-slate-300">
+                                    Abrir
+                                  </span>
+                                </button>
+                              ))}
+                            </div>
+                          </div>
                         ))}
                       </div>
                     ) : syncing ? (
@@ -663,29 +681,45 @@ export const MainArea = memo(function MainArea({
                   },
                 })
               ) : (
-                <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                  {filteredLocalItems.map((item, index) => (
-                    <button
-                      key={item.id}
-                      type="button"
-                      onClick={() => {
-                        setEditingLocalItem(item)
-                        setView('edit')
-                      }}
-                      style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
-                    >
-                      <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-                      <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                        {LOCAL_ITEM_LABELS[item.type]}
-                      </span>
-                      <span className="mt-2 block truncate text-sm font-semibold text-text-primary">
-                        {vaultItemDisplayName(item)}
-                      </span>
-                      <span className="mt-3 inline-flex rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                        Cifrado local
-                      </span>
-                    </button>
+                <div className="space-y-8">
+                  {Array.from(
+                    filteredLocalItems.reduce((acc, item) => {
+                      const sec = item.section?.trim() || 'General'
+                      if (!acc.has(sec)) acc.set(sec, [])
+                      acc.get(sec)!.push(item)
+                      return acc
+                    }, new Map<string, LocalVaultItem[]>())
+                  )
+                  .sort(([a], [b]) => a === 'General' ? -1 : b === 'General' ? 1 : a.localeCompare(b))
+                  .map(([sectionName, items]) => (
+                    <div key={sectionName}>
+                      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-tertiary dark:text-[#6b6b70]">{sectionName}</h3>
+                      <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                        {items.map((item, index) => (
+                          <button
+                            key={item.id}
+                            type="button"
+                            onClick={() => {
+                              setEditingLocalItem(item)
+                              setView('edit')
+                            }}
+                            style={{ animationDelay: `${index * 45}ms` }}
+                            className="animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                          >
+                            <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+                            <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                              {LOCAL_ITEM_LABELS[item.type]}
+                            </span>
+                            <span className="mt-2 block truncate text-sm font-semibold text-text-primary dark:text-white">
+                              {vaultItemDisplayName(item)}
+                            </span>
+                            <span className="mt-3 inline-flex rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                              Cifrado local
+                            </span>
+                          </button>
+                        ))}
+                      </div>
+                    </div>
                   ))}
                 </div>
               )
@@ -767,11 +801,35 @@ export const MainArea = memo(function MainArea({
                           }}
                         />
                       )}
-                      {/* Quick Travel Button */}
+                      {/* Quick Travel & Reveal */}
                       {(pwMethod?.password || hasUrl) && (
-                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity">
+                        <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity items-center">
                           {pwMethod?.password && (
                             <>
+                              {revealedPasswords.has(`${identityId}-${platform.id}`) ? (
+                                <span className="mr-1 text-xs font-mono font-medium text-text-primary dark:text-slate-200 select-all" onClick={(e) => e.stopPropagation()}>{pwMethod.password}</span>
+                              ) : null}
+                              <button
+                                type="button"
+                                title={revealedPasswords.has(`${identityId}-${platform.id}`) ? "Ocultar" : "Mostrar contraseña"}
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setRevealedPasswords(prev => {
+                                    const next = new Set(prev)
+                                    const key = `${identityId}-${platform.id}`
+                                    if (next.has(key)) next.delete(key)
+                                    else next.add(key)
+                                    return next
+                                  })
+                                }}
+                                className="p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400"
+                              >
+                                {revealedPasswords.has(`${identityId}-${platform.id}`) ? (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                                ) : (
+                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                                )}
+                              </button>
                               <button
                                 type="button"
                                 title="Copiar contraseña"
@@ -786,7 +844,7 @@ export const MainArea = memo(function MainArea({
                                 className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
                                   quickTravelCopied === `${identityId}-${platform.id}-pw`
                                     ? 'bg-green-500 text-white border-green-400'
-                                    : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                                    : 'bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400'
                                 }`}
                               >
                                 {quickTravelCopied === `${identityId}-${platform.id}-pw` ? (
@@ -810,7 +868,7 @@ export const MainArea = memo(function MainArea({
                                 className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
                                   quickTravelCopied === `${identityId}-${platform.id}-travel`
                                     ? 'bg-green-500 text-white border-green-400'
-                                    : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                                    : 'bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400'
                                 }`}
                               >
                                 {quickTravelCopied === `${identityId}-${platform.id}-travel` ? (
@@ -820,6 +878,19 @@ export const MainArea = memo(function MainArea({
                                 )}
                               </button>
                             </>
+                          )}
+                          {!pwMethod?.password && hasUrl && (
+                            <button
+                              type="button"
+                              title="Abrir plataforma"
+                              onClick={async (e) => {
+                                e.stopPropagation()
+                                window.open(getPlatformUrl(platform.name), '_blank')
+                              }}
+                              className="p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400"
+                            >
+                              <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
+                            </button>
                           )}
                         </div>
                       )}

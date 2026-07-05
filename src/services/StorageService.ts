@@ -63,8 +63,13 @@ export class StorageService {
       const chunkData = combinedData.slice(start, end)
 
       const chunkRef = doc(db, `users/${userId}/documentChunks/${fileId}_chunk_${i}`)
+      
+      // Convertimos a array normal porque Uint8Array explota en Firestore WriteBatch Web.
+      // Firestore intentaría usar el Uint8Array custom y fallaría.
+      const dataArray = Array.from(chunkData)
+
       batch.set(chunkRef, {
-        data: chunkData,
+        data: dataArray,
         index: i,
         fileId: fileId,
       })
@@ -113,8 +118,13 @@ export class StorageService {
     const chunkDataArrays = chunkSnaps.map((snap, idx) => {
       if (!snap.exists()) throw new Error(`Chunk ${idx} faltante`)
       // Firestore guarda los Bytes como Uint8Array internamente gracias a firebase JS SDK
+      // Pero como subimos un Array normal, Firestore nos devuelve un Array.
       const data = snap.data().data
-      const array = data instanceof Uint8Array ? data : data.toUint8Array()
+      const array = data instanceof Uint8Array 
+        ? data 
+        : Array.isArray(data) 
+          ? new Uint8Array(data)
+          : data.toUint8Array ? data.toUint8Array() : new Uint8Array(data)
       totalLength += array.length
       return array
     })
