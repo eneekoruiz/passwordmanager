@@ -28,6 +28,8 @@ interface LinkItem {
   payloadType?: 'single' | 'bundle'
   platformName: string
   senderUid: string
+  viewsCount?: number
+  viewedDevices?: string[]
 }
 
 function SkeletonCard() {
