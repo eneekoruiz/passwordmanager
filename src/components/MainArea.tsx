@@ -488,14 +488,14 @@ export const MainArea = memo(function MainArea({
                           key={idItem.id}
                           type="button"
                           onClick={() => onRequestNavigation(() => onSelectIdentity(idItem.id))}
-                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white"
+                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:bg-white dark:hover:bg-slate-800"
                           style={{ animationDelay: `${index * 40}ms` }}
                         >
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
                             {idItem.email.charAt(0).toUpperCase()}
                           </div>
                           <span className="min-w-0 flex-1 relative">
-                            <span className="block truncate text-sm font-semibold text-text-primary pr-5">{idItem.email}</span>
+                            <span className="block truncate text-sm font-semibold text-text-primary dark:text-white pr-5">{idItem.email}</span>
                             <span className="mt-1 block text-xs text-text-secondary">
                               {(idItem?.platforms || []).length} plataforma{(idItem?.platforms || []).length !== 1 ? 's' : ''} vinculada{(idItem?.platforms || []).length !== 1 ? 's' : ''}
                             </span>
@@ -539,9 +539,9 @@ export const MainArea = memo(function MainArea({
 
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col">
+    <div className="flex min-h-0 flex-1 flex-col dark:bg-slate-900">
       {!isFormView && (
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border-subtle bg-white/72 px-4 py-3 shadow-sm backdrop-blur-xl lg:px-8 lg:py-5">
+      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border-subtle bg-white/72 dark:bg-slate-900/72 px-4 py-3 shadow-sm backdrop-blur-xl lg:px-8 lg:py-5">
         {isMobile ? (
           <button
             type="button"
@@ -589,7 +589,7 @@ export const MainArea = memo(function MainArea({
         )}
 
         <div className="min-w-0 flex-1">
-          <h2 className="truncate text-lg font-semibold text-text-primary">
+          <h2 className="truncate text-lg font-semibold text-text-primary dark:text-white">
             {localCategory
               ? localCategory.label
               : groupMode === 'platform'
@@ -614,7 +614,7 @@ export const MainArea = memo(function MainArea({
               identity: identity,
               platforms: identity.platforms || []
             })}
-            className="rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-medium text-text-primary shadow-subtle transition-colors hover:bg-surface-hover flex items-center gap-1.5"
+            className="rounded-lg border border-border-subtle bg-surface-elevated dark:bg-slate-800 px-3 py-2 text-sm font-medium text-text-primary dark:text-white shadow-subtle transition-colors hover:bg-surface-hover dark:hover:bg-slate-700 flex items-center gap-1.5"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />
@@ -637,7 +637,7 @@ export const MainArea = memo(function MainArea({
               }
               setView('create')
             }}
-            className="rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm font-medium text-text-primary shadow-subtle transition-colors hover:bg-surface-hover"
+            className="rounded-lg border border-border-subtle bg-surface-elevated dark:bg-slate-800 px-3 py-2 text-sm font-medium text-text-primary dark:text-white shadow-subtle transition-colors hover:bg-surface-hover dark:hover:bg-slate-700"
           >
             Añadir
           </button>
@@ -719,12 +719,12 @@ export const MainArea = memo(function MainArea({
                           setView('edit')
                         }}
                         style={{ animationDelay: `${index * 45}ms` }}
-                        className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                        className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                       >
                         <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
                         <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-text-primary min-h-[20px] pr-5">
+                          <span className="block truncate text-sm font-semibold text-text-primary dark:text-white min-h-[20px] pr-5">
                             {platform.username}
                           </span>
                           <span className="mt-1 block truncate text-xs text-text-secondary">

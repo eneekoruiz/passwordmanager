@@ -1005,16 +1005,16 @@ function VaultApp() {
   const showExtraHeaderElements = true
 
   const mobileTopBar = isMobile ? (
-    <div className="fixed left-0 right-0 top-0 z-50 flex flex-col bg-white/85 backdrop-blur-xl border-b border-black/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
+    <div className="fixed left-0 right-0 top-0 z-50 flex flex-col bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-black/5 dark:border-white/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
       {/* Row 1: Title & Sync indicator */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
-          <p className="truncate text-lg font-bold text-text-primary">Contras</p>
+          <p className="truncate text-lg font-bold text-text-primary dark:text-white">Contras</p>
           <div className="mt-0.5 flex min-w-0 items-baseline gap-2">
-            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary">
+            <p className="truncate text-[10px] font-semibold uppercase tracking-[0.14em] text-text-tertiary dark:text-slate-400">
               {currentProfileName ?? 'Bóveda Principal'}
             </p>
-            <span className="shrink-0 text-xs font-bold tabular-nums text-text-primary">
+            <span className="shrink-0 text-xs font-bold tabular-nums text-text-primary dark:text-white">
               {totalAccountCount} cuenta{totalAccountCount !== 1 ? 's' : ''} guardada{totalAccountCount !== 1 ? 's' : ''}
             </span>
           </div>
@@ -1048,7 +1048,7 @@ function VaultApp() {
               value={localSearchTerm}
               onChange={(event) => setLocalSearchTerm(event.target.value)}
               placeholder={selectedId ? 'Buscar en esta identidad...' : selectedPlatformName ? 'Buscar cuentas...' : 'Buscar...'}
-              className="h-10 w-full rounded-xl border border-black/[0.06] bg-white/90 pl-9 pr-12 text-base font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white"
+              className="h-10 w-full rounded-xl border border-black/[0.06] dark:border-white/10 bg-white/90 dark:bg-slate-800/90 pl-9 pr-12 text-base font-medium text-text-primary dark:text-white shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary dark:placeholder-slate-400 focus:border-black/15 focus:bg-white dark:focus:bg-slate-800"
               aria-label="Búsqueda local de la sección"
             />
           </div>
@@ -1481,7 +1481,7 @@ function VaultApp() {
           )}
         </div>
 
-        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 translate-y-0 items-center justify-around border-t border-black/5 bg-white/95 px-3 shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-xl">
+        <div className="fixed bottom-0 left-0 right-0 z-40 flex h-16 translate-y-0 items-center justify-around border-t border-black/5 dark:border-white/5 bg-white/95 dark:bg-slate-900/95 px-3 shadow-[0_-1px_10px_rgba(0,0,0,0.02)] backdrop-blur-xl">
           <button
             type="button"
             onClick={() => {
@@ -1493,7 +1493,7 @@ function VaultApp() {
               })
             }}
             className={`flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
-              groupMode === 'platform' && selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? 'text-text-primary' : 'text-text-tertiary'
+              groupMode === 'platform' && selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? 'text-text-primary dark:text-white' : 'text-text-tertiary dark:text-slate-400'
             }`}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1507,7 +1507,7 @@ function VaultApp() {
             type="button"
             onClick={() => setInboxModalOpen(true)}
             className={`relative flex w-16 flex-col items-center justify-center gap-0.5 text-center transition-colors ${
-              inboxModalOpen ? 'text-text-primary' : 'text-text-tertiary hover:text-text-primary'
+              inboxModalOpen ? 'text-text-primary dark:text-white' : 'text-text-tertiary hover:text-text-primary dark:text-slate-400 dark:hover:text-white'
             }`}
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -1524,7 +1524,7 @@ function VaultApp() {
           <button
             type="button"
             onClick={() => setSettingsOpen(true)}
-            className="flex w-16 flex-col items-center justify-center gap-0.5 text-center text-text-tertiary transition-colors hover:text-text-primary"
+            className="flex w-16 flex-col items-center justify-center gap-0.5 text-center text-text-tertiary hover:text-text-primary dark:text-slate-400 dark:hover:text-white transition-colors"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
@@ -1536,7 +1536,7 @@ function VaultApp() {
           <button
             type="button"
             onClick={handleLock}
-            className="flex w-16 flex-col items-center justify-center gap-0.5 text-center text-text-tertiary transition-colors hover:text-text-primary"
+            className="flex w-16 flex-col items-center justify-center gap-0.5 text-center text-text-tertiary hover:text-text-primary dark:text-slate-400 dark:hover:text-white transition-colors"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />

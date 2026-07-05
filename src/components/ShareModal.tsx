@@ -16,7 +16,7 @@ interface ShareModalProps {
 }
 
 type ShareMode = 'p2p' | 'link'
-type ExpirationType = '1h' | '24h' | '7d' | 'never' | 'burn'
+type ExpirationType = '1h' | '24h' | '7d' | 'never' | 'burn' | 'custom'
 
 function payloadLabel(payload: SharePayload): string {
   if (payload.type === 'single') return payload.platform.name
@@ -47,6 +47,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
 
   // Link State
   const [expiration, setExpiration] = useState<ExpirationType>('24h')
+  const [customExpirationDate, setCustomExpirationDate] = useState('')
   const [linkStatus, setLinkStatus] = useState<'idle' | 'loading' | 'success' | 'error'>('idle')
   const [linkErrorMessage, setLinkErrorMessage] = useState('')
   const [generatedLink, setGeneratedLink] = useState('')
@@ -129,8 +130,14 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       const burnAfterRead = expiration === 'burn'
       let expiresAt: number | null = null
       if (!burnAfterRead && expiration !== 'never') {
-        const hours = expiration === '1h' ? 1 : expiration === '24h' ? 24 : 168
-        expiresAt = Date.now() + hours * 60 * 60 * 1000
+        if (expiration === 'custom') {
+          if (!customExpirationDate) throw new Error('Debes seleccionar una fecha y hora.')
+          expiresAt = new Date(customExpirationDate).getTime()
+          if (expiresAt <= Date.now()) throw new Error('La fecha debe ser en el futuro.')
+        } else {
+          const hours = expiration === '1h' ? 1 : expiration === '24h' ? 24 : 168
+          expiresAt = Date.now() + hours * 60 * 60 * 1000
+        }
       }
 
       const linkId = generateId()
@@ -147,7 +154,9 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
         burned: false,
         payloadType: payload.type,
         platformName: label,
-        senderUid: currentUser.uid
+        senderUid: currentUser.uid,
+        viewsCount: 0,
+        viewedDevices: []
       })
 
       const base = window.location.href.split('#')[0]
@@ -292,6 +301,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
                       { value: '1h', label: '1 hora' },
                       { value: '24h', label: '24 horas' },
                       { value: '7d', label: '7 días' },
+                      { value: 'custom', label: 'Personalizado' },
                       { value: 'never', label: 'Sin límite' },
                       { value: 'burn', label: '🔥 Un solo uso', full: true },
                     ] as Array<{ value: ExpirationType; label: string; full?: boolean }>).map(opt => (
@@ -311,6 +321,17 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
                       </button>
                     ))}
                   </div>
+                  {expiration === 'custom' && (
+                    <div className="mt-2 animate-in slide-in-from-top-1">
+                      <input
+                        type="datetime-local"
+                        className="w-full px-3 py-2 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        value={customExpirationDate}
+                        onChange={(e) => setCustomExpirationDate(e.target.value)}
+                        min={new Date().toISOString().slice(0, 16)}
+                      />
+                    </div>
+                  )}
                   {expiration === 'burn' && (
                     <p className="mt-2 text-xs text-orange-600 font-medium">
                       El enlace se borrará automáticamente de nuestros servidores después de ser visto una vez.

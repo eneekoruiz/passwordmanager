@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { db } from '../services/firebase'
-import { doc, getDoc, updateDoc } from 'firebase/firestore'
+import { doc, getDoc, updateDoc, increment, arrayUnion } from 'firebase/firestore'
 import { importSymmetricLinkKey, decryptForLink } from '../crypto/symmetric'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
@@ -143,6 +143,21 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
           setParsedPayload(normalized)
           setIsBurnLink(!!data.burnAfterRead)
           setStatus('success')
+
+          // Track views and devices
+          try {
+            const userAgent = navigator.userAgent
+            // Create a pseudo-anonymous device hash for privacy
+            const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userAgent))
+            const deviceHash = Array.from(new Uint8Array(hashBuffer)).map(x => x.toString(16).padStart(2, '0')).join('').substring(0, 16)
+            
+            await updateDoc(linkRef, {
+              viewsCount: increment(1),
+              viewedDevices: arrayUnion(deviceHash)
+            })
+          } catch (e) {
+            console.warn('Could not update view stats', e)
+          }
 
           // Burn after read: mark as burned immediately after successful decrypt
           if (data.burnAfterRead && !data.burned) {
