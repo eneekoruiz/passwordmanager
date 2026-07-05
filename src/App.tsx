@@ -1230,7 +1230,7 @@ function VaultApp() {
   ) : null
 
   const desktopToolbar = (
-    <header className="sticky top-0 z-40 flex min-h-20 items-center gap-3 border-b border-border-subtle bg-white/82 px-5 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:px-8">
+    <header className="sticky top-0 z-40 flex min-h-20 items-center gap-3 border-b border-border-subtle bg-white/82 px-5 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:px-8 dark:border-white/5 dark:bg-slate-900/80">
       <GlobalSearch
         query={globalSearchTerm}
         onQueryChange={setGlobalSearchTerm}
@@ -1243,7 +1243,7 @@ function VaultApp() {
         <button
           type="button"
           onClick={() => setShowDesktopSortMenu(!showDesktopSortMenu)}
-          className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-bold text-text-secondary shadow-subtle outline-none transition-all hover:bg-surface-hover hover:text-text-primary"
+          className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-bold text-text-secondary shadow-subtle outline-none transition-all hover:bg-surface-hover hover:text-text-primary dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
           title={`Ordenar: ${SORT_LABELS[sortMode]}`}
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
@@ -1259,8 +1259,8 @@ function VaultApp() {
               onClick={() => setShowDesktopSortMenu(false)}
               className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
             />
-            <div className="absolute right-0 top-[110%] z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left">
-              <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
+            <div className="absolute right-0 top-[110%] z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left dark:border-white/10 dark:bg-slate-900/95">
+              <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary dark:text-slate-500">
                 Ordenar por
               </div>
               {(Object.keys(SORT_LABELS) as SortMode[]).map((mode) => (
@@ -1312,8 +1312,8 @@ function VaultApp() {
               onClick={() => setShowUserMenu(false)}
               className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
             />
-            <div className="absolute right-0 top-[110%] z-50 w-64 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200">
-              <div className="px-3 py-3 border-b border-black/5 mb-1 bg-slate-50/50 rounded-2xl">
+            <div className="absolute right-0 top-[110%] z-50 w-64 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200 dark:border-white/10 dark:bg-slate-900/95">
+              <div className="px-3 py-3 border-b border-black/5 mb-1 bg-slate-50/50 rounded-2xl dark:border-white/5 dark:bg-slate-800/50">
                 <p className="text-sm font-bold text-slate-900 truncate">{currentProfileName || 'Bóveda Local'}</p>
                 <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{cloudUserEmail}</p>
               </div>

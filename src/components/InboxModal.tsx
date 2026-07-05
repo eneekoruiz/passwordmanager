@@ -227,13 +227,13 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center px-4 bg-black/30 backdrop-blur-sm animate-vault-fade-in" onClick={onClose}>
       <div 
-        className="w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-3xl bg-white shadow-2xl flex flex-col"
+        className="w-full max-w-4xl max-h-[85vh] overflow-hidden rounded-3xl bg-white shadow-2xl flex flex-col dark:bg-[#1c1c1e] dark:border dark:border-white/10"
         onClick={e => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between border-b border-black/[0.06] bg-surface-elevated px-6 py-5">
+        <div className="flex items-center justify-between border-b border-black/[0.06] bg-surface-elevated px-6 py-5 dark:border-white/10 dark:bg-slate-900/50">
           <div>
-            <h2 className="text-xl font-bold tracking-tight text-text-primary">Buzón de Compartidos</h2>
-            <p className="text-sm text-text-secondary mt-0.5">Gestiona contraseñas que has enviado.</p>
+            <h2 className="text-xl font-bold tracking-tight text-text-primary dark:text-slate-100">Buzón de Compartidos</h2>
+            <p className="text-sm text-text-secondary mt-0.5 dark:text-slate-400">Gestiona contraseñas que has enviado.</p>
           </div>
           <button
             onClick={onClose}

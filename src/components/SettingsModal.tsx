@@ -5,6 +5,7 @@ import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip } from '../utils/exportVault'
 import { passwordStrengthIssue, evaluatePassword, checkPasswordBreach } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 type PlaintextExportFormat = 'csv' | 'json' | 'zip'
 
@@ -449,8 +450,8 @@ export function SettingsModal({
         aria-label="Cerrar modal"
       />
 
-      <div className="relative z-10 flex w-full max-w-lg lg:max-w-2xl mx-auto flex-col space-y-5 rounded-2xl border border-black/5 bg-white/80 p-6 font-sans text-left shadow-[0_15px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl">
-        <header className="flex items-center justify-between border-b border-border-subtle pb-3">
+      <div className="relative z-10 flex w-full max-w-lg lg:max-w-2xl mx-auto flex-col space-y-5 rounded-2xl border border-black/5 bg-white/80 p-6 font-sans text-left shadow-[0_15px_50px_rgba(0,0,0,0.12)] backdrop-blur-xl dark:border-white/10 dark:bg-slate-900/95">
+        <header className="flex items-center justify-between border-b border-border-subtle pb-3 dark:border-white/10">
           <div className="flex items-center gap-3">
             {view !== 'health' && (
               <button
@@ -604,6 +605,22 @@ export function SettingsModal({
               {activeTab === 'settings' ? (
                 <div className="pt-2 space-y-6 animate-vault-morph">
                   
+                  {/* APARIENCIA */}
+                  <section>
+                    <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Apariencia</h3>
+                    <div className="overflow-hidden rounded-2xl border border-black/[0.08] bg-white shadow-sm dark:border-white/10 dark:bg-[#1c1c1e]">
+                      <div className="flex w-full items-center justify-between gap-3 p-4">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800 dark:text-slate-200">Tema Visual</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500 dark:text-slate-400">Personaliza el modo claro u oscuro.</span>
+                        </div>
+                        <div className="shrink-0 scale-90 sm:scale-100 origin-right">
+                          <ThemeToggle />
+                        </div>
+                      </div>
+                    </div>
+                  </section>
+
                   {/* PREFERENCIAS */}
                   <section>
                     <h3 className="mb-2 px-2 text-[11px] font-bold uppercase tracking-wider text-slate-500">Preferencias</h3>

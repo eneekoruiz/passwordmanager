@@ -94,10 +94,10 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
-      <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-red-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
+      <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-red-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#1c1c1e]">
         <div className="mb-4 flex items-start justify-between gap-4">
           <div>
-            <h2 className="text-lg font-bold tracking-tight text-text-primary">Auditoría de Filtraciones</h2>
+            <h2 className="text-lg font-bold tracking-tight text-text-primary dark:text-slate-100">Auditoría de Filtraciones</h2>
             <p className="mt-1 text-xs leading-relaxed text-text-secondary">
               Comprueba si tus contraseñas han aparecido en brechas de datos conocidas (Have I Been Pwned).
             </p>

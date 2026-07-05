@@ -10,7 +10,6 @@ import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
 import { hasWeakPassword } from '../utils/security'
 import { AlphaScrollBar } from './ui/AlphaScrollBar'
-import { ThemeToggle } from './ui/ThemeToggle'
 
 interface SidebarProps {
   identities: Identity[]
@@ -531,7 +530,6 @@ export const Sidebar = memo(function Sidebar({
               </>
             )}
           </div>
-          {!isMobile && <ThemeToggle compact />}
         </header>
 
         {showAddForm && (
@@ -802,13 +800,6 @@ export const Sidebar = memo(function Sidebar({
               </button>
             )}
           </footer>
-        )}
-
-        {/* Theme toggle in footer for desktop */}
-        {!isMobile && (
-          <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3 dark:border-[#2c2c2e]">
-            <ThemeToggle />
-          </div>
         )}
       </aside>
     </>
