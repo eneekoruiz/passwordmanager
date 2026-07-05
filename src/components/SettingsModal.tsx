@@ -2,11 +2,11 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
  from 'react'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
-import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile } from '../utils/exportVault'
+import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip } from '../utils/exportVault'
 import { passwordStrengthIssue, evaluatePassword, checkPasswordBreach } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 
-type PlaintextExportFormat = 'csv' | 'json'
+type PlaintextExportFormat = 'csv' | 'json' | 'zip'
 
 const checkboxClassName =
   'h-5 w-5 shrink-0 cursor-pointer rounded-md border border-black/15 bg-white accent-slate-950 shadow-sm transition-transform duration-150 checked:scale-105 focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
@@ -125,7 +125,7 @@ export function SettingsModal({
   const [biometricPassword, setBiometricPassword] = useState('')
       const [loadingHardwareKey, setLoadingHardwareKey] = useState(false)
   const [hardwareKeyPassword, setHardwareKeyPassword] = useState('')
-      const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey'>(initialView)
+      const [view, setView] = useState<'main' | 'health' | 'travel' | 'credentials' | 'exportPlaintext' | 'exportBackup' | 'importBackup' | 'biometric' | 'hardwareKey' | 'breachAudit'>(initialView)
       const [activeTab, setActiveTab] = useState<'settings' | 'profile'>('settings')
 
   useEffect(() => {
@@ -262,21 +262,24 @@ export function SettingsModal({
     if (isCheckingBreaches) return
     setIsCheckingBreaches(true)
     try {
-      const breached: string[] = []
+      const breached: any[] = []
       for (const idn of identities) {
         for (const p of idn.platforms) {
           const pass = passwordForPlatform(p)
           if (pass) {
             const isBreached = await checkPasswordBreach(pass)
             if (isBreached) {
-              breached.push(pass)
+              breached.push({ id: p.id, name: p.name, username: p.username })
             }
           }
         }
       }
       setBreachedPasswords(breached)
       setLastBreachCheck(new Date().toISOString())
-      showToast(`Revisión completada. ${breached.length} vulneradas.`, breached.length > 0 ? 'warning' : 'success')
+      setView('breachAudit')
+      if (breached.length === 0) {
+        showToast('Auditoría completada. No se encontraron contraseñas vulneradas.', 'success')
+      }
     } catch (e) {
       showToast('Error al revisar vulnerabilidades.', 'error')
     } finally {
@@ -321,6 +324,8 @@ export function SettingsModal({
       if (plaintextFormat === 'csv') {
         plaintext = buildPlaintextCsv(selectedIdentities)
         downloadPlaintextFile(plaintext, `contras_export_${date}.csv`, 'text/csv;charset=utf-8')
+      } else if (plaintextFormat === 'zip') {
+        await downloadPlaintextZip(selectedIdentities, selectedIdentityIds.length === 0 ? localItems : [])
       } else {
         plaintext = buildPlaintextJson(selectedIdentities, selectedIdentityIds.length === 0 ? localItems : [])
         downloadPlaintextFile(plaintext, `contras_export_${date}.json`, 'application/json;charset=utf-8')
@@ -957,8 +962,8 @@ export function SettingsModal({
                 Genera CSV compatible con gestores de contraseñas o JSON completo con todos los metadatos.
               </p>
               <form onSubmit={handlePlaintextExport} className="space-y-3">
-                <div className="grid grid-cols-2 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
-                  {(['csv', 'json'] as PlaintextExportFormat[]).map((format) => (
+                <div className="grid grid-cols-3 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
+                  {(['csv', 'json', 'zip'] as PlaintextExportFormat[]).map((format) => (
                     <button
                       key={format}
                       type="button"
@@ -1425,13 +1430,51 @@ export function SettingsModal({
               </div>
             </form>
           </div>
+          {view === 'breachAudit' && (
+            <div className="animate-fade-in py-2">
+              <div className="mb-6 flex flex-col items-center text-center">
+                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 text-red-600 mb-4 shadow-inner">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-black tracking-tight text-slate-800">Resultados de la Auditoría</h3>
+                <p className="mt-2 text-sm text-slate-500 max-w-[280px]">
+                  {breachedPasswords.length > 0 
+                    ? `Se han encontrado ${breachedPasswords.length} cuentas con contraseñas que aparecen en filtraciones de datos conocidas (Have I Been Pwned). Cámbialas de inmediato.` 
+                    : '¡Felicidades! Ninguna de tus contraseñas ha aparecido en filtraciones conocidas.'}
+                </p>
+              </div>
+
+              {breachedPasswords.length > 0 && (
+                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+                  {breachedPasswords.map((b: any, i) => (
+                    <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-red-100 bg-red-50">
+                      <div>
+                        <p className="text-sm font-bold text-red-900">{b.name || 'Cuenta sin nombre'}</p>
+                        <p className="text-xs text-red-700 mt-0.5">{b.username || 'Sin usuario'}</p>
+                      </div>
+                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 bg-red-100 px-2 py-1 rounded-md">
+                        Filtrada
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-6 flex justify-end">
+                <button
+                  type="button"
+                  onClick={() => setView('health')}
+                  className="rounded-xl border border-black/10 bg-white px-5 py-2.5 text-sm font-bold text-slate-700 shadow-sm transition-colors hover:bg-slate-50"
+                >
+                  Volver a Salud
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </div>
   )
 }
-
-
-
-
-

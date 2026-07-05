@@ -15,7 +15,6 @@ import { POPULAR_SERVICES } from '../data/popularServices'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 import { AttachmentsList } from './ui/AttachmentsList'
-import { TotpDisplay } from './ui/TotpDisplay'
 import { TagsInput } from './ui/TagsInput'
 
 interface AccountFormProps {
@@ -129,18 +128,22 @@ const CopyIcon = () => (
   </svg>
 )
 
-function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, onAccess }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean; onAccess?: () => void }) {
+function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, onAccess, autoReveal }: { label: string; value: string | null | undefined; isSecret?: boolean; isMultiline?: boolean; onAccess?: () => void; autoReveal?: boolean }) {
   const [copied, setCopied] = useState(false)
-  const [revealed, setRevealed] = useState(false)
+  const [revealed, setRevealed] = useState(autoReveal || false)
   const [authenticating, setAuthenticating] = useState(false)
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
 
   useEffect(() => {
-    if (!revealed) return
+    if (autoReveal) setRevealed(true)
+  }, [autoReveal])
+
+  useEffect(() => {
+    if (!revealed || autoReveal) return
     const timer = window.setTimeout(() => setRevealed(false), 2 * 60 * 1000)
     return () => window.clearTimeout(timer)
-  }, [revealed])
+  }, [revealed, autoReveal])
 
   if (!value) return null
 
@@ -219,6 +222,8 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, on
   )
 }
 
+import { TotpDisplay } from './TotpDisplay'
+
 function SecuritySummaryCard({
   eyebrow,
   title,
@@ -227,6 +232,7 @@ function SecuritySummaryCard({
   actionLabel,
   isTotp,
   onAccess,
+  autoReveal,
 }: {
   eyebrow: string
   title: string
@@ -235,18 +241,23 @@ function SecuritySummaryCard({
   actionLabel: string
   isTotp?: boolean
   onAccess?: () => void
+  autoReveal?: boolean
 }) {
-  const [revealed, setRevealed] = useState(false)
+  const [revealed, setRevealed] = useState(autoReveal || false)
   const [copied, setCopied] = useState(false)
   const [authenticating, setAuthenticating] = useState(false)
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
 
   useEffect(() => {
-    if (!revealed) return
+    if (autoReveal) setRevealed(true)
+  }, [autoReveal])
+
+  useEffect(() => {
+    if (!revealed || autoReveal) return
     const timer = window.setTimeout(() => setRevealed(false), 2 * 60 * 1000)
     return () => window.clearTimeout(timer)
-  }, [revealed])
+  }, [revealed, autoReveal])
 
   const authenticate = async () => {
     return await authorizeSensitiveAction()
@@ -271,55 +282,74 @@ function SecuritySummaryCard({
     }
   }
 
-  const handleCopy = async () => {
+  const handleCopy = async (event?: MouseEvent) => {
+    event?.stopPropagation()
     if (!secret) return
     try {
-      if (!(await authenticate())) return
+      if (!revealed && !(await authenticate())) return
     } catch (error) {
       showToast(getFriendlyErrorMessage(error, 'No se pudo verificar tu identidad.'), 'error')
       return
     }
-    onAccess?.()
+    if (!revealed) onAccess?.()
     const ok = await copyToClipboard(secret)
     if (ok) {
       setCopied(true)
-      window.setTimeout(() => setCopied(false), 1500)
+      window.setTimeout(() => setCopied(false), 2000)
     } else {
       showToast('No se pudo acceder al portapapeles.', 'error')
     }
   }
 
   return (
-    <div className="rounded-[22px] border border-black/[0.06] bg-gradient-to-b from-white to-slate-50/90 p-4 shadow-[0_18px_48px_rgba(15,23,42,0.05)]">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">{eyebrow}</p>
-          <h4 className="mt-1 truncate text-sm font-semibold text-text-primary">{title}</h4>
-          <p className="mt-1 text-xs leading-relaxed text-text-secondary">{description}</p>
+    <div className="group flex flex-col rounded-2xl border border-black/[0.03] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 hover:-translate-y-[1px]">
+      <div className="flex p-4">
+        <div className="flex-1 min-w-0 pr-4">
+          <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{eyebrow}</span>
+          <h4 className="mt-1 text-sm font-bold text-text-primary truncate">{title}</h4>
+          <p className="mt-1 text-xs text-text-secondary leading-relaxed line-clamp-2">{description}</p>
         </div>
-        <span className="rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">{actionLabel}</span>
+        <div className="flex flex-col items-end justify-center shrink-0 border-l border-border-subtle pl-4 gap-2">
+          {secret && !isTotp && (
+            <button
+              type="button"
+              onClick={(event) => void handleCopy(event)}
+              className={'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-all active:scale-95 ' + (copied ? 'border-green-100 bg-green-50 text-green-700' : 'border-black/5 bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary')}
+            >
+              {copied ? <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
+              Copiar {actionLabel}
+            </button>
+          )}
+          {secret && (
+            <button
+              type="button"
+              onClick={() => void handleReveal()}
+              disabled={authenticating}
+              className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50 border border-black/5"
+            >
+              <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                {revealed ? (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.542 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                ) : (
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                )}
+              </svg>
+              {revealed ? 'Ocultar' : 'Mostrar'}
+            </button>
+          )}
+        </div>
       </div>
-      {secret ? (
-        revealed && isTotp ? (
-          <TotpDisplay secret={secret} label={title} />
-        ) : (
-        <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/90 p-3">
-          <div className="flex items-center justify-between gap-3">
-            <div className="min-w-0 flex-1">
-              <p className="break-all whitespace-pre-wrap font-mono text-xs text-text-primary overflow-wrap-anywhere">{revealed ? secret : '••••••••••••••••'}</p>
+      {secret && (revealed || isTotp) && (
+        <div className={`border-t border-border-subtle bg-slate-50/50 p-4 transition-all ${!revealed && isTotp ? 'opacity-90 blur-sm select-none' : ''}`}>
+          {isTotp ? (
+            <TotpDisplay secret={secret} onCopy={() => setCopied(true)} />
+          ) : (
+            <div className="break-all font-mono text-[13px] font-semibold text-text-primary leading-relaxed bg-white p-3 rounded-xl border border-black/5 shadow-sm">
+              {secret}
             </div>
-            <div className="flex items-center gap-2">
-              <button type="button" onClick={() => void handleReveal()} disabled={authenticating} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover disabled:cursor-wait disabled:opacity-60">
-                {authenticating ? 'Verificando...' : revealed ? 'Ocultar' : 'Mostrar'}
-              </button>
-              <button type="button" onClick={() => void handleCopy()} className="rounded-xl border border-black/5 bg-surface px-3 py-2 text-[11px] font-semibold text-text-secondary hover:bg-surface-hover">
-                {copied ? 'Copiado' : 'Copiar'}
-              </button>
-            </div>
-          </div>
+          )}
         </div>
-        )
-      ) : null}
+      )}
     </div>
   )
 }
@@ -561,6 +591,23 @@ export function AccountForm({
     setAccount((prev) => ({
       ...prev,
       apiKeys: (prev.apiKeys ?? []).filter((key) => key.id !== id),
+    }))
+  }
+
+  const handleAddTag = (tag: string) => {
+    const trimmed = tag.trim().toLowerCase()
+    if (!trimmed) return
+    setAccount((prev) => {
+      const currentTags = prev.tags ?? []
+      if (currentTags.includes(trimmed)) return prev
+      return { ...prev, tags: [...currentTags, trimmed] }
+    })
+  }
+
+  const handleRemoveTag = (tagToRemove: string) => {
+    setAccount((prev) => ({
+      ...prev,
+      tags: (prev.tags ?? []).filter((t) => t !== tagToRemove),
     }))
   }
 
@@ -844,12 +891,20 @@ export function AccountForm({
         </header>
 
         <div className="mx-auto max-w-5xl space-y-5 px-4 py-6 lg:px-8">
-
+          {account.tags && account.tags.length > 0 && (
+            <div className="flex flex-wrap gap-2 px-1 mb-2">
+              {account.tags.map((tag) => (
+                <span key={tag} className="inline-flex items-center rounded-full border border-black/5 bg-slate-100 px-2.5 py-1 text-[11px] font-bold text-slate-600 shadow-sm">
+                  #{tag}
+                </span>
+              ))}
+            </div>
+          )}
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           <ReadOnlyField label="Usuario" value={account.username} />
           {passwordMethod && (
             <div className="flex flex-col gap-2">
-              <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret />
+              <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret autoReveal={isUnlocked} />
               {!account.ignoreWeakPasswordWarning && hasWeakPassword(account) && (
                 <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 border border-amber-100">
                   <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -909,6 +964,7 @@ export function AccountForm({
                       secret={displaySecret}
                       actionLabel={cfg.type === 'TOTP' ? 'Authenticator' : cfg.type === 'SMS' ? 'SMS' : 'PIN'}
                       isTotp={cfg.type === 'TOTP'}
+                      autoReveal={isUnlocked}
                     />
                   )
                 })}
@@ -1081,6 +1137,36 @@ export function AccountForm({
             placeholder="usuario o correo de login"
             autoComplete="off"
           />
+          <div className="col-span-1 sm:col-span-2">
+            <label className="text-sm font-semibold text-text-primary mb-1.5 block">Etiquetas (Tags)</label>
+            <div className="flex flex-wrap items-center gap-2 rounded-xl border border-border-default bg-surface-primary px-3 py-2">
+              {(account.tags || []).map((tag) => (
+                <span key={tag} className="inline-flex items-center gap-1 rounded-md bg-slate-100 px-2 py-1 text-xs font-semibold text-slate-700">
+                  #{tag}
+                  <button type="button" onClick={() => handleRemoveTag(tag)} className="text-slate-400 hover:text-slate-600">
+                    <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                    </svg>
+                  </button>
+                </span>
+              ))}
+              <input
+                type="text"
+                placeholder="Añadir tag y pulsar Enter..."
+                className="flex-1 min-w-[120px] bg-transparent text-sm text-text-primary outline-none placeholder:text-text-tertiary"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') {
+                    e.preventDefault()
+                    handleAddTag(e.currentTarget.value)
+                    e.currentTarget.value = ''
+                  } else if (e.key === 'Backspace' && e.currentTarget.value === '' && (account.tags || []).length > 0) {
+                    const tags = account.tags || []
+                    handleRemoveTag(tags[tags.length - 1])
+                  }
+                }}
+              />
+            </div>
+          </div>
         </div>
 
         {/* Contraseña Principal */}

@@ -107,3 +107,43 @@ export function downloadPlaintextFile(content: string, filename: string, type: s
   document.body.removeChild(link)
   URL.revokeObjectURL(url)
 }
+
+export async function downloadPlaintextZip(identities: Identity[], localItems: LocalVaultItem[]): Promise<void> {
+  const JSZip = (await import('jszip')).default
+  const zip = new JSZip()
+  const dateStr = new Date().toISOString().slice(0, 10)
+  const root = zip.folder(`Contras_Export_${dateStr}`)
+  if (!root) throw new Error('Could not create ZIP folder')
+
+  for (const identity of identities) {
+    const idFolder = root.folder(identity.email)
+    if (!idFolder) continue
+    
+    idFolder.file('_identity_info.json', JSON.stringify({
+      id: identity.id,
+      email: identity.email,
+      createdAt: identity.createdAt,
+      updatedAt: identity.updatedAt
+    }, null, 2))
+
+    for (const platform of identity.platforms) {
+      const safeName = platform.name.replace(/[^a-z0-9]/gi, '_').toLowerCase()
+      const fileName = `${safeName}.json`
+      idFolder.file(fileName, JSON.stringify(platform, null, 2))
+    }
+  }
+
+  if (localItems.length > 0) {
+    root.file('_local_settings.json', JSON.stringify(localItems, null, 2))
+  }
+
+  const content = await zip.generateAsync({ type: 'blob' })
+  const url = URL.createObjectURL(content)
+  const a = document.createElement('a')
+  a.href = url
+  a.download = `Contras_Export_${dateStr}.zip`
+  document.body.appendChild(a)
+  a.click()
+  document.body.removeChild(a)
+  URL.revokeObjectURL(url)
+}

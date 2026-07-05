@@ -45,7 +45,7 @@ const setPromptState = (state: boolean) => {
   }
 }
 
-async function isWebAuthnPrfAvailable(): Promise<boolean> {
+export async function isWebAuthnPrfAvailable(): Promise<boolean> {
   const PublicKeyCredentialCtor = window.PublicKeyCredential as typeof PublicKeyCredential & {
     getClientCapabilities?: () => Promise<Record<string, unknown>>
   }
@@ -87,7 +87,7 @@ export async function isBiometricAvailable(): Promise<boolean> {
     const platformAuthenticatorAvailable = await window.PublicKeyCredential.isUserVerifyingPlatformAuthenticatorAvailable()
     if (!platformAuthenticatorAvailable) return false
 
-    return isWebAuthnPrfAvailable()
+    return true
   } catch {
     return false
   }
@@ -176,11 +176,21 @@ export async function registerBiometricCredential(
   const credentialIdBytes = new Uint8Array((credential as any).rawId)
   const credentialId = bytesToBase64(credentialIdBytes)
 
+  let prfKey: CryptoKey
   if (!prfResult) {
-    throw new Error(getBiometricUnavailableMessage())
+    // FALLBACK INSEGURO A PETICION DEL USUARIO
+    // Si el navegador no soporta PRF, guardamos la clave en localStorage para poder desencriptar despues.
+    // Esto significa que la contraseña maestra estara ofuscada y protegida solo por la politica de origen (CORS/LocalStorage).
+    const fallbackKey = new Uint8Array(32)
+    crypto.getRandomValues(fallbackKey)
+    localStorage.setItem(`contras.biometric.insecurePrfKey.${profileId}`, bytesToBase64(fallbackKey))
+    prfKey = await derivePrfKey(fallbackKey)
+  } else {
+    // LIMPIAR FALLBACK SI EXISTE Y SE HA SOPORTADO PRF
+    localStorage.removeItem(`contras.biometric.insecurePrfKey.${profileId}`)
+    prfKey = await derivePrfKey(new Uint8Array(prfResult))
   }
 
-  const prfKey = await derivePrfKey(new Uint8Array(prfResult))
   const encryptedPassword = await encryptWithPrfKey(masterPassword, prfKey)
 
   return {
@@ -243,11 +253,17 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
   const extResults = (assertion as any).getClientExtensionResults?.() ?? {}
   let prfResult: ArrayBuffer | undefined = extResults?.prf?.results?.first
 
+  let prfKey: CryptoKey
   if (!prfResult) {
-    throw new Error('Esta llave local no entrega una clave PRF verificable. Vuelve a activar el desbloqueo local en un navegador/dispositivo compatible o usa la Contraseña Maestra.')
+    const fallbackB64 = localStorage.getItem(`contras.biometric.insecurePrfKey.${bundle.profileId}`)
+    if (!fallbackB64) {
+      throw new Error('Esta llave local no entrega una clave segura y no hay una de respaldo guardada. Usa la Contraseña Maestra.')
+    }
+    prfKey = await derivePrfKey(base64ToBytes(fallbackB64))
+  } else {
+    prfKey = await derivePrfKey(new Uint8Array(prfResult))
   }
 
-  const prfKey = await derivePrfKey(new Uint8Array(prfResult))
   return decryptWithPrfKey(bundle.encryptedPassword, prfKey)
 }
 

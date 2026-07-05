@@ -648,27 +648,6 @@ export function UnlockScreen() {
 
   return (
     <div className="flex h-dvh max-h-dvh flex-col lg:flex-row overflow-hidden bg-surface select-none">
-      
-      {/* Desktop Skeleton Sidebar */}
-      <div className="hidden lg:flex w-80 flex-col border-r border-border-subtle bg-surface p-5 opacity-70">
-        <div className="flex items-center gap-2 mb-8">
-          <div className="h-6 w-24 rounded-full bg-slate-200/80 shimmer" />
-        </div>
-        <div className="space-y-4">
-          <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
-          <div className="space-y-3">
-            {[1, 2, 3, 4, 5, 6, 7].map((i) => (
-              <div key={i} className="flex items-center gap-3 py-2">
-                <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200/50 shimmer" />
-                <div className="flex-1 space-y-2">
-                  <div className="h-3.5 w-3/4 rounded-full bg-slate-200/70 shimmer" />
-                  <div className="h-2.5 w-1/2 rounded-full bg-slate-100/60 shimmer" />
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </div>
 
       <div className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-surface-elevated m-2 lg:m-3 lg:ml-0 rounded-3xl border border-border-subtle shadow-sm relative px-4 py-8">
         <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">

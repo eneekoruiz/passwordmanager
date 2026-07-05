@@ -150,21 +150,6 @@ function VaultApp() {
     }
   }, [])
 
-  if (linkData) {
-    return (
-      <LinkPreview
-        linkId={linkData.id}
-        base64Key={linkData.key}
-        onClose={() => {
-          window.location.hash = ''
-          setLinkData(null)
-        }}
-      />
-    )
-  }
-
-  const warningBanner = null
-
   const [isMobile, setIsMobile] = useState(false)
 
   useEffect(() => {
@@ -825,6 +810,22 @@ function VaultApp() {
       </div>
     )
   }
+
+  // Must be after all hooks — fixes React Error #300
+  if (linkData) {
+    return (
+      <LinkPreview
+        linkId={linkData.id}
+        base64Key={linkData.key}
+        onClose={() => {
+          window.location.hash = ''
+          setLinkData(null)
+        }}
+      />
+    )
+  }
+
+  const warningBanner = null
 
   if (!isUnlocked) {
     return (

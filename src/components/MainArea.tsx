@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, memo } from 'react'
+import { useEffect, useMemo, useState, memo, useRef } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
@@ -10,6 +10,7 @@ import { VaultItemForm } from './VaultItemForm'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
+import { AlphabetScroller } from './AlphabetScroller'
 type ViewMode = 'grid' | 'create' | 'edit'
 
 const getPlatformUrl = (name: string): string => {
@@ -497,13 +498,43 @@ export const MainArea = memo(function MainArea({
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(itemQuery))
   })
-  const identityPlatforms = (identity?.platforms || []).filter((platform) => {
-    if (!itemQuery) return true
-    return [platform.name, platform.username, platform.notes, ...(platform.tags || [])]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(itemQuery))
-  })
+  const identityPlatforms = (identity?.platforms || [])
+    .filter((platform) => {
+      if (!itemQuery) return true
+      return [platform.name, platform.username, platform.notes, ...(platform.tags || [])]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(itemQuery))
+    })
+    .sort((a, b) => {
+      if (sortMode === 'alpha-asc') return a.name.localeCompare(b.name)
+      if (sortMode === 'alpha-desc') return b.name.localeCompare(a.name)
+      if (sortMode === 'created-desc') return (b.createdAt || '').localeCompare(a.createdAt || '')
+      if (sortMode === 'created-asc') return (a.createdAt || '').localeCompare(b.createdAt || '')
+      if (sortMode === 'access-desc') return (b.lastAccessedAt || '').localeCompare(a.lastAccessedAt || '')
+      if (sortMode === 'usage-desc') return (b.accessCount || 0) - (a.accessCount || 0)
+      return 0
+    })
 
+  const availableLetters = useMemo(() => {
+    if (sortMode !== 'alpha-asc' || isFormView || itemQuery) return []
+    if (groupMode === 'identity' && identityPlatforms.length > 0) {
+      return Array.from(new Set(identityPlatforms.map(p => p.name.charAt(0).toUpperCase()).filter(c => /[A-Z]/.test(c))))
+    }
+    return []
+  }, [identityPlatforms, sortMode, isFormView, groupMode, itemQuery])
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const handleLetterSelect = (letter: string) => {
+    const el = document.getElementById(`letter-${letter}`)
+    if (el && scrollContainerRef.current) {
+      // scroll Into view smoothly but correctly offset
+      scrollContainerRef.current.scrollTo({
+        top: el.offsetTop - 80, // offset header
+        behavior: 'smooth'
+      })
+    }
+  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
@@ -612,7 +643,10 @@ export const MainArea = memo(function MainArea({
       </header>
       )}
 
-      <div className={`flex-1 min-h-0 overflow-y-auto overscroll-contain ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
+      <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain relative ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
+        {!isFormView && availableLetters.length > 0 && (
+          <AlphabetScroller letters={availableLetters} onLetterSelect={handleLetterSelect} />
+        )}
         {view === 'grid' && (
           <>
 
@@ -807,9 +841,19 @@ export const MainArea = memo(function MainArea({
             ) : (
                 <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
                 {identityPlatforms.map((platform, index) => {
+                  const letter = platform.name.charAt(0).toUpperCase()
+                  const isFirstOfLetter = index === 0 || identityPlatforms[index - 1].name.charAt(0).toUpperCase() !== letter
+                  const showLetterHeader = sortMode === 'alpha-asc' && groupMode === 'identity' && !itemQuery && isFirstOfLetter && /[A-Z]/.test(letter)
                   const pwMethod = (platform.accessMethods || []).find((m: any) => m?.type === 'PASSWORD') as any
                   return (
-                  <div key={platform.id} className="relative group">
+                  <div key={platform.id} className="contents">
+                    {showLetterHeader && (
+                      <div id={`letter-${letter}`} className="col-span-full pt-6 pb-2 text-xl font-black text-slate-300 drop-shadow-sm flex items-center gap-4">
+                        {letter}
+                        <div className="h-px bg-slate-200 flex-1"></div>
+                      </div>
+                    )}
+                  <div className="relative group">
                     <button
                       type="button"
                       onClick={() => {
@@ -946,6 +990,7 @@ export const MainArea = memo(function MainArea({
                         </button>
                       </div>
                     )}
+                  </div>
                   </div>
                   )
                 })}

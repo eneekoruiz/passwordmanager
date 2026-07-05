@@ -10,8 +10,10 @@
     "test": "vitest run"
   },
   "dependencies": {
+    "@types/jszip": "^3.4.0",
     "firebase": "^12.15.0",
     "idb": "^8.0.3",
+    "jszip": "^3.10.1",
     "otpauth": "^9.5.1",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
