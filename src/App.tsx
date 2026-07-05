@@ -10,7 +10,6 @@ import { MainArea } from './components/MainArea'
 import { UnlockScreen } from './components/UnlockScreen'
 import { SettingsModal } from './components/SettingsModal'
 import { InboxModal } from './components/InboxModal'
-import { ExposedPasswordsModal } from './components/ExposedPasswordsModal'
 import { MasterPasswordPromptModal } from './components/MasterPasswordPromptModal'
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
@@ -96,7 +95,6 @@ function VaultApp() {
   const [linkData, setLinkData] = useState<{ id: string; key: string } | null>(null)
   const [inboxCount, setInboxCount] = useState(0)
   const [inboxModalOpen, setInboxModalOpen] = useState(false)
-  const [exposedPasswordsModalOpen, setExposedPasswordsModalOpen] = useState(false)
 
   useEffect(() => {
     if (!auth || !db) return
@@ -1351,18 +1349,7 @@ function VaultApp() {
                 )}
               </button>
 
-              <button
-                type="button"
-                onClick={() => { setShowUserMenu(false); setExposedPasswordsModalOpen(true) }}
-                className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors"
-              >
-                <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-red-50 text-red-600">
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                Auditoría de Filtraciones
-              </button>
+
 
               <button
                 type="button"
@@ -1912,19 +1899,7 @@ function VaultApp() {
         </div>
       )}
       <MasterPasswordPromptModal />
-      <ExposedPasswordsModal
-        isOpen={exposedPasswordsModalOpen}
-        onClose={() => setExposedPasswordsModalOpen(false)}
-        identities={identities}
-        onUpdatePlatform={updatePlatform}
-        onEditPlatform={(platformId) => {
-          setSelectedPlatformName(null)
-          requestNavigation(() => {
-            const platformNode = document.getElementById(`platform-${platformId}`)
-            if (platformNode) platformNode.click()
-          })
-        }}
-      />
+
       </div>
     </div>
   )

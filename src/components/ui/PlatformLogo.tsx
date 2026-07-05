@@ -236,7 +236,6 @@ function buildSources(name: string) {
 
   return uniq([
     (isSpecificSubdomain && domain) ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
-    domain ? `https://logo.clearbit.com/${domain}?size=256` : null,
     domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null,
     domain ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
     domain ? `https://api.faviconkit.com/${domain}/256` : null,

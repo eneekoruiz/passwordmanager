@@ -136,8 +136,9 @@ export const Sidebar = memo(function Sidebar({
       list = list.filter((p) => p.name.toLowerCase().includes(query))
     }
 
+    const effectiveSortMode = !isMobile ? 'access-desc' : sortMode
     list.sort((a, b) => {
-      switch (sortMode) {
+      switch (effectiveSortMode) {
         case 'alpha-asc':
           return a.name.localeCompare(b.name)
         case 'alpha-desc':
@@ -159,7 +160,8 @@ export const Sidebar = memo(function Sidebar({
 
   // A-Z grouping for platform mode
   const platformsByLetter = useMemo(() => {
-    if (sortMode !== 'alpha-asc' && sortMode !== 'alpha-desc') return null
+    const effectiveSortMode = !isMobile ? 'access-desc' : sortMode
+    if (effectiveSortMode !== 'alpha-asc' && effectiveSortMode !== 'alpha-desc') return null
     const groups = new Map<string, typeof platformSummaries>()
     for (const p of platformSummaries) {
       const first = p.name[0]?.toUpperCase() ?? '#'
