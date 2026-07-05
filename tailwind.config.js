@@ -1,6 +1,7 @@
 /** @type {import('tailwindcss').Config} */
 export default {
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
+  darkMode: 'class',
   theme: {
     extend: {
       fontFamily: {
@@ -19,10 +20,12 @@ export default {
           elevated: '#ffffff',
           hover: '#f0f0f0',
           active: '#e8e8e8',
+          primary: '#ffffff',
         },
         border: {
           subtle: '#e5e5e5',
           DEFAULT: '#d4d4d4',
+          default: '#d4d4d4',
         },
         text: {
           primary: '#1a1a1a',

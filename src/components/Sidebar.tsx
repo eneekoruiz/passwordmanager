@@ -1,4 +1,4 @@
-import { useEffect, useState, useMemo, memo } from 'react'
+import { useEffect, useState, useMemo, memo, useRef, useCallback } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode, SortMode } from '../types'
 import { useToast } from './ui/ToastProvider'
 import { useVault } from '../context/VaultContext'
@@ -9,6 +9,8 @@ import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
 import { hasWeakPassword } from '../utils/security'
+import { AlphaScrollBar } from './ui/AlphaScrollBar'
+import { ThemeToggle } from './ui/ThemeToggle'
 
 interface SidebarProps {
   identities: Identity[]
@@ -87,6 +89,8 @@ export const Sidebar = memo(function Sidebar({
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
   const [sidebarError, setSidebarError] = useState<string | null>(null)
+  const [activeLetter, setActiveLetter] = useState<string>('')
+  const navRef = useRef<HTMLElement>(null)
   const query = searchQuery.trim().toLowerCase()
   const localLooksEmpty = (identities.length === 0 || (identities.length === 1 && (identities[0]?.platforms || []).length === 0 && !identities[0]?.email)) && localItems.length === 0
   const cloudIdentities = useMemo(
@@ -153,6 +157,55 @@ export const Sidebar = memo(function Sidebar({
     })
     return list
   }, [cloudIdentities, query, sortMode])
+
+  // A-Z grouping for platform mode
+  const platformsByLetter = useMemo(() => {
+    if (sortMode !== 'alpha-asc' && sortMode !== 'alpha-desc') return null
+    const groups = new Map<string, typeof platformSummaries>()
+    for (const p of platformSummaries) {
+      const first = p.name[0]?.toUpperCase() ?? '#'
+      const letter = /^[A-Z]/.test(first) ? first : '#'
+      const arr = groups.get(letter) ?? []
+      arr.push(p)
+      groups.set(letter, arr)
+    }
+    return groups
+  }, [platformSummaries, sortMode])
+
+  const availableLetters = useMemo(() => {
+    const s = new Set<string>()
+    if (platformsByLetter) {
+      for (const k of platformsByLetter.keys()) s.add(k)
+    }
+    return s
+  }, [platformsByLetter])
+
+  const handleLetterSelect = useCallback((letter: string) => {
+    setActiveLetter(letter)
+    // Scroll to the letter section
+    const nav = navRef.current
+    if (!nav) return
+    const el = nav.querySelector(`[data-letter-section="${letter}"]`)
+    if (el) el.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  }, [])
+
+  // Track active letter during scroll
+  useEffect(() => {
+    const nav = navRef.current
+    if (!nav || !platformsByLetter) return
+    const onScroll = () => {
+      const sections = nav.querySelectorAll<HTMLElement>('[data-letter-section]')
+      let current = ''
+      for (const section of sections) {
+        if (section.getBoundingClientRect().top <= nav.getBoundingClientRect().top + 80) {
+          current = section.dataset.letterSection ?? ''
+        }
+      }
+      if (current) setActiveLetter(current)
+    }
+    nav.addEventListener('scroll', onScroll, { passive: true })
+    return () => nav.removeEventListener('scroll', onScroll)
+  }, [platformsByLetter])
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -307,13 +360,15 @@ export const Sidebar = memo(function Sidebar({
           type="button"
           onClick={() => onSelectPlatform(platform.name)}
           className={`group flex min-h-[86px] w-full items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
-            selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)]' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:border-black/10 hover:bg-white'
+            selected
+              ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#2c2c2e] dark:text-white'
+              : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:border-black/10 hover:bg-white dark:border-white/[0.06] dark:bg-[#1c1c1e]/90 dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
           }`}
         >
-          <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm" />
+          <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
           <span className="min-w-0 flex-1 pr-5">
             <span className="flex items-center gap-1.5">
-              <span className="block min-w-0 truncate text-sm font-bold text-text-primary">{canonicalName}</span>
+              <span className="block min-w-0 truncate text-sm font-bold text-text-primary dark:text-white">{canonicalName}</span>
               {platform.hasWeakPassword && (
                 <span className="shrink-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -322,11 +377,11 @@ export const Sidebar = memo(function Sidebar({
                 </span>
               )}
             </span>
-            <span className="mt-1 block text-xs font-medium text-text-secondary">
+            <span className="mt-1 block text-xs font-medium text-text-secondary dark:text-[#6b6b70]">
               {platform.count} cuenta{platform.count !== 1 ? 's' : ''} vinculada{platform.count !== 1 ? 's' : ''}
             </span>
           </span>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200">Abrir</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#6b6b70] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
         </button>
       </li>
     )
@@ -449,10 +504,11 @@ export const Sidebar = memo(function Sidebar({
       <aside
         className={
           isMobile
-            ? 'flex h-full w-full flex-col bg-surface'
+            ? 'flex h-full w-full flex-col bg-surface dark:bg-[#0f0f10]'
             : `
               fixed inset-y-0 left-0 z-30 flex h-screen w-full max-w-[320px] flex-col
               border-r border-border-subtle bg-surface transition-transform duration-300 ease-out
+              dark:border-[#2c2c2e] dark:bg-[#0f0f10]
               lg:sticky lg:top-0 lg:z-auto lg:w-80 lg:max-w-none lg:translate-x-0
               \${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `
@@ -464,7 +520,7 @@ export const Sidebar = memo(function Sidebar({
             {!isMobile && (
               <>
                 <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight text-text-primary">Contras</h1>
+                  <h1 className="text-xl font-bold tracking-tight text-text-primary dark:text-white">Contras</h1>
                   {activeSyncIndicator}
                 </div>
                 {profileName && (
@@ -475,6 +531,7 @@ export const Sidebar = memo(function Sidebar({
               </>
             )}
           </div>
+          {!isMobile && <ThemeToggle compact />}
         </header>
 
         {showAddForm && (
@@ -536,7 +593,7 @@ export const Sidebar = memo(function Sidebar({
           </div>
         )}
 
-        <nav className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3">
+        <nav ref={navRef} className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3 relative">
           {(syncing || (cloudVaultExists === true && cloudSyncStatus === 'idle')) && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4">
               <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
@@ -555,7 +612,7 @@ export const Sidebar = memo(function Sidebar({
           ) : (
             <>
               {groupMode !== 'local' && (
-                <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                <div className="px-3 pb-2 pt-1 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary dark:text-[#6b6b70]">
                   {groupMode === 'identity' ? 'Identidades Cloud' : 'Plataformas Cloud'}
                 </div>
               )}
@@ -563,26 +620,36 @@ export const Sidebar = memo(function Sidebar({
                 sidebarPlatforms.length === 0 ? (
                   renderEmptyNavigationState('Crea una plataforma aquí', onAddClick)
                 ) : (
-                  <>
+                  <div className="relative pr-6">
+                    {/* A-Z side bar — only in alpha sort and no search query */}
+                    {platformsByLetter && !searchQuery && (
+                      <AlphaScrollBar
+                        onLetterSelect={handleLetterSelect}
+                        activeLetter={activeLetter}
+                        availableLetters={availableLetters}
+                      />
+                    )}
                     <button
                       type="button"
                       onClick={() => onSelectPlatform(null)}
-                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors ${
-                        selectedPlatformName === null ? 'bg-surface-active text-text-primary' : 'bg-surface-elevated text-text-secondary hover:bg-surface-hover'
+                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors dark:border-white/[0.04] ${
+                        selectedPlatformName === null
+                          ? 'bg-surface-active text-text-primary dark:bg-[#2c2c2e] dark:text-white'
+                          : 'bg-surface-elevated text-text-secondary hover:bg-surface-hover dark:bg-[#1c1c1e] dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary dark:bg-white/5 dark:text-white">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
                           </svg>
                         </span>
                         <span className="min-w-0">
                           <span className="block truncate text-sm font-bold">Directorio de Plataformas</span>
-                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Todas tus plataformas cloud</span>
+                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary dark:text-[#6b6b70]">Todas tus plataformas cloud</span>
                         </span>
                       </span>
-                      <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04]">
+                      <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04] dark:bg-[#2c2c2e] dark:text-[#a0a0a5]">
                         {platformSummaries.length}
                       </span>
                     </button>
@@ -592,12 +659,30 @@ export const Sidebar = memo(function Sidebar({
                           .filter(p => p.name.toLowerCase().includes(searchQuery.toLowerCase()))
                           .map(renderPlatformItem)}
                       </ul>
+                    ) : platformsByLetter ? (
+                      /* Alphabetical grouped view */
+                      <div className="animate-vault-morph space-y-2">
+                        {Array.from(platformsByLetter.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([letter, platforms]) => (
+                          <div key={letter}>
+                            <div
+                              data-letter-section={letter}
+                              className="sticky top-0 z-10 flex items-center gap-2 bg-surface/90 py-1.5 px-1 backdrop-blur-sm dark:bg-[#0f0f10]/90"
+                            >
+                              <span className="text-xs font-black text-text-tertiary dark:text-[#6b6b70]">{letter}</span>
+                              <div className="h-px flex-1 bg-border-subtle dark:bg-[#2c2c2e]" />
+                              <span className="text-[10px] text-text-tertiary dark:text-[#6b6b70]">{platforms.length}</span>
+                            </div>
+                            <ul className="space-y-2">
+                              {platforms.map(renderPlatformItem)}
+                            </ul>
+                          </div>
+                        ))}
+                      </div>
                     ) : (
                       <div className="animate-vault-morph">
-
                         {sidebarPlatforms.length > 0 && (
                           <>
-                            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                            <div className="px-3 pb-2 text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary dark:text-[#6b6b70]">
                               {isMobile ? 'Todas' : 'Más recientes'}
                             </div>
                             <ul className="space-y-3">
@@ -605,10 +690,9 @@ export const Sidebar = memo(function Sidebar({
                             </ul>
                           </>
                         )}
-                        
                       </div>
                     )}
-                  </>
+                  </div>
                 )
               ) : groupMode === 'identity' ? (
                 sidebarIdentities.length === 0 ? (
@@ -693,14 +777,14 @@ export const Sidebar = memo(function Sidebar({
         </nav>
 
         {isMobile && installPromptAvailable && onInstall && (
-          <footer className="flex flex-col gap-2.5 border-t border-border-subtle bg-surface p-3">
+          <footer className="flex flex-col gap-2.5 border-t border-border-subtle bg-surface p-3 dark:border-[#2c2c2e] dark:bg-[#0f0f10]">
             <div className="flex flex-wrap items-center justify-between gap-1.5">
               {cloudUserEmail && (
                 <button
                   type="button"
                   onClick={onSync}
                   disabled={cloudSyncStatus === 'syncing'}
-                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-black/5 bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover disabled:opacity-60"
+                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-black/5 bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover disabled:opacity-60 dark:border-white/5 dark:bg-[#1c1c1e] dark:text-white"
                 >
                   <span className={`h-2 w-2 rounded-full ${cloudSyncStatus === 'syncing' ? 'animate-pulse bg-blue-500' : cloudSyncStatus === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`} />
                   {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar / Refrescar'}
@@ -712,12 +796,19 @@ export const Sidebar = memo(function Sidebar({
               <button
                 type="button"
                 onClick={onInstall}
-                className="w-full rounded-xl bg-text-primary py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90"
+                className="w-full rounded-xl bg-text-primary py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
               >
                 Instalar Contras App
               </button>
             )}
           </footer>
+        )}
+
+        {/* Theme toggle in footer for desktop */}
+        {!isMobile && (
+          <div className="flex items-center justify-between border-t border-border-subtle px-4 py-3 dark:border-[#2c2c2e]">
+            <ThemeToggle />
+          </div>
         )}
       </aside>
     </>

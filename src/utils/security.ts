@@ -124,34 +124,49 @@ export function hasWeakPassword(platform: any): boolean {
   return passwordStrengthIssue(pwMethod.password)
 }
 
-/**
- * Checks if a password has been exposed in data breaches using the Have I Been Pwned API (k-Anonymity).
- * Returns the number of times it has been seen in breaches (0 means safe).
- */
-export async function checkPasswordBreach(password: string): Promise<number> {
+export function checkPasswordBreach(password: string): Promise<number> {
   try {
     const encoder = new TextEncoder()
     const data = encoder.encode(password)
-    const hashBuffer = await crypto.subtle.digest('SHA-1', data)
-    const hashArray = Array.from(new Uint8Array(hashBuffer))
-    const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
-    
-    const prefix = hashHex.slice(0, 5)
-    const suffix = hashHex.slice(5)
-    
-    const response = await fetch(`https://api.pwnedpasswords.com/range/${prefix}`)
-    if (!response.ok) return 0
-    
-    const text = await response.text()
-    const lines = text.split('\n')
-    for (const line of lines) {
-      const [lineSuffix, count] = line.split(':')
-      if (lineSuffix.trim() === suffix) {
-        return parseInt(count.trim(), 10)
-      }
-    }
-  } catch (error) {
-    console.error('Error checking password breach:', error)
+    return crypto.subtle.digest('SHA-1', data).then(hashBuffer => {
+      const hashArray = Array.from(new Uint8Array(hashBuffer))
+      const hashHex = hashArray.map(b => b.toString(16).padStart(2, '0')).join('').toUpperCase()
+      const prefix = hashHex.slice(0, 5)
+      const suffix = hashHex.slice(5)
+      return fetch(`https://api.pwnedpasswords.com/range/${prefix}`)
+        .then(r => r.ok ? r.text() : '')
+        .then(text => {
+          for (const line of text.split('\n')) {
+            const [lineSuffix, count] = line.split(':')
+            if (lineSuffix.trim() === suffix) return parseInt(count.trim(), 10)
+          }
+          return 0
+        })
+    })
+  } catch {
+    return Promise.resolve(0)
   }
-  return 0
 }
+
+/** Returns the age of a password in days based on the most recent passwordHistory entry or updatedAt */
+export function getPasswordAgeDays(platform: any): number | null {
+  const history: Array<{ changedAt: string }> = platform.passwordHistory ?? []
+  const mostRecent = history.length > 0
+    ? history.reduce((latest, entry) => (entry.changedAt > latest.changedAt ? entry : latest))
+    : null
+  const ref = mostRecent?.changedAt ?? platform.updatedAt ?? platform.createdAt
+  if (!ref) return null
+  const diff = Date.now() - new Date(ref).getTime()
+  return Math.floor(diff / (1000 * 60 * 60 * 24))
+}
+
+/** True if the password has not been changed in 90+ days */
+export function hasOldPassword(platform: any): boolean {
+  if (platform.ignoreWeakPasswordWarning) return false
+  const pwMethod = platform.accessMethods?.find((m: any) => m?.type === 'PASSWORD')
+  if (!pwMethod?.password) return false
+  const days = getPasswordAgeDays(platform)
+  if (days === null) return false
+  return days >= 90
+}
+

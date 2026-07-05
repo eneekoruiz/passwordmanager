@@ -181,9 +181,16 @@ export function SettingsModal({
     )
     const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || '') && !entry?.platform?.ignoreWeakPasswordWarning)
     const old = entries.filter((entry) => {
-      if (!entry?.platform?.updatedAt) return false
-      const time = Date.parse(entry.platform.updatedAt)
-      return Number.isFinite(time) && Date.now() - time > 365 * 24 * 60 * 60 * 1000
+      if (!entry?.platform) return false
+      const history: Array<{ changedAt: string }> = entry.platform.passwordHistory ?? []
+      const mostRecent = history.length > 0
+        ? history.reduce((latest: { changedAt: string }, e: { changedAt: string }) => (e.changedAt > latest.changedAt ? e : latest))
+        : null
+      const ref = mostRecent?.changedAt ?? entry.platform.updatedAt ?? entry.platform.createdAt
+      if (!ref) return false
+      const diff = Date.now() - new Date(ref).getTime()
+      const days = diff / (1000 * 60 * 60 * 24)
+      return days >= 90
     })
 
     // El score se calcula abajo basado en el % de seguras

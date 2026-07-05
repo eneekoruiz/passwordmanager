@@ -5,6 +5,7 @@ import App from './App'
 import { logUnexpectedError } from './utils/errors'
 import { ErrorBoundary } from './components/ErrorBoundary'
 import { ToastProvider } from './components/ui/ToastProvider'
+import { ThemeProvider } from './context/ThemeContext'
 
 // Manejador global para detectar errores de carga de chunks dinámicos (post-despliegue)
 if (typeof window !== 'undefined') {
@@ -42,11 +43,13 @@ if (!rootElement) {
 
 createRoot(rootElement).render(
   <StrictMode>
-    <ErrorBoundary>
-      <ToastProvider>
-        <App />
-      </ToastProvider>
-    </ErrorBoundary>
+    <ThemeProvider>
+      <ErrorBoundary>
+        <ToastProvider>
+          <App />
+        </ToastProvider>
+      </ErrorBoundary>
+    </ThemeProvider>
   </StrictMode>
 )
 
