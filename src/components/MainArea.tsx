@@ -255,6 +255,61 @@ export const MainArea = memo(function MainArea({
     return list
   }, [identities, sortMode])
 
+  const isFormView = view === 'create' || view === 'edit'
+  const itemQuery = searchQuery.trim().toLowerCase()
+  const selectedLocalItems = localCategory
+    ? localItems.filter((item) => (item.categoryId ?? item.type) === localCategory.id)
+    : []
+  const filteredLocalItems = selectedLocalItems.filter((item) => {
+    if (!itemQuery) return true
+    return [vaultItemDisplayName(item), item.title, ...(item.tags || [])]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(itemQuery))
+  })
+  const filteredPlatformAccounts = platformAccounts.filter(({ identityEmail, platform }) => {
+    if (!itemQuery) return true
+    return [identityEmail, platform.name, platform.username, platform.notes, ...(platform.tags || [])]
+      .filter(Boolean)
+      .some((value) => String(value).toLowerCase().includes(itemQuery))
+  })
+  const identityPlatforms = (identity?.platforms || [])
+    .filter((platform) => {
+      if (!itemQuery) return true
+      return [platform.name, platform.username, platform.notes, ...(platform.tags || [])]
+        .filter(Boolean)
+        .some((value) => String(value).toLowerCase().includes(itemQuery))
+    })
+    .sort((a, b) => {
+      if (sortMode === 'alpha-asc') return a.name.localeCompare(b.name)
+      if (sortMode === 'alpha-desc') return b.name.localeCompare(a.name)
+      if (sortMode === 'created-desc') return (b.createdAt || '').localeCompare(a.createdAt || '')
+      if (sortMode === 'created-asc') return (a.createdAt || '').localeCompare(b.createdAt || '')
+      if (sortMode === 'access-desc') return (b.lastAccessedAt || '').localeCompare(a.lastAccessedAt || '')
+      if (sortMode === 'usage-desc') return (b.accessCount || 0) - (a.accessCount || 0)
+      return 0
+    })
+
+  const availableLetters = useMemo(() => {
+    if (sortMode !== 'alpha-asc' || isFormView || itemQuery) return []
+    if (groupMode === 'identity' && identityPlatforms.length > 0) {
+      return Array.from(new Set(identityPlatforms.map(p => p.name.charAt(0).toUpperCase()).filter(c => /[A-Z]/.test(c))))
+    }
+    return []
+  }, [identityPlatforms, sortMode, isFormView, groupMode, itemQuery])
+
+  const scrollContainerRef = useRef<HTMLDivElement>(null)
+
+  const handleLetterSelect = (letter: string) => {
+    const el = document.getElementById(`letter-${letter}`)
+    if (el && scrollContainerRef.current) {
+      // scroll Into view smoothly but correctly offset
+      scrollContainerRef.current.scrollTo({
+        top: el.offsetTop - 80, // offset header
+        behavior: 'smooth'
+      })
+    }
+  }
+
   const renderProactiveEmptyState = ({
     title = 'Aún no tienes elementos aquí',
     description,
@@ -481,60 +536,7 @@ export const MainArea = memo(function MainArea({
     )
   }
 
-  const isFormView = view === 'create' || view === 'edit'
-  const itemQuery = searchQuery.trim().toLowerCase()
-  const selectedLocalItems = localCategory
-    ? localItems.filter((item) => (item.categoryId ?? item.type) === localCategory.id)
-    : []
-  const filteredLocalItems = selectedLocalItems.filter((item) => {
-    if (!itemQuery) return true
-    return [vaultItemDisplayName(item), item.title, ...(item.tags || [])]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(itemQuery))
-  })
-  const filteredPlatformAccounts = platformAccounts.filter(({ identityEmail, platform }) => {
-    if (!itemQuery) return true
-    return [identityEmail, platform.name, platform.username, platform.notes, ...(platform.tags || [])]
-      .filter(Boolean)
-      .some((value) => String(value).toLowerCase().includes(itemQuery))
-  })
-  const identityPlatforms = (identity?.platforms || [])
-    .filter((platform) => {
-      if (!itemQuery) return true
-      return [platform.name, platform.username, platform.notes, ...(platform.tags || [])]
-        .filter(Boolean)
-        .some((value) => String(value).toLowerCase().includes(itemQuery))
-    })
-    .sort((a, b) => {
-      if (sortMode === 'alpha-asc') return a.name.localeCompare(b.name)
-      if (sortMode === 'alpha-desc') return b.name.localeCompare(a.name)
-      if (sortMode === 'created-desc') return (b.createdAt || '').localeCompare(a.createdAt || '')
-      if (sortMode === 'created-asc') return (a.createdAt || '').localeCompare(b.createdAt || '')
-      if (sortMode === 'access-desc') return (b.lastAccessedAt || '').localeCompare(a.lastAccessedAt || '')
-      if (sortMode === 'usage-desc') return (b.accessCount || 0) - (a.accessCount || 0)
-      return 0
-    })
 
-  const availableLetters = useMemo(() => {
-    if (sortMode !== 'alpha-asc' || isFormView || itemQuery) return []
-    if (groupMode === 'identity' && identityPlatforms.length > 0) {
-      return Array.from(new Set(identityPlatforms.map(p => p.name.charAt(0).toUpperCase()).filter(c => /[A-Z]/.test(c))))
-    }
-    return []
-  }, [identityPlatforms, sortMode, isFormView, groupMode, itemQuery])
-
-  const scrollContainerRef = useRef<HTMLDivElement>(null)
-
-  const handleLetterSelect = (letter: string) => {
-    const el = document.getElementById(`letter-${letter}`)
-    if (el && scrollContainerRef.current) {
-      // scroll Into view smoothly but correctly offset
-      scrollContainerRef.current.scrollTo({
-        top: el.offsetTop - 80, // offset header
-        behavior: 'smooth'
-      })
-    }
-  }
 
   return (
     <div className="flex min-h-0 flex-1 flex-col">
