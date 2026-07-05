@@ -1398,6 +1398,49 @@ export function SettingsModal({
           </div>
         </div>
       )}
+      {view === 'breachAudit' && (
+        <div className="animate-fade-in py-2">
+          <div className="mb-6 flex flex-col items-center text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4 shadow-inner">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-black tracking-tight text-slate-800 dark:text-white">Resultados de la Auditoría</h3>
+            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
+              {breachedPasswords.length > 0 
+                ? `Se han encontrado ${breachedPasswords.length} cuentas con contraseñas que aparecen en filtraciones de datos conocidas (Have I Been Pwned). Cámbialas de inmediato.` 
+                : '¡Felicidades! Ninguna de tus contraseñas ha aparecido en filtraciones conocidas.'}
+            </p>
+          </div>
+
+          {breachedPasswords.length > 0 && (
+            <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
+              {breachedPasswords.map((b: any, i) => (
+                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20">
+                  <div>
+                    <p className="text-sm font-bold text-red-900 dark:text-red-200">{b.name || 'Cuenta sin nombre'}</p>
+                    <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">{b.username || 'Sin usuario'}</p>
+                  </div>
+                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-900/40 px-2 py-1 rounded-md">
+                    Filtrada
+                  </span>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <div className="mt-6 flex justify-end">
+            <button
+              type="button"
+              onClick={() => setView('health')}
+              className="rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 shadow-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
+            >
+              Volver a Salud
+            </button>
+          </div>
+        </div>
+      )}
       {securityModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-950/25 p-4 backdrop-blur-md animate-vault-morph">
           <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white/95 p-6 text-left shadow-[0_30px_90px_rgba(146,64,14,0.22)]">
@@ -1447,49 +1490,6 @@ export function SettingsModal({
               </div>
             </form>
           </div>
-          {view === 'breachAudit' && (
-            <div className="animate-fade-in py-2">
-              <div className="mb-6 flex flex-col items-center text-center">
-                <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4 shadow-inner">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-black tracking-tight text-slate-800 dark:text-white">Resultados de la Auditoría</h3>
-                <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
-                  {breachedPasswords.length > 0 
-                    ? `Se han encontrado ${breachedPasswords.length} cuentas con contraseñas que aparecen en filtraciones de datos conocidas (Have I Been Pwned). Cámbialas de inmediato.` 
-                    : '¡Felicidades! Ninguna de tus contraseñas ha aparecido en filtraciones conocidas.'}
-                </p>
-              </div>
-
-              {breachedPasswords.length > 0 && (
-                <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-                  {breachedPasswords.map((b: any, i) => (
-                    <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20">
-                      <div>
-                        <p className="text-sm font-bold text-red-900 dark:text-red-200">{b.name || 'Cuenta sin nombre'}</p>
-                        <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">{b.username || 'Sin usuario'}</p>
-                      </div>
-                      <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-900/40 px-2 py-1 rounded-md">
-                        Filtrada
-                      </span>
-                    </div>
-                  ))}
-                </div>
-              )}
-
-              <div className="mt-6 flex justify-end">
-                <button
-                  type="button"
-                  onClick={() => setView('health')}
-                  className="rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 shadow-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
-                >
-                  Volver a Salud
-                </button>
-              </div>
-            </div>
-          )}
         </div>
       )}
     </div>

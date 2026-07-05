@@ -574,7 +574,7 @@ export const Sidebar = memo(function Sidebar({
                 {sidebarError}
               </div>
             )}
-            <div className="mb-3 grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
+            <div className="mb-3 grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e]">
               {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
                 <button
                   key={mode}
@@ -582,8 +582,8 @@ export const Sidebar = memo(function Sidebar({
                   onClick={() => onGroupModeChange(mode)}
                   className={`min-h-10 rounded-lg px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
                     groupMode === mode
-                      ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)]'
-                      : 'text-text-secondary hover:bg-surface-hover'
+                      ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)] dark:bg-slate-700'
+                      : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
                   }`}
                 >
                   {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}

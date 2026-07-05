@@ -322,8 +322,8 @@ export const MainArea = memo(function MainArea({
     actionLabel: string
     onAction: () => void
   }) => (
-    <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/72 px-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.04)] animate-vault-morph">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-text-secondary shadow-sm ring-1 ring-black/5">
+    <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/72 px-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.04)] animate-vault-morph dark:border-[#2c2c2e] dark:bg-slate-800/50">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-text-secondary shadow-sm ring-1 ring-black/5 dark:bg-slate-700 dark:ring-white/10">
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
         </svg>
@@ -509,7 +509,7 @@ export const MainArea = memo(function MainArea({
                           className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:bg-white dark:hover:bg-slate-800"
                           style={{ animationDelay: `${index * 40}ms` }}
                         >
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700/50 font-bold text-text-primary dark:text-white ring-1 ring-black/5 dark:ring-white/5">
                             {idItem.email.charAt(0).toUpperCase()}
                           </div>
                           <span className="min-w-0 flex-1 relative">
@@ -518,7 +518,7 @@ export const MainArea = memo(function MainArea({
                               {(idItem?.platforms || []).length} plataforma{(idItem?.platforms || []).length !== 1 ? 's' : ''} vinculada{(idItem?.platforms || []).length !== 1 ? 's' : ''}
                             </span>
                           </span>
-                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary">
+                          <span className="rounded-full bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-[10px] font-bold text-text-secondary dark:text-slate-300">
                             Abrir
                           </span>
                         </button>
@@ -527,13 +527,13 @@ export const MainArea = memo(function MainArea({
                   ) : syncing ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
                       {Array.from({ length: 16 }, (_, i) => i).map(i => (
-                        <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
-                          <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
+                        <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 dark:bg-slate-800/50 p-4">
+                          <div className="h-11 w-11 rounded-2xl bg-black/10 dark:bg-white/10"></div>
                           <div className="flex-1 space-y-2">
-                            <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
-                            <div className="h-2.5 w-1/3 rounded bg-black/5"></div>
+                            <div className="h-3.5 w-1/2 rounded bg-black/10 dark:bg-white/10"></div>
+                            <div className="h-2.5 w-1/3 rounded bg-black/5 dark:bg-white/5"></div>
                           </div>
-                          <div className="h-5 w-10 rounded-full bg-black/5"></div>
+                          <div className="h-5 w-10 rounded-full bg-black/5 dark:bg-white/5"></div>
                         </div>
                       ))}
                     </div>

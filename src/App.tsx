@@ -1953,13 +1953,13 @@ function GlobalSearch({
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
           placeholder="Buscar en toda la bóveda... (Pulsa /)"
-          className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035]"
+          className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035] dark:border-white/10 dark:bg-slate-800/90 dark:text-white dark:focus:bg-slate-800"
           aria-label="Búsqueda global de la bóveda"
         />
       </div>
 
       {visible && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[48vh] overflow-y-auto rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl animate-vault-morph">
+        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[48vh] overflow-y-auto rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl animate-vault-morph dark:border-white/10 dark:bg-slate-800/95">
           {syncing ? (
             <div className="flex flex-col gap-1 p-1">
               {[...Array(4)].map((_, i) => (
