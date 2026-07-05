@@ -91,6 +91,7 @@ export interface BaseVaultItem {
   attachments?: FileAttachment[]
   accessCount?: number
   lastAccessedAt?: string
+  tags?: string[]
 }
 
 export type VaultDiffStatus = 'added' | 'modified' | 'deleted' | 'conflict'

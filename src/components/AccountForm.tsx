@@ -15,6 +15,8 @@ import { POPULAR_SERVICES } from '../data/popularServices'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 import { AttachmentsList } from './ui/AttachmentsList'
+import { TotpDisplay } from './ui/TotpDisplay'
+import { TagsInput } from './ui/TagsInput'
 
 interface AccountFormProps {
   mode: 'create' | 'edit'
@@ -223,6 +225,7 @@ function SecuritySummaryCard({
   description,
   secret,
   actionLabel,
+  isTotp,
   onAccess,
 }: {
   eyebrow: string
@@ -230,6 +233,7 @@ function SecuritySummaryCard({
   description: string
   secret?: string | null
   actionLabel: string
+  isTotp?: boolean
   onAccess?: () => void
 }) {
   const [revealed, setRevealed] = useState(false)
@@ -296,6 +300,9 @@ function SecuritySummaryCard({
         <span className="rounded-full border border-black/5 bg-white px-2.5 py-1 text-[10px] font-bold uppercase tracking-[0.14em] text-text-secondary">{actionLabel}</span>
       </div>
       {secret ? (
+        revealed && isTotp ? (
+          <TotpDisplay secret={secret} label={title} />
+        ) : (
         <div className="mt-4 rounded-2xl border border-black/[0.05] bg-white/90 p-3">
           <div className="flex items-center justify-between gap-3">
             <div className="min-w-0 flex-1">
@@ -311,6 +318,7 @@ function SecuritySummaryCard({
             </div>
           </div>
         </div>
+        )
       ) : null}
     </div>
   )
@@ -900,6 +908,7 @@ export function AccountForm({
                       description={displayDescription}
                       secret={displaySecret}
                       actionLabel={cfg.type === 'TOTP' ? 'Authenticator' : cfg.type === 'SMS' ? 'SMS' : 'PIN'}
+                      isTotp={cfg.type === 'TOTP'}
                     />
                   )
                 })}
@@ -1435,6 +1444,12 @@ export function AccountForm({
           onChange={(e) => updateField('notes', e.target.value)}
           placeholder="Notas libres, respuestas de recuperación, contexto operativo..."
         />
+        <div className="mt-4">
+          <TagsInput 
+            tags={account.tags || []} 
+            onChange={(tags) => updateField('tags', tags)} 
+          />
+        </div>
       </section>
 
       <section className="rounded-2xl border border-black/[0.08] bg-slate-50/80 p-5 shadow-[0_12px_38px_rgba(15,23,42,0.04)]">

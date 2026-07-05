@@ -487,19 +487,19 @@ export const MainArea = memo(function MainArea({
     : []
   const filteredLocalItems = selectedLocalItems.filter((item) => {
     if (!itemQuery) return true
-    return [vaultItemDisplayName(item), item.title]
+    return [vaultItemDisplayName(item), item.title, ...(item.tags || [])]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(itemQuery))
   })
   const filteredPlatformAccounts = platformAccounts.filter(({ identityEmail, platform }) => {
     if (!itemQuery) return true
-    return [identityEmail, platform.name, platform.username, platform.notes]
+    return [identityEmail, platform.name, platform.username, platform.notes, ...(platform.tags || [])]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(itemQuery))
   })
   const identityPlatforms = (identity?.platforms || []).filter((platform) => {
     if (!itemQuery) return true
-    return [platform.name, platform.username, platform.notes]
+    return [platform.name, platform.username, platform.notes, ...(platform.tags || [])]
       .filter(Boolean)
       .some((value) => String(value).toLowerCase().includes(itemQuery))
   })

@@ -65,6 +65,15 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
               {account.fullName}
             </p>
           )}
+          {account.tags && account.tags.length > 0 && (
+            <div className="mt-1.5 flex flex-wrap gap-1">
+              {account.tags.map((tag, idx) => (
+                <span key={idx} className="rounded border border-black/5 bg-black/[0.03] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
+                  {tag}
+                </span>
+              ))}
+            </div>
+          )}
         </button>
         <div className="flex shrink-0 flex-col items-end justify-center gap-2">
           {onShare && (
