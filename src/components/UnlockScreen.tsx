@@ -305,20 +305,6 @@ function HardwareKeyMasterPasswordShortcut({
   )
 }
 
-function VaultSkeleton() {
-  return (
-    <div className="w-full space-y-3 py-4">
-      {[0, 1, 2].map((item) => (
-        <div key={item} className="overflow-hidden rounded-2xl border border-black/[0.05] bg-white/70 p-4">
-          <div className="h-3 w-28 rounded-full bg-slate-200 shimmer" />
-          <div className="mt-3 h-8 rounded-xl bg-slate-100 shimmer" />
-          <div className="mt-2 h-3 w-2/3 rounded-full bg-slate-100 shimmer" />
-        </div>
-      ))}
-      <p className="text-xs font-medium text-text-secondary">Preparando bóveda cifrada...</p>
-    </div>
-  )
-}
 
 type OnboardingRecoveryStep = 'display' | 'verify'
 
@@ -661,7 +647,7 @@ export function UnlockScreen() {
         ) : (
           <div className="w-full space-y-5">
             {cloudVaultExists === null ? (
-              <VaultSkeleton />
+              <div className="flex justify-center p-8"><p className="text-sm text-text-secondary animate-pulse">Cargando bóveda...</p></div>
             ) : showRecoveryFlow ? (
               <form onSubmit={handleRecovery} className="w-full space-y-5 animate-vault-morph">
                 <div className="space-y-1">
