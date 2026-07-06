@@ -13,7 +13,7 @@ interface LinkPreviewProps {
 }
 
 type LinkPayload =
-  | { type: 'single'; senderEmail?: string; data: Platform }
+  | { type: 'single'; senderEmail?: string; identityEmail?: string; data: Platform }
   | { type: 'bundle'; senderEmail?: string; identityEmail: string; data: Platform[] }
 
 // For legacy links that didn't have type wrapper
@@ -26,7 +26,7 @@ function normalizeParsedPayload(raw: ParsedPayload): LinkPayload {
   return { type: 'single', data: raw as Platform }
 }
 
-function PlatformCard({ platform, defaultOpen }: { platform: Platform; defaultOpen?: boolean }) {
+function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform; defaultOpen?: boolean; isSingle?: boolean }) {
   const [open, setOpen] = useState(!!defaultOpen)
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -115,26 +115,28 @@ function PlatformCard({ platform, defaultOpen }: { platform: Platform; defaultOp
   }
 
   return (
-    <div className="border border-border rounded-2xl overflow-hidden shadow-sm">
-      <button
-        type="button"
-        onClick={() => setOpen(!open)}
-        className="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-surface-hover transition-colors text-left"
-      >
-        <PlatformLogo name={canonicalName} className="w-8 h-8 rounded-lg shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-bold text-text-primary truncate">{platform.name}</p>
-          <p className="text-xs text-text-tertiary truncate">
-            {platform.accessMethods?.length || 0} cuenta{(platform.accessMethods?.length !== 1) ? 's' : ''}
-          </p>
-        </div>
-        <svg className={`w-4 h-4 text-text-tertiary transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-          <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
-        </svg>
-      </button>
+    <div className={isSingle ? '' : "border border-border rounded-2xl overflow-hidden shadow-sm"}>
+      {!isSingle && (
+        <button
+          type="button"
+          onClick={() => setOpen(!open)}
+          className="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-surface-hover transition-colors text-left"
+        >
+          <PlatformLogo name={canonicalName} className="w-8 h-8 rounded-lg shrink-0" />
+          <div className="flex-1 min-w-0">
+            <p className="text-sm font-bold text-text-primary truncate">{platform.name}</p>
+            <p className="text-xs text-text-tertiary truncate">
+              {platform.accessMethods?.length || 0} cuenta{(platform.accessMethods?.length !== 1) ? 's' : ''}
+            </p>
+          </div>
+          <svg className={`w-4 h-4 text-text-tertiary transition-transform ${open ? 'rotate-180' : ''}`} fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+            <path strokeLinecap="round" strokeLinejoin="round" d="M19 9l-7 7-7-7" />
+          </svg>
+        </button>
+      )}
 
-      {open && (
-        <div className="px-3 pb-3 pt-3 bg-slate-50/50 border-t border-border-subtle animate-in slide-in-from-top-1 duration-150">
+      {(open || isSingle) && (
+        <div className={isSingle ? '' : "px-3 pb-3 pt-3 bg-slate-50/50 border-t border-border-subtle animate-in slide-in-from-top-1 duration-150"}>
           {(platform.accessMethods || []).map((method: any, idx: number) => renderMethod(method, idx))}
           
           {platform.notes && (
@@ -313,6 +315,9 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
             <>
               <PlatformLogo name={getCanonicalPlatformName(parsedPayload.data.name)} className="w-16 h-16 mx-auto mb-3 shadow-lg ring-4 ring-white/20" />
               <h3 className="text-xl font-bold">{parsedPayload.data.name}</h3>
+              {parsedPayload.identityEmail && (
+                <p className="text-indigo-100 text-sm mt-1">{parsedPayload.identityEmail}</p>
+              )}
             </>
           )}
 
@@ -354,7 +359,7 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
               <PlatformCard key={platform.id || i} platform={platform} defaultOpen={i === 0} />
             ))
           ) : (
-            <PlatformCard platform={parsedPayload.data} defaultOpen />
+            <PlatformCard platform={parsedPayload.data} isSingle />
           )}
         </div>
       </div>

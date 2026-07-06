@@ -1236,7 +1236,7 @@ export const MainArea = memo(function MainArea({
               await onDeletePlatform(editingPlatform.identityId, editingPlatform.platform.id)
               resetView()
             }}
-            onShare={() => editingPlatform && setShowShareModal({ type: 'single', platform: editingPlatform.platform })}
+            onShare={() => editingPlatform && setShowShareModal({ type: 'single', platform: editingPlatform.platform, identityEmail: editingPlatform.identityEmail })}
           />
         )}
 

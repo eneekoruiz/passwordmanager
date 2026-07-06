@@ -7,7 +7,7 @@ import { generateId } from '../utils/id'
 import { generateSymmetricLinkKey, encryptForLink } from '../crypto/symmetric'
 
 export type SharePayload =
-  | { type: 'single'; platform: Platform }
+  | { type: 'single'; platform: Platform; identityEmail?: string }
   | { type: 'bundle'; identity: Identity; platforms: Platform[] }
 
 interface ShareModalProps {
@@ -29,6 +29,7 @@ function buildPayloadString(payload: SharePayload): string {
     return JSON.stringify({
       type: 'single',
       senderEmail,
+      identityEmail: payload.identityEmail,
       data: { ...payload.platform, id: generateId(), identityId: undefined }
     })
   }
