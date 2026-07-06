@@ -84,16 +84,23 @@ export function VaultItemForm({
   const [saving, setSaving] = useState(false)
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { trackItemAccess, localItems } = useVault()
+  const { trackItemAccess, localCategories } = useVault()
 
-  // Obtener secciones únicas para la categoría actual
-  const existingSections = Array.from(
-    new Set(
-      (localItems || [])
-        .filter((i: LocalVaultItem) => i.categoryId === item.categoryId && i.section)
-        .map((i: LocalVaultItem) => i.section!)
-    )
-  ).sort().map(sec => ({ label: sec }))
+  const buildCategoryOptions = () => {
+    const options: { id: string, label: string, depth: number }[] = []
+    const traverse = (parentId: string | null, depth: number) => {
+      const children = (localCategories || []).filter(c => (c.parentId || null) === parentId)
+      for (const child of children) {
+        options.push({ id: child.id, label: child.label, depth })
+        traverse(child.id, depth + 1)
+      }
+    }
+    traverse(null, 0)
+    return options
+  }
+  const categoryOptions = buildCategoryOptions()
+
+
 
   const handleItemAccessed = () => {
     if (item.id) {
@@ -246,30 +253,19 @@ export function VaultItemForm({
           />
 
           <div className="space-y-1.5">
-            <label className="block text-xs font-medium text-text-secondary">Carpeta</label>
+            <label className="block text-xs font-medium text-text-secondary">Ubicación (Carpeta)</label>
             <div className="flex items-center gap-2">
               <select
-                value={draft.section || ''}
-                onChange={(e) => {
-                  if (e.target.value === '__NEW__') {
-                    const newFolder = window.prompt('Nombre de la nueva carpeta (ej. Beca / 2026):')
-                    if (newFolder && newFolder.trim()) {
-                      setDraft((prev) => ({ ...prev, section: newFolder.trim() }))
-                    }
-                  } else {
-                    setDraft((prev) => ({ ...prev, section: e.target.value }))
-                  }
-                }}
+                value={draft.categoryId || ''}
+                onChange={(e) => setDraft((prev) => ({ ...prev, categoryId: e.target.value }))}
                 className="flex-1 rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
               >
-                <option value="">Sin carpeta (Raíz)</option>
-                {existingSections.map((sec) => (
-                  <option key={sec.label} value={sec.label}>{sec.label}</option>
+                <option value="">Sin carpeta asignada</option>
+                {categoryOptions.map((cat) => (
+                  <option key={cat.id} value={cat.id}>
+                    {'\u00A0'.repeat(cat.depth * 4)}{cat.depth > 0 ? '↳ ' : ''}{cat.label}
+                  </option>
                 ))}
-                {draft.section && !existingSections.some(s => s.label === draft.section) && (
-                  <option value={draft.section}>{draft.section}</option>
-                )}
-                <option value="__NEW__" className="font-bold text-indigo-600">➕ Crear nueva carpeta...</option>
               </select>
             </div>
           </div>
@@ -545,7 +541,69 @@ export function VaultItemForm({
             attachments={draft.attachments || []}
             onAttachmentsChange={(attachments) => setDraft(prev => ({ ...prev, attachments }))}
             onUploadingChange={setIsUploadingAttachment}
+            templateType={draft.type === 'DOCUMENT' ? (draft as any).documentTemplate : undefined}
           />
+
+          {draft.type === 'DOCUMENT' && item.id && (
+            <div className="mt-6 border-t border-black/5 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-text-primary">¿El documento ha caducado o sido renovado?</h4>
+                  <p className="text-[10px] text-text-secondary mt-0.5">Archiva la versión actual para subir una nueva.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    if (!window.confirm('¿Quieres archivar las fotos actuales y la fecha de caducidad en el historial para subir las nuevas?')) return;
+                    setDraft(prev => {
+                      const past = (prev as any).pastVersions || [];
+                      const newPast = [{
+                        id: `archived-${Date.now()}`,
+                        attachments: prev.attachments || [],
+                        expiryDate: (prev as any).expiryDate || null,
+                        replacedAt: new Date().toISOString()
+                      }, ...past];
+                      return {
+                        ...prev,
+                        attachments: [],
+                        expiryDate: null,
+                        pastVersions: newPast
+                      };
+                    });
+                  }}
+                  className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
+                >
+                  Renovar Documento
+                </button>
+              </div>
+
+              {(draft as any).pastVersions?.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary">Versiones Anteriores ({(draft as any).pastVersions.length})</h4>
+                  <ul className="space-y-2">
+                    {(draft as any).pastVersions.map((version: any) => (
+                      <li key={version.id} className="rounded-xl border border-black/5 bg-white p-3 shadow-sm opacity-80">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-text-secondary">
+                            Archivado el {new Date(version.replacedAt).toLocaleDateString()}
+                          </span>
+                          {version.expiryDate && (
+                            <span className="text-[10px] text-text-tertiary">
+                              Caducaba: {new Date(version.expiryDate).toLocaleDateString()}
+                            </span>
+                          )}
+                        </div>
+                        <AttachmentsList
+                          attachments={version.attachments || []}
+                          readOnly
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </section>
 

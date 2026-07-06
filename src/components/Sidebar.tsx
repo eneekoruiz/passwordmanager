@@ -292,8 +292,8 @@ export const Sidebar = memo(function Sidebar({
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
   }, [isMobile, visibleLocalCategories])
 
-  const handleAddLocalCategory = async () => {
-    const label = window.prompt('Nombre de la nueva categoría local')
+  const handleAddLocalCategory = async (parentId?: string) => {
+    const label = window.prompt(parentId ? 'Nombre de la nueva subcategoría' : 'Nombre de la nueva categoría local')
     const cleanLabel = label?.trim()
     if (!cleanLabel) return
 
@@ -305,6 +305,7 @@ export const Sidebar = memo(function Sidebar({
         custom: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
+        parentId: parentId || null
       })
       await saveLocalCategory(category)
       setSidebarError(null)
@@ -397,35 +398,53 @@ export const Sidebar = memo(function Sidebar({
     )
   }
 
-  const renderLocalCategoryItem = (category: LocalCategory, index: number) => {
+  const renderLocalCategoryItem = (category: LocalCategory, index: number, depth: number = 0) => {
     const selected = selectedLocalCategory?.id === category.id
     const count = localCategoryCounts.get(category.id) ?? 0
+    const children = sidebarLocalCategories.filter(c => c.parentId === category.id)
+    
     return (
       <li key={category.id}>
-        <button
-          type="button"
-          onClick={() => onSelectLocalCategory(category)}
-          style={{ animationDelay: `${index * 35}ms` }}
-          className={`group animate-vault-slide-up flex min-h-[86px] w-full items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
-            selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:bg-[#2c2c2e] dark:border-white/10 dark:text-white' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:scale-[1.01] hover:border-black/10 hover:bg-white hover:shadow-lg dark:bg-[#1c1c1e] dark:border-white/5 dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
-          }`}
-        >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.05] bg-white text-text-primary shadow-sm dark:bg-[#2c2c2e] dark:border-white/5 dark:text-white">
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
-            </svg>
-          </span>
-          <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold text-text-primary dark:text-white">{category.label}</span>
-            <span className="mt-1 block text-xs font-medium text-text-secondary dark:text-[#6b6b70]">
-              {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
+        <div className="flex items-stretch gap-1.5 w-full" style={{ paddingLeft: `${depth * 1.5}rem` }}>
+          <button
+            type="button"
+            onClick={() => onSelectLocalCategory(category)}
+            style={{ animationDelay: `${index * 35}ms` }}
+            className={`group animate-vault-slide-up flex min-h-[86px] flex-1 items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
+              selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:bg-[#2c2c2e] dark:border-white/10 dark:text-white' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:scale-[1.01] hover:border-black/10 hover:bg-white hover:shadow-lg dark:bg-[#1c1c1e] dark:border-white/5 dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
+            }`}
+          >
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.05] bg-white text-text-primary shadow-sm dark:bg-[#2c2c2e] dark:border-white/5 dark:text-white">
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
+              </svg>
             </span>
-          </span>
-          <span className="flex shrink-0 items-center gap-2">
-            {category.custom && <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-text-secondary dark:bg-[#2c2c2e] dark:text-[#6b6b70]">Tag</span>}
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#6b6b70] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
-          </span>
-        </button>
+            <span className="min-w-0 flex-1">
+              <span className="block break-words line-clamp-2 leading-tight text-sm font-bold text-text-primary dark:text-white" title={category.label}>{category.label}</span>
+              <span className="mt-1 block text-xs font-medium text-text-secondary dark:text-[#6b6b70]">
+                {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
+              </span>
+            </span>
+          </button>
+          
+          <button 
+            type="button"
+            onClick={() => void handleAddLocalCategory(category.id)} 
+            className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
+            title="Añadir subcarpeta"
+          >
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+            </svg>
+          </button>
+        </div>
+
+        {children.length > 0 && (
+          <ul className="mt-3 space-y-3 relative">
+            <div className="absolute left-6 top-[-10px] bottom-0 w-px bg-black/[0.05] dark:bg-white/[0.05]" style={{ marginLeft: `${depth * 1.5}rem` }} />
+            {children.map((child, childIdx) => renderLocalCategoryItem(child, childIdx, depth + 1))}
+          </ul>
+        )}
       </li>
     )
   }
@@ -768,7 +787,7 @@ export const Sidebar = memo(function Sidebar({
                     renderEmptyNavigationState('Crea una categoría aquí', () => void handleAddLocalCategory())
                   ) : (
                     <ul className="space-y-3">
-                      {sidebarLocalCategories.map(renderLocalCategoryItem)}
+                      {sidebarLocalCategories.filter(c => !c.parentId).map((c, i) => renderLocalCategoryItem(c, i, 0))}
                     </ul>
                   )}
                 </>

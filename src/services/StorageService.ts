@@ -12,6 +12,7 @@ export interface DocumentMetadata {
   mimeType: string
   uploadedAt: string
   chunks: number
+  role?: 'front' | 'back' | 'main'
 }
 
 export class StorageService {
@@ -21,7 +22,8 @@ export class StorageService {
   static async uploadDocument(
     userId: string,
     masterKey: CryptoKey,
-    file: File
+    file: File,
+    role?: 'front' | 'back' | 'main'
   ): Promise<DocumentMetadata> {
     if (!db) throw new Error('Firestore no está inicializado')
 
@@ -52,6 +54,7 @@ export class StorageService {
       mimeType: file.type,
       uploadedAt,
       chunks: totalChunks,
+      ...(role ? { role } : {})
     }
 
     // Subimos los chunks usando Batch para atomicidad (límite de 500 por batch, 500 * 800KB = 400MB, más que suficiente)

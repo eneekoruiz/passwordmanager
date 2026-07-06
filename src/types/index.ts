@@ -12,6 +12,7 @@ export interface FileAttachment {
   mimeType: string
   uploadedAt: string
   chunks: number
+  role?: 'front' | 'back' | 'main'
 }
 
 export interface CustomFieldEntry {
@@ -123,6 +124,7 @@ export interface LocalCategory {
   custom?: boolean
   createdAt?: string
   updatedAt?: string
+  parentId?: string | null
 }
 
 export interface AccountVaultItem extends BaseVaultItem {
