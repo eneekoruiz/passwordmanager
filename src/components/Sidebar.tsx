@@ -8,7 +8,7 @@ import { LOCAL_ITEM_LABELS, PRESET_LOCAL_CATEGORIES, normalizeLocalCategory } fr
 import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
-import { hasWeakPassword } from '../utils/security'
+import { hasWeakPassword, hasExposedPassword } from '../utils/security'
 import { AlphaScrollBar } from './ui/AlphaScrollBar'
 
 interface SidebarProps {
@@ -103,7 +103,7 @@ export const Sidebar = memo(function Sidebar({
     [cloudIdentities, query],
   )
   const platformSummaries = useMemo(() => {
-    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean }>()
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean; hasExposedPassword: boolean }>()
     for (const identity of cloudIdentities) {
       for (const platform of (identity?.platforms || [])) {
         const name = platform.name.trim()
@@ -118,6 +118,7 @@ export const Sidebar = memo(function Sidebar({
           if (date > existing.maxDate) existing.maxDate = date
           if (accessDate > existing.maxAccessDate) existing.maxAccessDate = accessDate
           existing.hasWeakPassword = existing.hasWeakPassword || hasWeakPassword(platform)
+          existing.hasExposedPassword = existing.hasExposedPassword || hasExposedPassword(platform)
         } else {
           platformData.set(key, {
             name,
@@ -126,6 +127,7 @@ export const Sidebar = memo(function Sidebar({
             maxDate: date,
             maxAccessDate: accessDate,
             hasWeakPassword: hasWeakPassword(platform),
+            hasExposedPassword: hasExposedPassword(platform),
           })
         }
       }
@@ -280,7 +282,7 @@ export const Sidebar = memo(function Sidebar({
   const sidebarPlatforms = useMemo(() => {
     if (isMobile) return platformSummaries
     return [...platformSummaries]
-      .sort((a, b) => b.maxDate.localeCompare(a.maxDate))
+      .sort((a, b) => (b.maxAccessDate || b.maxDate).localeCompare(a.maxAccessDate || a.maxDate))
       .slice(0, 4)
   }, [isMobile, platformSummaries])
 
@@ -352,7 +354,7 @@ export const Sidebar = memo(function Sidebar({
     </div>
   ) : null)
 
-  const renderPlatformItem = (platform: { name: string; count: number; hasWeakPassword?: boolean }) => {
+  const renderPlatformItem = (platform: { name: string; count: number; hasWeakPassword?: boolean; hasExposedPassword?: boolean }) => {
     const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
     const canonicalName = getCanonicalPlatformName(platform.name)
     return (
@@ -370,10 +372,17 @@ export const Sidebar = memo(function Sidebar({
           <span className="min-w-0 flex-1 pr-5">
             <span className="flex items-center gap-1.5">
               <span className="block min-w-0 truncate text-sm font-bold text-text-primary dark:text-white">{canonicalName}</span>
-              {platform.hasWeakPassword && (
+              {platform.hasWeakPassword && !platform.hasExposedPassword && (
                 <span className="shrink-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
                     <path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+                  </svg>
+                </span>
+              )}
+              {platform.hasExposedPassword && (
+                <span className="shrink-0 text-red-500" title="Al menos una cuenta tiene la contraseña expuesta en filtraciones">
+                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+                    <path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-1.998A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" />
                   </svg>
                 </span>
               )}
@@ -398,23 +407,23 @@ export const Sidebar = memo(function Sidebar({
           onClick={() => onSelectLocalCategory(category)}
           style={{ animationDelay: `${index * 35}ms` }}
           className={`group animate-vault-slide-up flex min-h-[86px] w-full items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
-            selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)]' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:scale-[1.01] hover:border-black/10 hover:bg-white hover:shadow-lg'
+            selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:bg-[#2c2c2e] dark:border-white/10 dark:text-white' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:scale-[1.01] hover:border-black/10 hover:bg-white hover:shadow-lg dark:bg-[#1c1c1e] dark:border-white/5 dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
           }`}
         >
-          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.05] bg-white text-text-primary shadow-sm">
+          <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.05] bg-white text-text-primary shadow-sm dark:bg-[#2c2c2e] dark:border-white/5 dark:text-white">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
             </svg>
           </span>
           <span className="min-w-0 flex-1">
-            <span className="block truncate text-sm font-bold text-text-primary">{category.label}</span>
-            <span className="mt-1 block text-xs font-medium text-text-secondary">
+            <span className="block truncate text-sm font-bold text-text-primary dark:text-white">{category.label}</span>
+            <span className="mt-1 block text-xs font-medium text-text-secondary dark:text-[#6b6b70]">
               {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
             </span>
           </span>
           <span className="flex shrink-0 items-center gap-2">
-            {category.custom && <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-text-secondary">Tag</span>}
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200">Abrir</span>
+            {category.custom && <span className="rounded-full bg-slate-100 px-2 py-1 text-[10px] font-bold text-text-secondary dark:bg-[#2c2c2e] dark:text-[#6b6b70]">Tag</span>}
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#6b6b70] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
           </span>
         </button>
       </li>
@@ -559,39 +568,29 @@ export const Sidebar = memo(function Sidebar({
           </div>
         )}
 
-        {isMobile && sidebarError && (
-          <div className="px-4 pb-3">
-            <div className="rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+        <div className="px-4 pb-3 lg:px-5">
+          {sidebarError && (
+            <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
               {sidebarError}
             </div>
+          )}
+          <div className="mb-3 grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e]">
+            {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
+              <button
+                key={mode}
+                type="button"
+                onClick={() => onGroupModeChange(mode)}
+                className={`min-h-10 rounded-lg px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
+                  groupMode === mode
+                    ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)] dark:bg-slate-700'
+                    : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
+                }`}
+              >
+                {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
+              </button>
+            ))}
           </div>
-        )}
-
-        {!isMobile && (
-          <div className="px-4 pb-3 lg:px-5">
-            {sidebarError && (
-              <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
-                {sidebarError}
-              </div>
-            )}
-            <div className="mb-3 grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e]">
-              {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
-                <button
-                  key={mode}
-                  type="button"
-                  onClick={() => onGroupModeChange(mode)}
-                  className={`min-h-10 rounded-lg px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
-                    groupMode === mode
-                      ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)] dark:bg-slate-700'
-                      : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
-                  }`}
-                >
-                  {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        </div>
 
         <nav ref={navRef} className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3 relative">
           {(syncing || (cloudVaultExists === true && cloudSyncStatus === 'idle')) && localLooksEmpty ? (
@@ -641,12 +640,12 @@ export const Sidebar = memo(function Sidebar({
                       <span className="flex min-w-0 items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary dark:bg-white/5 dark:text-white">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
                           </svg>
                         </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold">Directorio de Plataformas</span>
-                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary dark:text-[#6b6b70]">Todas tus plataformas cloud</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold leading-tight break-words">Directorio de Plataformas</span>
+                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary dark:text-[#6b6b70] break-words">Todas tus plataformas cloud</span>
                         </span>
                       </span>
                       <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04] dark:bg-[#2c2c2e] dark:text-[#a0a0a5]">
@@ -662,7 +661,9 @@ export const Sidebar = memo(function Sidebar({
                     ) : platformsByLetter ? (
                       /* Alphabetical grouped view */
                       <div className="animate-vault-morph space-y-2">
-                        {Array.from(platformsByLetter.entries()).sort(([a], [b]) => a.localeCompare(b)).map(([letter, platforms]) => (
+                        {Array.from(platformsByLetter.entries())
+                          .sort(([a], [b]) => sortMode === 'alpha-desc' ? b.localeCompare(a) : a.localeCompare(b))
+                          .map(([letter, platforms]) => (
                           <div key={letter}>
                             <div
                               data-letter-section={letter}
@@ -712,9 +713,9 @@ export const Sidebar = memo(function Sidebar({
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                           </svg>
                         </span>
-                        <span className="min-w-0">
-                          <span className="block truncate text-sm font-bold">Directorio de Identidades</span>
-                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary">Correos y perfiles cloud</span>
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-bold leading-tight break-words">Directorio de Identidades</span>
+                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary break-words">Correos y perfiles cloud</span>
                         </span>
                       </span>
                       <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04]">

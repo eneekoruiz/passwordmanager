@@ -6,6 +6,7 @@ import { useToast } from './ToastProvider'
 interface AttachmentsListProps {
   attachments: DocumentMetadata[]
   onAttachmentsChange?: (attachments: DocumentMetadata[]) => void
+  onUploadingChange?: (isUploading: boolean) => void
   readOnly?: boolean
 }
 
@@ -28,7 +29,7 @@ function getMimeIcon(mimeType: string) {
   return '📎'
 }
 
-export function AttachmentsList({ attachments, onAttachmentsChange, readOnly = false }: AttachmentsListProps) {
+export function AttachmentsList({ attachments, onAttachmentsChange, onUploadingChange, readOnly = false }: AttachmentsListProps) {
   const { masterKey, cloudUserId } = useVault()
   const { showToast } = useToast()
   const [isUploading, setIsUploading] = useState(false)
@@ -47,6 +48,7 @@ export function AttachmentsList({ attachments, onAttachmentsChange, readOnly = f
     }
     try {
       setIsUploading(true)
+      onUploadingChange?.(true)
       const metadata = await StorageService.uploadDocument(cloudUserId, masterKey, file)
       onAttachmentsChange?.([...attachments, metadata])
       showToast(`"${file.name}" adjuntado correctamente`, 'success')
@@ -55,6 +57,7 @@ export function AttachmentsList({ attachments, onAttachmentsChange, readOnly = f
       showToast(`Error al subir "${file.name}"`, 'error')
     } finally {
       setIsUploading(false)
+      onUploadingChange?.(false)
     }
   }
 

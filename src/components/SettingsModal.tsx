@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip } from '../utils/exportVault'
-import { passwordStrengthIssue, evaluatePassword, checkPasswordBreach } from '../utils/security'
+import { passwordStrengthIssue, evaluatePassword, isPasswordExposedInCache } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 import { ThemeToggle } from './ui/ThemeToggle'
 
@@ -99,9 +99,6 @@ export function SettingsModal({
   const [currentMasterPassword, setCurrentMasterPassword] = useState('')
   const [nextMasterPassword, setNextMasterPassword] = useState('')
   const [recoveryPhrase, setRecoveryPhrase] = useState('')
-  const [isCheckingBreaches, setIsCheckingBreaches] = useState(false)
-  const [lastBreachCheck, setLastBreachCheck] = useState<string | null>(null)
-  const [breachedPasswords, setBreachedPasswords] = useState<string[]>([])
   const [travelPassword, setTravelPassword] = useState('')
   const { showToast } = useToast()
   
@@ -113,6 +110,9 @@ export function SettingsModal({
   const [plaintextExportSuccess, setPlaintextExportSuccess] = useState<string | null>(null)
   const [weakPasswordsModalOpen, setWeakPasswordsModalOpen] = useState(false)
   const [selectedWeakPasswords, setSelectedWeakPasswords] = useState<string[]>([])
+  
+  const [exposedPasswordsModalOpen, setExposedPasswordsModalOpen] = useState(false)
+  const [selectedExposedPasswords, setSelectedExposedPasswords] = useState<string[]>([])
   
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
@@ -162,6 +162,7 @@ export function SettingsModal({
   const {
     reusedPasswords,
     weakPasswords,
+    exposedPasswords,
     oldPasswords,
     healthScore,
     totalPasswordsCount,
@@ -181,6 +182,7 @@ export function SettingsModal({
       all.some((other) => other !== entry && other?.password === entry?.password),
     )
     const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || '') && !entry?.platform?.ignoreWeakPasswordWarning)
+    const exposed = entries.filter((entry) => isPasswordExposedInCache(entry?.password || '') && !entry?.platform?.ignoreExposedPasswordWarning)
     const old = entries.filter((entry) => {
       if (!entry?.platform) return false
       const history: Array<{ changedAt: string }> = entry.platform.passwordHistory ?? []
@@ -199,6 +201,7 @@ export function SettingsModal({
     const insecureIds = new Set([
       ...reused.map((r) => r?.platform?.id).filter(Boolean),
       ...weak.map((w) => w?.platform?.id).filter(Boolean),
+      ...exposed.map((e) => e?.platform?.id).filter(Boolean),
       ...old.map((o) => o?.platform?.id).filter(Boolean),
     ])
 
@@ -209,6 +212,7 @@ export function SettingsModal({
       healthEntries: entries,
       reusedPasswords: reused,
       weakPasswords: weak,
+      exposedPasswords: exposed,
       oldPasswords: old,
       healthScore: entries.length === 0 ? 100 : Math.round((secureCount / entries.length) * 100),
       totalPasswordsCount: total,
@@ -256,35 +260,6 @@ export function SettingsModal({
       setExportError(getFriendlyErrorMessage(error, 'Error al exportar la copia de seguridad.'))
     } finally {
       setLoadingExport(false)
-    }
-  }
-
-  const performBreachAudit = async () => {
-    if (isCheckingBreaches) return
-    setIsCheckingBreaches(true)
-    try {
-      const breached: any[] = []
-      for (const idn of identities) {
-        for (const p of idn.platforms) {
-          const pass = passwordForPlatform(p)
-          if (pass) {
-            const isBreached = await checkPasswordBreach(pass)
-            if (isBreached) {
-              breached.push({ id: p.id, name: p.name, username: p.username })
-            }
-          }
-        }
-      }
-      setBreachedPasswords(breached)
-      setLastBreachCheck(new Date().toISOString())
-      setView('breachAudit')
-      if (breached.length === 0) {
-        showToast('Auditoría completada. No se encontraron contraseñas vulneradas.', 'success')
-      }
-    } catch (e) {
-      showToast('Error al revisar vulnerabilidades.', 'error')
-    } finally {
-      setIsCheckingBreaches(false)
     }
   }
 
@@ -547,33 +522,20 @@ export function SettingsModal({
 
               <button
                 type="button"
-                onClick={performBreachAudit}
-                disabled={isCheckingBreaches}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-red-100 bg-slate-50 p-3 text-left transition-all hover:bg-slate-100 active:scale-[0.99] disabled:opacity-70 disabled:cursor-not-allowed"
+                onClick={() => setExposedPasswordsModalOpen(true)}
+                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-left transition-all hover:bg-red-100 active:scale-[0.99] dark:border-red-900/30 dark:bg-red-900/10 dark:hover:bg-red-900/20"
               >
                 <span>
-                  <span className="block text-sm font-black text-slate-900 flex items-center gap-2">
-                    Auditoría de Contraseñas Expuestas
-                    {isCheckingBreaches && (
-                      <svg className="h-4 w-4 animate-spin text-slate-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
-                      </svg>
-                    )}
+                  <span className="block text-sm font-black text-red-900 dark:text-red-400">
+                    {exposedPasswords.length} Contraseñas Expuestas
                   </span>
-                  <span className="mt-0.5 block text-[11px] font-medium text-slate-500">
-                    {lastBreachCheck 
-                      ? `Última revisión: ${new Date(lastBreachCheck).toLocaleDateString()}` 
-                      : 'Busca tus contraseñas en filtraciones mundiales (Pwned)'}
+                  <span className="mt-0.5 block text-[11px] font-medium text-red-800 dark:text-red-500">
+                    Revisar apariciones en filtraciones conocidas.
                   </span>
                 </span>
-                {breachedPasswords.length > 0 && !isCheckingBreaches ? (
-                  <span className="shrink-0 rounded-xl bg-red-100 px-3 py-1.5 text-[11px] font-bold text-red-900 shadow-sm flex items-center gap-1">
-                    <span className="h-2 w-2 rounded-full bg-red-600 animate-pulse"></span>
-                    {breachedPasswords.length}
-                  </span>
-                ) : (
-                  <span className="shrink-0 rounded-xl bg-white px-3 py-1.5 text-[11px] font-bold text-slate-600 shadow-sm border border-black/5">Escanear</span>
-                )}
+                <span className="shrink-0 rounded-xl bg-white/80 px-3 py-1.5 text-[11px] font-bold text-red-900 shadow-sm dark:bg-red-950 dark:text-red-300">
+                  Revisar
+                </span>
               </button>
               {/* Ajustes de Configuración */}
               {/* Navegación por pestañas */}
@@ -1248,22 +1210,35 @@ export function SettingsModal({
       </div>
       {weakPasswordsModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
-          <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-amber-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
+          <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-amber-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)] dark:border-white/10 dark:bg-[#1c1c1e]">
             <div className="mb-4 flex items-start justify-between gap-4">
               <div>
                 <h2 className="text-lg font-bold tracking-tight text-text-primary">Contraseñas débiles</h2>
                 <p className="mt-1 text-xs leading-relaxed text-text-secondary">Revisa estas cuentas y actualiza cada contraseña con una clave más larga y única.</p>
               </div>
-              <button
-                type="button"
-                onClick={() => setWeakPasswordsModalOpen(false)}
-                className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
-                aria-label="Cerrar análisis de contraseñas débiles"
-              >
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                </svg>
-              </button>
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setWeakPasswordsModalOpen(false)
+                    setTimeout(() => setWeakPasswordsModalOpen(true), 50)
+                  }}
+                  className="rounded-xl bg-amber-100 px-3 py-2 text-xs font-bold text-amber-700 transition-colors hover:bg-amber-200 dark:bg-amber-900/30 dark:text-amber-400 dark:hover:bg-amber-900/50"
+                  aria-label="Refrescar auditoría"
+                >
+                  Sincronizar
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setWeakPasswordsModalOpen(false)}
+                  className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
+                  aria-label="Cerrar análisis de contraseñas débiles"
+                >
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                  </svg>
+                </button>
+              </div>
             </div>
             
             {weakPasswords.length > 0 && (
@@ -1398,46 +1373,139 @@ export function SettingsModal({
           </div>
         </div>
       )}
-      {view === 'breachAudit' && (
-        <div className="animate-fade-in py-2">
-          <div className="mb-6 flex flex-col items-center text-center">
-            <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 mb-4 shadow-inner">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
+      {exposedPasswordsModalOpen && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
+          <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-red-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
+            <div className="mb-4 flex items-start justify-between gap-4">
+              <div>
+                <h2 className="text-lg font-bold tracking-tight text-text-primary">Contraseñas Expuestas</h2>
+                <p className="mt-1 text-xs leading-relaxed text-text-secondary">Estas cuentas utilizan contraseñas que han aparecido en filtraciones mundiales. Cámbialas de inmediato.</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setExposedPasswordsModalOpen(false)}
+                className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
+                aria-label="Cerrar análisis de contraseñas expuestas"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              </button>
             </div>
-            <h3 className="text-xl font-black tracking-tight text-slate-800 dark:text-white">Resultados de la Auditoría</h3>
-            <p className="mt-2 text-sm text-slate-500 dark:text-slate-400 max-w-[280px]">
-              {breachedPasswords.length > 0 
-                ? `Se han encontrado ${breachedPasswords.length} cuentas con contraseñas que aparecen en filtraciones de datos conocidas (Have I Been Pwned). Cámbialas de inmediato.` 
-                : '¡Felicidades! Ninguna de tus contraseñas ha aparecido en filtraciones conocidas.'}
-            </p>
-          </div>
+            
+            {exposedPasswords.length > 0 && (
+              <div className="mb-3 flex items-center justify-between rounded-xl bg-surface p-3">
+                <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
+                  <input
+                    type="checkbox"
+                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
+                    checked={selectedExposedPasswords.length === exposedPasswords.length}
+                    onChange={(e) => {
+                      if (e.target.checked) {
+                        setSelectedExposedPasswords(exposedPasswords.map(wp => `${wp.identityEmail}-${wp.platform!.id}`))
+                      } else {
+                        setSelectedExposedPasswords([])
+                      }
+                    }}
+                  />
+                  Seleccionar Todas
+                </label>
+                <button
+                  type="button"
+                  disabled={selectedExposedPasswords.length === 0}
+                  onClick={async () => {
+                    for (const wpId of selectedExposedPasswords) {
+                      const [email, platformId] = wpId.split('-')
+                      const identity = identities.find(id => id.email === email)
+                      const platform = exposedPasswords.find(wp => wp.platform?.id === platformId)?.platform
+                      if (identity && platform) {
+                        await onUpdatePlatform?.(identity.id, platform.id, { ...platform, ignoreExposedPasswordWarning: true })
+                      }
+                    }
+                    showToast(`${selectedExposedPasswords.length} aviso(s) ignorado(s).`, 'success')
+                    setSelectedExposedPasswords([])
+                  }}
+                  className="rounded-lg bg-red-100 px-4 py-2 text-xs font-bold text-red-800 transition-colors hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
+                >
+                  Ignorar Seleccionadas
+                </button>
+              </div>
+            )}
 
-          {breachedPasswords.length > 0 && (
-            <div className="space-y-2 max-h-[40vh] overflow-y-auto pr-2 custom-scrollbar">
-              {breachedPasswords.map((b: any, i) => (
-                <div key={i} className="flex items-center justify-between p-3 rounded-xl border border-red-100 dark:border-red-900/50 bg-red-50 dark:bg-red-900/20">
-                  <div>
-                    <p className="text-sm font-bold text-red-900 dark:text-red-200">{b.name || 'Cuenta sin nombre'}</p>
-                    <p className="text-xs text-red-700 dark:text-red-400 mt-0.5">{b.username || 'Sin usuario'}</p>
+            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
+              {exposedPasswords.map((entry) => {
+                const platformId = entry?.platform?.id
+                const key = `${entry?.identityEmail}-${platformId}`
+                const isSelected = selectedExposedPasswords.includes(key)
+
+                return (
+                  <div key={key} className={`rounded-2xl border ${isSelected ? 'border-red-400 ring-2 ring-red-400/20' : 'border-red-100'} bg-red-50/50 p-4 transition-all group`}>
+                    <div className="flex items-start gap-3">
+                      <input
+                        type="checkbox"
+                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
+                        checked={isSelected}
+                        onChange={(e) => {
+                          if (e.target.checked) setSelectedExposedPasswords([...selectedExposedPasswords, key])
+                          else setSelectedExposedPasswords(selectedExposedPasswords.filter(id => id !== key))
+                        }}
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0">
+                            <p className="truncate text-sm font-bold text-red-950">{entry?.platform?.name || 'Plataforma desconocida'}</p>
+                            <p className="mt-0.5 truncate text-[11px] font-medium text-red-800">{entry?.identityEmail || 'Identidad sin email'}</p>
+                          </div>
+                          <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-red-900 shadow-sm flex items-center gap-1">
+                            <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse"></span>
+                            Filtrada
+                          </span>
+                        </div>
+                        
+                        <div className="mt-4 flex flex-wrap items-center gap-2">
+                          {onUpdatePlatform && entry?.identityEmail && platformId && (
+                            <button
+                              type="button"
+                              onClick={async () => {
+                                const identity = identities.find(id => id.email === entry.identityEmail)
+                                if (identity) {
+                                  await onUpdatePlatform(identity.id, platformId, { ...entry.platform!, ignoreExposedPasswordWarning: true })
+                                  showToast('Aviso de contraseña expuesta ignorado.', 'success')
+                                }
+                              }}
+                              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition-colors hover:bg-red-100"
+                            >
+                              Ignorar este aviso
+                            </button>
+                          )}
+                          <button
+                            type="button"
+                            onClick={() => {
+                              if (onEditPlatform) {
+                                onEditPlatform(platformId)
+                                onClose()
+                              }
+                            }}
+                            className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800"
+                          >
+                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.112l-2.83.849a.5.5 0 01-.632-.632l.849-2.83a4.5 4.5 0 011.112-1.89l13.43-13.43z" />
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5" />
+                            </svg>
+                            Editar plataforma
+                          </button>
+                        </div>
+                      </div>
+                    </div>
                   </div>
-                  <span className="text-[10px] font-bold uppercase tracking-wider text-red-600 dark:text-red-300 bg-red-100 dark:bg-red-900/40 px-2 py-1 rounded-md">
-                    Filtrada
-                  </span>
+                )
+              })}
+              {exposedPasswords.length === 0 && (
+                <div className="py-8 text-center text-sm text-text-tertiary">
+                  ¡No se encontraron contraseñas expuestas!
                 </div>
-              ))}
+              )}
             </div>
-          )}
-
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              onClick={() => setView('health')}
-              className="rounded-xl border border-black/10 dark:border-white/10 bg-white dark:bg-slate-800 px-5 py-2.5 text-sm font-bold text-slate-700 dark:text-slate-200 shadow-sm transition-colors hover:bg-slate-50 dark:hover:bg-slate-700"
-            >
-              Volver a Salud
-            </button>
           </div>
         </div>
       )}

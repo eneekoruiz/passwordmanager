@@ -19,6 +19,7 @@ export const LOCAL_ITEM_LABELS: Record<LocalVaultItemType, string> = {
 }
 
 export const PRESET_LOCAL_CATEGORIES: LocalCategory[] = [
+  { id: 'preset-documents', label: 'Documentación (DNI, etc.)', type: 'SECURE_NOTE', custom: true },
   { id: 'preset-academic', label: 'Académico', type: 'SECURE_NOTE', custom: true },
   { id: 'preset-work', label: 'Trabajo', type: 'SECURE_NOTE', custom: true },
   { id: 'preset-personal', label: 'Personal', type: 'SECURE_NOTE', custom: true },

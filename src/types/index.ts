@@ -147,6 +147,7 @@ export interface AccountVaultItem extends BaseVaultItem {
   sensitive?: boolean
   ignoreWeakPasswordWarning?: boolean
   ignoreExposedPasswordWarning?: boolean
+  lastVerifiedAt?: string
 }
 
 /** Plataforma concreta dentro de una identidad: Amazon, Netflix, GitHub, etc. */

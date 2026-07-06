@@ -2,13 +2,14 @@ import { useEffect, useMemo, useState, memo, useRef } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
-import { hasWeakPassword } from '../utils/security'
+import { hasWeakPassword, hasExposedPassword } from '../utils/security'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { VaultItemForm } from './VaultItemForm'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
+import { ExposedPasswordWarningPopover } from './ui/ExposedPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
 import { AlphabetScroller } from './AlphabetScroller'
 type ViewMode = 'grid' | 'create' | 'edit'
@@ -51,6 +52,7 @@ interface MainAreaProps {
   sortMode: SortMode
   searchQuery?: string
   syncing?: boolean
+  onVerifyMasterPassword?: (pw: string) => Promise<boolean>
 }
 
 interface PlatformAccount {
@@ -100,6 +102,7 @@ export const MainArea = memo(function MainArea({
   sortMode,
   searchQuery = '',
   syncing = false,
+  onVerifyMasterPassword,
 }: MainAreaProps) {
   const [view, setView] = useState<ViewMode>('grid')
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
@@ -107,6 +110,22 @@ export const MainArea = memo(function MainArea({
   const [showShareModal, setShowShareModal] = useState<SharePayload | null>(null)
   const [quickTravelCopied, setQuickTravelCopied] = useState<string | null>(null)
   const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set())
+  const [authVerifiedFor, setAuthVerifiedFor] = useState<Set<string>>(new Set())
+  
+  const [securityModalOpen, setSecurityModalOpen] = useState(false)
+  const [securityPassword, setSecurityPassword] = useState('')
+  const [securityError, setSecurityError] = useState<string | null>(null)
+  const [pendingSecurityAction, setPendingSecurityAction] = useState<{ action: () => void, key: string } | null>(null)
+  const [testPasswordModalOpen, setTestPasswordModalOpen] = useState<{ identityId: string, platform: Platform } | null>(null)
+
+  const handleRequireAuth = (action: () => void, key: string) => {
+    if (authVerifiedFor.has(key)) {
+      action()
+      return
+    }
+    setPendingSecurityAction({ action, key })
+    setSecurityModalOpen(true)
+  }
   const [hideWarnings, setHideWarnings] = useState(() => {
     return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
   })
@@ -291,9 +310,10 @@ export const MainArea = memo(function MainArea({
     })
 
   const availableLetters = useMemo(() => {
-    if (sortMode !== 'alpha-asc' || isFormView || itemQuery) return []
+    if ((sortMode !== 'alpha-asc' && sortMode !== 'alpha-desc') || isFormView || itemQuery) return []
     if (groupMode === 'identity' && identityPlatforms.length > 0) {
-      return Array.from(new Set(identityPlatforms.map(p => p.name.charAt(0).toUpperCase()).filter(c => /[A-Z]/.test(c))))
+      const letters = Array.from(new Set(identityPlatforms.map(p => p.name.charAt(0).toUpperCase()).filter(c => /[A-Z]/.test(c))))
+      return sortMode === 'alpha-desc' ? letters.sort((a, b) => b.localeCompare(a)) : letters.sort((a, b) => a.localeCompare(b))
     }
     return []
   }, [identityPlatforms, sortMode, isFormView, groupMode, itemQuery])
@@ -623,15 +643,25 @@ export const MainArea = memo(function MainArea({
           </p>
         </div>
 
-        {identity && !localCategory && (
+        {(identity || groupMode === 'platform') && !localCategory && (
           <button
             type="button"
-            title="Compartir identidad completa"
-            onClick={() => setShowShareModal({
-              type: 'bundle',
-              identity: identity,
-              platforms: identity.platforms || []
-            })}
+            title="Compartir"
+            onClick={() => {
+              if (groupMode === 'platform') {
+                setShowShareModal({
+                  type: 'bundle',
+                  identity: { id: 'bundle', email: selectedPlatformName || 'Cuentas', platforms: platformAccounts.map(pa => pa.platform), createdAt: '', updatedAt: '' },
+                  platforms: platformAccounts.map(pa => pa.platform)
+                })
+              } else if (identity) {
+                setShowShareModal({
+                  type: 'bundle',
+                  identity: identity,
+                  platforms: identity.platforms || []
+                })
+              }
+            }}
             className="rounded-lg border border-border-subtle bg-surface-elevated dark:bg-slate-800 px-3 py-2 text-sm font-medium text-text-primary dark:text-white shadow-subtle transition-colors hover:bg-surface-hover dark:hover:bg-slate-700 flex items-center gap-1.5"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -640,18 +670,21 @@ export const MainArea = memo(function MainArea({
             <span className="hidden sm:block">Compartir</span>
           </button>
         )}
-        {(localCategory || identity) && (
+        {(localCategory || identity || groupMode === 'platform') && (
           <button
             type="button"
             onClick={() => {
               if (localCategory) {
                 setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
-              } else if (identity) {
-                setEditingPlatform({
-                  identityId: identity.id,
-                  identityEmail: identity.email,
-                  platform: createPlatform('', { username: '' }),
-                })
+              } else {
+                const targetIdentity = identity || identities[0]
+                if (targetIdentity) {
+                  setEditingPlatform({
+                    identityId: targetIdentity.id,
+                    identityEmail: targetIdentity.email,
+                    platform: createPlatform(groupMode === 'platform' && selectedPlatformName ? selectedPlatformName : '', { username: '' }),
+                  })
+                }
               }
               setView('create')
             }}
@@ -693,7 +726,14 @@ export const MainArea = memo(function MainArea({
                   .sort(([a], [b]) => a === 'General' ? -1 : b === 'General' ? 1 : a.localeCompare(b))
                   .map(([sectionName, items]) => (
                     <div key={sectionName}>
-                      <h3 className="mb-3 text-xs font-bold uppercase tracking-wider text-text-tertiary dark:text-[#6b6b70]">{sectionName}</h3>
+                      <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-tertiary dark:text-[#6b6b70]">
+                        {sectionName.split('/').map((part, i, arr) => (
+                          <span key={i} className="flex items-center gap-1.5">
+                            <span className={i === arr.length - 1 ? 'text-text-secondary dark:text-gray-400' : ''}>{part.trim()}</span>
+                            {i < arr.length - 1 && <span>›</span>}
+                          </span>
+                        ))}
+                      </h3>
                       <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
                         {items.map((item, index) => (
                           <button
@@ -790,7 +830,7 @@ export const MainArea = memo(function MainArea({
                           </span>
                         </span>
                       </button>
-                      {(!hideWarnings && hasWeakPassword(platform)) && (
+                      {(!hideWarnings && hasWeakPassword(platform) && !hasExposedPassword(platform)) && (
                         <WeakPasswordWarningPopover
                           className="absolute right-3 top-3 z-20"
                           onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
@@ -801,45 +841,68 @@ export const MainArea = memo(function MainArea({
                           }}
                         />
                       )}
-                      {/* Quick Travel & Reveal */}
+                      {(!hideWarnings && hasExposedPassword(platform)) && (
+                        <ExposedPasswordWarningPopover
+                          className="absolute right-3 top-3 z-20"
+                          onIgnore={() => void onUpdatePlatform(identityId, platform.id, { ...platform, ignoreExposedPasswordWarning: true })}
+                          onDisableGlobally={() => {
+                            window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                            window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                            window.dispatchEvent(new Event('contras:open-settings'))
+                          }}
+                        />
+                      )}
+                      {/* Actions Footer */}
                       {(pwMethod?.password || hasUrl) && (
                         <div className="absolute bottom-2 right-2 flex gap-1 opacity-100 md:opacity-0 md:group-hover:opacity-100 transition-opacity items-center">
                           {pwMethod?.password && (
                             <>
-                              {revealedPasswords.has(`${identityId}-${platform.id}`) ? (
-                                <span className="mr-1 text-xs font-mono font-medium text-text-primary dark:text-slate-200 select-all" onClick={(e) => e.stopPropagation()}>{pwMethod.password}</span>
-                              ) : null}
                               <button
-                                type="button"
-                                title={revealedPasswords.has(`${identityId}-${platform.id}`) ? "Ocultar" : "Mostrar contraseña"}
-                                onClick={(e) => {
-                                  e.stopPropagation()
+                              type="button"
+                              title={revealedPasswords.has(`${identityId}-${platform.id}`) ? "Ocultar" : "Mostrar contraseña"}
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const key = `${identityId}-${platform.id}`
+                                if (revealedPasswords.has(key)) {
                                   setRevealedPasswords(prev => {
                                     const next = new Set(prev)
-                                    const key = `${identityId}-${platform.id}`
-                                    if (next.has(key)) next.delete(key)
-                                    else next.add(key)
+                                    next.delete(key)
                                     return next
                                   })
-                                }}
-                                className="p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400"
-                              >
-                                {revealedPasswords.has(`${identityId}-${platform.id}`) ? (
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
-                                ) : (
-                                  <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                                )}
-                              </button>
+                                } else {
+                                  handleRequireAuth(() => {
+                                    setRevealedPasswords(prev => {
+                                      const next = new Set(prev)
+                                      next.add(key)
+                                      return next
+                                    })
+                                  }, key)
+                                }
+                              }}
+                              className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
+                                revealedPasswords.has(`${identityId}-${platform.id}`)
+                                  ? 'bg-slate-100 dark:bg-slate-700 text-indigo-600 dark:text-indigo-400 border-indigo-200 dark:border-indigo-900/50'
+                                  : 'bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400'
+                              }`}
+                            >
+                              {revealedPasswords.has(`${identityId}-${platform.id}`) ? (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" /></svg>
+                              ) : (
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                              )}
+                            </button>
                               <button
                                 type="button"
                                 title="Copiar contraseña"
                                 onClick={async (e) => {
                                   e.stopPropagation()
-                                  try {
-                                    await navigator.clipboard.writeText(pwMethod.password)
-                                    setQuickTravelCopied(`${identityId}-${platform.id}-pw`)
-                                    setTimeout(() => setQuickTravelCopied(null), 2000)
-                                  } catch {}
+                                  handleRequireAuth(async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(pwMethod.password)
+                                      setQuickTravelCopied(`${identityId}-${platform.id}-pw`)
+                                      setTimeout(() => setQuickTravelCopied(null), 2000)
+                                    } catch {}
+                                  }, `${identityId}-${platform.id}`)
                                 }}
                                 className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
                                   quickTravelCopied === `${identityId}-${platform.id}-pw`
@@ -858,12 +921,14 @@ export const MainArea = memo(function MainArea({
                                 title="Viaje Rápido (Copiar y abrir)"
                                 onClick={async (e) => {
                                   e.stopPropagation()
-                                  try {
-                                    await navigator.clipboard.writeText(pwMethod.password)
-                                    setQuickTravelCopied(`${identityId}-${platform.id}-travel`)
-                                    setTimeout(() => setQuickTravelCopied(null), 2000)
-                                    window.open(getPlatformUrl(platform.name), '_blank')
-                                  } catch {}
+                                  handleRequireAuth(async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(pwMethod.password)
+                                      setQuickTravelCopied(`${identityId}-${platform.id}-travel`)
+                                      setTimeout(() => setQuickTravelCopied(null), 2000)
+                                      window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                    } catch {}
+                                  }, `${identityId}-${platform.id}`)
                                 }}
                                 className={`p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all ${
                                   quickTravelCopied === `${identityId}-${platform.id}-travel`
@@ -877,21 +942,58 @@ export const MainArea = memo(function MainArea({
                                   <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                                 )}
                               </button>
+                              <button
+                                type="button"
+                                title="Probar acceso"
+                                onClick={async (e) => {
+                                  e.stopPropagation()
+                                  handleRequireAuth(async () => {
+                                    try {
+                                      await navigator.clipboard.writeText(pwMethod.password)
+                                      window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                      setTestPasswordModalOpen({ identityId, platform })
+                                    } catch {}
+                                  }, `${identityId}-${platform.id}`)
+                                }}
+                                className="ml-1 px-2.5 py-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:bg-slate-100 hover:text-indigo-600 dark:hover:bg-slate-700 dark:hover:text-indigo-400 flex items-center gap-1"
+                              >
+                                <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                Probar
+                              </button>
                             </>
                           )}
                           {!pwMethod?.password && hasUrl && (
                             <button
                               type="button"
-                              title="Abrir plataforma"
-                              onClick={async (e) => {
+                              title="Abrir enlace"
+                              onClick={(e) => {
                                 e.stopPropagation()
-                                window.open(getPlatformUrl(platform.name), '_blank')
+                                window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
                               }}
                               className="p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400"
                             >
                               <svg className="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" /></svg>
                             </button>
                           )}
+                        </div>
+                      )}
+                      {/* Revealed Password Banner */}
+                      {pwMethod?.password && revealedPasswords.has(`${identityId}-${platform.id}`) && (
+                        <div className="absolute left-4 right-20 bottom-3">
+                          <div className="inline-flex items-center gap-3 rounded-lg border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#1c1c1e] px-3 py-1.5 shadow-sm">
+                            <span className="font-mono text-xs font-semibold tracking-wider text-text-primary dark:text-slate-200 select-all" onClick={(e) => e.stopPropagation()}>
+                              {pwMethod.password}
+                            </span>
+                          </div>
+                        </div>
+                      )}
+                      {/* Last Verified Banner */}
+                      {platform.lastVerifiedAt && !revealedPasswords.has(`${identityId}-${platform.id}`) && (
+                        <div className="absolute left-4 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-green-50 dark:bg-green-900/20 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-green-700 dark:text-green-400 border border-green-200/50 dark:border-green-800/50">
+                            <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
+                            Verificada
+                          </span>
                         </div>
                       )}
                     </div>
@@ -916,7 +1018,7 @@ export const MainArea = memo(function MainArea({
                 {identityPlatforms.map((platform, index) => {
                   const letter = platform.name.charAt(0).toUpperCase()
                   const isFirstOfLetter = index === 0 || identityPlatforms[index - 1].name.charAt(0).toUpperCase() !== letter
-                  const showLetterHeader = sortMode === 'alpha-asc' && groupMode === 'identity' && !itemQuery && isFirstOfLetter && /[A-Z]/.test(letter)
+                  const showLetterHeader = (sortMode === 'alpha-asc' || sortMode === 'alpha-desc') && groupMode === 'identity' && !itemQuery && isFirstOfLetter && /[A-Z]/.test(letter)
                   const pwMethod = (platform.accessMethods || []).find((m: any) => m?.type === 'PASSWORD') as any
                   return (
                   <div key={platform.id} className="contents">
@@ -1000,10 +1102,21 @@ export const MainArea = memo(function MainArea({
                       </span>
                     </span>
                     </button>
-                    {(!hideWarnings && hasWeakPassword(platform)) && identity && (
+                    {(!hideWarnings && hasWeakPassword(platform) && !hasExposedPassword(platform)) && identity && (
                       <WeakPasswordWarningPopover
                         className="absolute right-3 top-3 z-20"
                         onIgnore={() => void onUpdatePlatform(identity.id, platform.id, { ...platform, ignoreWeakPasswordWarning: true })}
+                        onDisableGlobally={() => {
+                          window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
+                          window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                          window.dispatchEvent(new Event('contras:open-settings'))
+                        }}
+                      />
+                    )}
+                    {(!hideWarnings && hasExposedPassword(platform)) && identity && (
+                      <ExposedPasswordWarningPopover
+                        className="absolute right-3 top-3 z-20"
+                        onIgnore={() => void onUpdatePlatform(identity.id, platform.id, { ...platform, ignoreExposedPasswordWarning: true })}
                         onDisableGlobally={() => {
                           window.localStorage.setItem('contras.hideWeakPasswordWarnings', 'true')
                           window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
@@ -1145,6 +1258,105 @@ export const MainArea = memo(function MainArea({
             payload={showShareModal}
             onClose={() => setShowShareModal(null)}
           />
+        )}
+
+        {/* Modales de Seguridad y Verificación */}
+        {securityModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-black/10 dark:border-white/10 animate-vault-scale-up">
+              <h3 className="text-lg font-bold text-text-primary dark:text-white mb-2">Autenticación requerida</h3>
+              <p className="text-sm text-text-secondary dark:text-slate-400 mb-6">Confirma tu Contraseña Maestra para ver o copiar esta credencial.</p>
+              <form onSubmit={async (e) => {
+                e.preventDefault()
+                if (!securityPassword || !onVerifyMasterPassword) return
+                try {
+                  const isValid = await onVerifyMasterPassword(securityPassword)
+                  if (isValid) {
+                    setSecurityModalOpen(false)
+                    setSecurityPassword('')
+                    setSecurityError(null)
+                    if (pendingSecurityAction) {
+                      setAuthVerifiedFor(prev => {
+                        const n = new Set(prev)
+                        n.add(pendingSecurityAction.key)
+                        return n
+                      })
+                      pendingSecurityAction.action()
+                    }
+                  } else {
+                    setSecurityError('Contraseña incorrecta')
+                  }
+                } catch {
+                  setSecurityError('Error al verificar')
+                }
+              }}>
+                <input
+                  type="password"
+                  autoFocus
+                  placeholder="Contraseña Maestra"
+                  value={securityPassword}
+                  onChange={e => { setSecurityPassword(e.target.value); setSecurityError(null) }}
+                  className="w-full rounded-xl border border-black/10 px-4 py-3 text-sm focus:border-indigo-500 focus:outline-none focus:ring-1 focus:ring-indigo-500 dark:border-white/10 dark:bg-slate-800 dark:text-white mb-4"
+                />
+                {securityError && <p className="mb-4 text-xs font-bold text-red-500">{securityError}</p>}
+                <div className="flex gap-3 justify-end">
+                  <button type="button" onClick={() => { setSecurityModalOpen(false); setSecurityPassword(''); setSecurityError(null); setPendingSecurityAction(null); }} className="rounded-xl px-4 py-2.5 text-sm font-bold text-text-secondary hover:bg-slate-100 dark:text-slate-400 dark:hover:bg-slate-800">Cancelar</button>
+                  <button type="submit" disabled={!securityPassword} className="rounded-xl bg-indigo-600 px-4 py-2.5 text-sm font-bold text-white shadow-sm hover:bg-indigo-700 disabled:opacity-50">Confirmar</button>
+                </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {testPasswordModalOpen && (
+          <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm p-4">
+            <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl dark:bg-slate-900 border border-black/10 dark:border-white/10 animate-vault-scale-up text-center">
+              <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
+                <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
+              </div>
+              <h3 className="text-lg font-bold text-text-primary dark:text-white mb-2">¿Ha funcionado?</h3>
+              <p className="text-sm text-text-secondary dark:text-slate-400 mb-6">Hemos copiado la contraseña y abierto la página web. ¿Has podido iniciar sesión correctamente?</p>
+              <div className="flex flex-col gap-2">
+                <button
+                  type="button"
+                  onClick={async () => {
+                    const platform = testPasswordModalOpen.platform
+                    await onUpdatePlatform(testPasswordModalOpen.identityId, platform.id, {
+                      ...platform,
+                      lastVerifiedAt: new Date().toISOString()
+                    })
+                    setTestPasswordModalOpen(null)
+                  }}
+                  className="w-full rounded-xl bg-green-600 px-4 py-3 text-sm font-bold text-white shadow-sm hover:bg-green-700"
+                >
+                  Sí, marcar como Verificada
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const { identityId, platform } = testPasswordModalOpen
+                    setTestPasswordModalOpen(null)
+                    setEditingPlatform({
+                      identityId,
+                      identityEmail: identities.find(i => i.id === identityId)?.email || '',
+                      platform
+                    })
+                    setView('edit')
+                  }}
+                  className="w-full rounded-xl bg-slate-100 dark:bg-slate-800 px-4 py-3 text-sm font-bold text-text-secondary dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-700"
+                >
+                  No, quiero actualizarla
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTestPasswordModalOpen(null)}
+                  className="w-full rounded-xl px-4 py-3 text-sm font-bold text-text-tertiary dark:text-slate-500 hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                >
+                  Cancelar
+                </button>
+              </div>
+            </div>
+          </div>
         )}
       </div>
     </div>

@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import type { Identity } from '../types'
 import { checkPasswordBreach } from '../utils/security'
 
@@ -26,6 +26,38 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
   const [selectedBreaches, setSelectedBreaches] = useState<string[]>([])
   const [scanComplete, setScanComplete] = useState(false)
 
+
+
+  const runScan = useCallback(async () => {
+    setLoading(true)
+    const newBreached: BreachedEntry[] = []
+    
+    const allAccounts = (identities || []).flatMap((identity) =>
+      (identity?.platforms || []).map((platform) => ({
+        identityEmail: identity?.email,
+        platform,
+        password: passwordForPlatform(platform),
+      }))
+    )
+    
+    for (const acc of allAccounts) {
+      if (acc.password && !acc.platform.ignoreExposedPasswordWarning) {
+        try {
+          const count = await checkPasswordBreach(acc.password)
+          if (count > 0) {
+            newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
+          }
+        } catch (e) {
+          console.error('Error scanning password', e)
+        }
+      }
+    }
+    
+    setBreachedPasswords(newBreached)
+    setLoading(false)
+    setScanComplete(true)
+  }, [identities])
+
   useEffect(() => {
     if (!isOpen) {
       setBreachedPasswords([])
@@ -35,46 +67,13 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
     }
 
     let isMounted = true
-
-    const runScan = async () => {
-      setLoading(true)
-      const newBreached: BreachedEntry[] = []
-      
-      const allAccounts = (identities || []).flatMap((identity) =>
-        (identity?.platforms || []).map((platform) => ({
-          identityEmail: identity?.email,
-          platform,
-          password: passwordForPlatform(platform),
-        }))
-      )
-      
-      for (const acc of allAccounts) {
-        if (!isMounted) break
-        if (acc.password && !acc.platform.ignoreExposedPasswordWarning) {
-          try {
-            const count = await checkPasswordBreach(acc.password)
-            if (count > 0) {
-              newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
-            }
-          } catch (e) {
-            console.error('Error scanning password', e)
-          }
-        }
-      }
-      
-      if (isMounted) {
-        setBreachedPasswords(newBreached)
-        setLoading(false)
-        setScanComplete(true)
-      }
+    if (isMounted) {
+      runScan()
     }
-
-    runScan()
-
     return () => {
       isMounted = false
     }
-  }, [isOpen, identities])
+  }, [isOpen, runScan])
 
   if (!isOpen) return null
 
@@ -102,15 +101,27 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
               Comprueba si tus contraseñas han aparecido en brechas de datos conocidas (Have I Been Pwned).
             </p>
           </div>
-          <button
-            type="button"
-            onClick={onClose}
-            className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              type="button"
+              onClick={runScan}
+              disabled={loading}
+              className="rounded-xl bg-red-100 px-3 py-2 text-xs font-bold text-red-700 transition-colors hover:bg-red-200 disabled:opacity-50 dark:bg-red-900/30 dark:text-red-400 dark:hover:bg-red-900/50 flex items-center gap-2"
+              aria-label="Refrescar auditoría"
+            >
+              {loading && <div className="h-3 w-3 animate-spin rounded-full border-2 border-red-700 border-t-transparent dark:border-red-400"></div>}
+              Sincronizar
+            </button>
+            <button
+              type="button"
+              onClick={onClose}
+              className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+          </div>
         </div>
         
         {loading && !scanComplete ? (

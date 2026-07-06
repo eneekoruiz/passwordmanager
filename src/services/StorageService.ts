@@ -64,12 +64,16 @@ export class StorageService {
 
       const chunkRef = doc(db, `users/${userId}/documentChunks/${fileId}_chunk_${i}`)
       
-      // Convertimos a array normal porque Uint8Array explota en Firestore WriteBatch Web.
-      // Firestore intentaría usar el Uint8Array custom y fallaría.
-      const dataArray = Array.from(chunkData)
+      // Convertimos a base64 para evitar exceder el límite de elementos en un Array de Firestore
+      let b64 = ''
+      const step = 8 * 1024
+      for (let j = 0; j < chunkData.length; j += step) {
+        b64 += String.fromCharCode.apply(null, chunkData.subarray(j, j + step) as any)
+      }
+      const dataString = btoa(b64)
 
       batch.set(chunkRef, {
-        data: dataArray,
+        data: dataString,
         index: i,
         fileId: fileId,
       })
@@ -79,7 +83,11 @@ export class StorageService {
     const docRef = doc(db, `users/${userId}/documents/${fileId}`)
     batch.set(docRef, metadata)
 
-    await batch.commit()
+    // Firestore batch.commit() puede colgarse si no hay conexión real
+    await Promise.race([
+      batch.commit(),
+      new Promise((_, reject) => setTimeout(() => reject(new Error('La subida ha tardado demasiado (timeout)')), 20000))
+    ])
 
     return metadata
   }
@@ -120,11 +128,20 @@ export class StorageService {
       // Firestore guarda los Bytes como Uint8Array internamente gracias a firebase JS SDK
       // Pero como subimos un Array normal, Firestore nos devuelve un Array.
       const data = snap.data().data
-      const array = data instanceof Uint8Array 
-        ? data 
-        : Array.isArray(data) 
-          ? new Uint8Array(data)
-          : data.toUint8Array ? data.toUint8Array() : new Uint8Array(data)
+      let array: Uint8Array
+      if (typeof data === 'string') {
+        const binString = atob(data)
+        array = new Uint8Array(binString.length)
+        for (let j = 0; j < binString.length; j++) {
+          array[j] = binString.charCodeAt(j)
+        }
+      } else {
+        array = data instanceof Uint8Array 
+          ? data 
+          : Array.isArray(data) 
+            ? new Uint8Array(data)
+            : data.toUint8Array ? data.toUint8Array() : new Uint8Array(data)
+      }
       totalLength += array.length
       return array
     })

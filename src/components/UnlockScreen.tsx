@@ -487,7 +487,7 @@ export function UnlockScreen() {
       setConfirmMasterPassword('')
     } catch (caughtError) {
       const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación biométrica.')
-      if (!message.toLowerCase().includes('cancel')) {
+      if (!message.toLowerCase().includes('cancel') && !message.toLowerCase().includes('timed out or was not allowed')) {
         showToast(message, 'error')
         setBiometricFailed(true)
       }
@@ -505,7 +505,9 @@ export function UnlockScreen() {
       setConfirmMasterPassword('')
     } catch (caughtError) {
       const message = getFriendlyErrorMessage(caughtError, 'No se pudo completar la autenticación con la llave física.')
-      if (!message.toLowerCase().includes('cancel')) showToast(message, 'error')
+      if (!message.toLowerCase().includes('cancel') && !message.toLowerCase().includes('timed out or was not allowed')) {
+        showToast(message, 'error')
+      }
     } finally {
       setHardwareKeyLoading(false)
     }

@@ -1477,6 +1477,7 @@ function VaultApp() {
               onEditPlatformHandled={clearEditPlatformTrigger}
               sortMode={sortMode}
               searchQuery={localSearchTerm}
+              onVerifyMasterPassword={verifyCurrentMasterPassword}
             />
           )}
         </div>
@@ -1753,6 +1754,7 @@ function VaultApp() {
             onEditPlatformHandled={clearEditPlatformTrigger}
             sortMode={sortMode}
             searchQuery={globalSearchTerm}
+            onVerifyMasterPassword={verifyCurrentMasterPassword}
           />
         </main>
       </div>

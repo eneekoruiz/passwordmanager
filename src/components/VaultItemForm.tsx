@@ -8,6 +8,7 @@ import { SecretField } from './ui/SecretField'
 import { UnsavedFormActions } from './AccountForm'
 import { useVault } from '../context/VaultContext'
 import { AttachmentsList } from './ui/AttachmentsList'
+import { Combobox } from './ui/Combobox'
 
 interface VaultItemFormProps {
   item: LocalVaultItem
@@ -81,8 +82,18 @@ export function VaultItemForm({
   const [draft, setDraft] = useState<LocalVaultItem>(item)
   const [fields, setFields] = useState<FormFieldItem[]>(() => getInitialFields(item))
   const [saving, setSaving] = useState(false)
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const { trackItemAccess } = useVault()
+  const { trackItemAccess, localItems } = useVault()
+
+  // Obtener secciones únicas para la categoría actual
+  const existingSections = Array.from(
+    new Set(
+      (localItems || [])
+        .filter((i: LocalVaultItem) => i.categoryId === item.categoryId && i.section)
+        .map((i: LocalVaultItem) => i.section!)
+    )
+  ).sort().map(sec => ({ label: sec }))
 
   const handleItemAccessed = () => {
     if (item.id) {
@@ -127,6 +138,10 @@ export function VaultItemForm({
   }
 
   const saveCurrentItem = async () => {
+    if (isUploadingAttachment) {
+      setError('Hay archivos adjuntos subiéndose. Por favor, espera a que terminen.')
+      return
+    }
     setError(null)
     setSaving(true)
     try {
@@ -230,11 +245,13 @@ export function VaultItemForm({
             placeholder="Nombre visible en la bóveda"
           />
 
-          <FormField
+          <Combobox
             label="Sección"
             value={draft.section || ''}
-            onChange={(event) => setDraft((prev) => ({ ...prev, section: event.target.value }))}
-            placeholder="Ej. Universidad, Banca, Personal... (opcional)"
+            options={existingSections}
+            onInputChange={(val) => setDraft((prev) => ({ ...prev, section: val }))}
+            onChange={(val) => setDraft((prev) => ({ ...prev, section: val }))}
+            placeholder="Ej. Beca / 2026 (opcional)"
           />
 
           <div className="border-t border-border-subtle pt-4 space-y-4">
@@ -388,7 +405,8 @@ export function VaultItemForm({
         <div className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 shadow-sm">
           <AttachmentsList
             attachments={draft.attachments || []}
-            onAttachmentsChange={(newAttachments) => setDraft((prev) => ({ ...prev, attachments: newAttachments }))}
+            onAttachmentsChange={(attachments) => setDraft(prev => ({ ...prev, attachments }))}
+            onUploadingChange={setIsUploadingAttachment}
           />
         </div>
       </section>
@@ -468,8 +486,12 @@ export function VaultItemForm({
           <button type="button" onClick={handleCancelClick} className="rounded-lg px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-hover">
             Cancelar
           </button>
-          <button type="submit" disabled={saving} className="rounded-lg bg-text-primary px-4 py-2 text-sm font-semibold text-white disabled:opacity-50 active:scale-95 transition-all">
-            {saving ? 'Guardando...' : 'Guardar'}
+          <button
+            type="submit"
+            disabled={saving || isUploadingAttachment}
+            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
+          >
+            {saving ? 'Guardando...' : isUploadingAttachment ? 'Subiendo...' : 'Guardar'}
           </button>
         </div>
       </div>

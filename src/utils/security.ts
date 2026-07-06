@@ -148,6 +148,41 @@ export function checkPasswordBreach(password: string): Promise<number> {
   }
 }
 
+let _exposedPasswordsCache: Set<string> | null = null
+
+export function getExposedPasswordsCache(): Set<string> {
+  if (_exposedPasswordsCache) return _exposedPasswordsCache
+  try {
+    const saved = localStorage.getItem('contras_exposed_passwords')
+    _exposedPasswordsCache = saved ? new Set(JSON.parse(saved)) : new Set()
+  } catch {
+    _exposedPasswordsCache = new Set()
+  }
+  return _exposedPasswordsCache
+}
+
+export function addExposedPasswordToCache(password: string) {
+  const cache = getExposedPasswordsCache()
+  cache.add(password)
+  localStorage.setItem('contras_exposed_passwords', JSON.stringify(Array.from(cache)))
+}
+
+export function clearExposedPasswordCache() {
+  _exposedPasswordsCache = new Set()
+  localStorage.removeItem('contras_exposed_passwords')
+}
+
+export function isPasswordExposedInCache(password: string): boolean {
+  return getExposedPasswordsCache().has(password)
+}
+
+export function hasExposedPassword(platform: any): boolean {
+  if (platform.ignoreExposedPasswordWarning) return false
+  const pwMethod = platform.accessMethods?.find((m: any) => m?.type === 'PASSWORD')
+  if (!pwMethod || !pwMethod.password) return false
+  return isPasswordExposedInCache(pwMethod.password)
+}
+
 /** Returns the age of a password in days based on the most recent passwordHistory entry or updatedAt */
 export function getPasswordAgeDays(platform: any): number | null {
   const history: Array<{ changedAt: string }> = platform.passwordHistory ?? []

@@ -412,6 +412,7 @@ export function AccountForm({
   const [account, setAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
   const [baselineAccount, setBaselineAccount] = useState<Account>(() => initialAccount ?? createEmptyAccount())
   const [saving, setSaving] = useState(false)
+  const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [isEditing, setIsEditing] = useState(mode === 'create')
   const [showDeleteModal, setShowDeleteModal] = useState(false)
   const [deleteConfirmText, setDeleteConfirmText] = useState('')
@@ -650,6 +651,10 @@ export function AccountForm({
   })
 
   const saveCurrentAccount = async () => {
+    if (isUploadingAttachment) {
+      showToast('Hay archivos adjuntos subiéndose. Por favor, espera a que terminen.', 'error')
+      return
+    }
 
     const finalName = platformQuery.trim()
     const previousPassword = passwordValue(baselineAccount)
@@ -1052,7 +1057,7 @@ export function AccountForm({
               Eliminar
             </button>
           )}
-          <button type="submit" disabled={saving} title={saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar cambios'} className="flex items-center justify-center gap-1.5 rounded-xl bg-text-primary px-3 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
+          <button type="submit" disabled={saving || isUploadingAttachment} title={saving ? 'Guardando…' : mode === 'create' ? 'Crear cuenta' : 'Guardar cambios'} className="flex items-center justify-center gap-1.5 rounded-xl bg-text-primary px-3 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
             {saving ? (
               <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
@@ -1337,7 +1342,7 @@ export function AccountForm({
         </div>
       </section>
 
-      <section className="space-y-5 rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
+      <section className="rounded-2xl border border-black/[0.08] bg-white p-5 shadow-[0_14px_45px_rgba(15,23,42,0.045)]">
         <h3 className="text-lg font-bold text-text-primary mb-4">Seguridad Extra</h3>
 
         {/* Segundos Factores (2FA) */}
@@ -1720,7 +1725,8 @@ export function AccountForm({
               <div className="mt-4 rounded-2xl border border-black/5 bg-black/[0.02] p-4 shadow-sm">
                 <AttachmentsList
                   attachments={account.attachments || []}
-                  onAttachmentsChange={(newAttachments) => setAccount({ ...account, attachments: newAttachments })}
+                  onAttachmentsChange={(attachments) => setAccount({ ...account, attachments })}
+                  onUploadingChange={setIsUploadingAttachment}
                 />
               </div>
             </div>
