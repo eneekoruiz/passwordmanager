@@ -380,7 +380,7 @@ function VaultApp() {
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setSyncPopoverOpen(false)} />
           <div
-            className="fixed z-[70] w-72 max-w-[90vw] rounded-2xl border border-black/[0.08] bg-white p-4 shadow-xl text-left animate-fade-in"
+            className="fixed z-[70] w-72 max-w-[90vw] rounded-2xl border border-black/[0.08] dark:border-white/10 bg-white dark:bg-slate-800 p-4 shadow-xl text-left animate-fade-in"
             style={(() => {
               const rect = syncButtonRef.current?.getBoundingClientRect()
               if (!rect) return { top: 0, left: 0 }
@@ -1026,7 +1026,7 @@ function VaultApp() {
           <button
             type="button"
             onClick={handleAddClick}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white text-text-secondary shadow-sm transition-all active:scale-[0.96]"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white dark:bg-slate-800 text-text-secondary dark:text-slate-400 shadow-sm transition-all active:scale-[0.96]"
             aria-label="Añadir"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1056,7 +1056,7 @@ function VaultApp() {
             <button
               type="button"
               onClick={() => setShowMobileSortMenu((v) => !v)}
-              className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.06] bg-white text-text-secondary shadow-subtle transition-all active:scale-[0.95]"
+              className="flex h-10 w-10 items-center justify-center rounded-xl border border-black/[0.06] bg-white dark:bg-slate-800 text-text-secondary dark:text-slate-400 shadow-subtle transition-all active:scale-[0.95]"
               aria-label="Ordenar lista"
               title={`Ordenar: ${SORT_LABELS[sortMode]}`}
             >
@@ -1073,7 +1073,7 @@ function VaultApp() {
                   onClick={() => setShowMobileSortMenu(false)}
                   className="fixed inset-0 z-40 cursor-default bg-transparent outline-none"
                 />
-                <div className="absolute right-0 mt-2 z-50 w-56 rounded-2xl border border-black/5 bg-white/95 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left">
+                <div className="absolute right-0 mt-2 z-50 w-56 rounded-2xl border border-black/5 bg-white/95 dark:bg-slate-800/95 dark:border-white/10 p-1.5 shadow-[0_15px_40px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left">
                   <div className="px-3 py-1.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
                     Ordenar por
                   </div>
@@ -1131,7 +1131,7 @@ function VaultApp() {
 
   const biometricOnboardingModal = biometricPromptOpen ? (
     <div className="fixed bottom-4 left-1/2 z-[100] w-full max-w-sm -translate-x-1/2 px-4 sm:bottom-6 sm:right-6 sm:left-auto sm:translate-x-0">
-      <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-white p-4 shadow-xl ring-1 ring-black/5 animate-vault-slide-up">
+      <div className="relative overflow-hidden rounded-2xl border border-black/5 bg-white dark:bg-slate-800 dark:border-white/10 p-4 shadow-xl ring-1 ring-black/5 dark:ring-white/5 animate-vault-slide-up">
         <div className="flex items-start gap-4">
           <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -1182,7 +1182,7 @@ function VaultApp() {
       />
     ) : (
       <div className="fixed inset-0 z-[130] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in w-full max-w-[100vw] overflow-x-hidden">
-        <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph overflow-x-hidden max-w-[100vw]">
+        <div className="w-full max-w-lg rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph overflow-x-hidden max-w-[100vw]">
           <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-blue-50 text-blue-700 ring-1 ring-blue-100">
             <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l-2.25 2.25M12 9.75l2.25 2.25M6.75 18.75h10.5a3.75 3.75 0 00.98-7.37A6.001 6.001 0 006.36 9.18a4.5 4.5 0 00.39 9.57z" />
@@ -1604,7 +1604,7 @@ function VaultApp() {
 
         {unsavedModalOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-            <div className="w-full max-w-md rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+            <div className="w-full max-w-md rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
               <h3 className="text-xl font-bold tracking-tight text-text-primary">Tienes cambios sin guardar</h3>
               <p className="mt-2 text-sm leading-6 text-text-secondary">¿Quieres guardarlos antes de salir?</p>
               <div className="mt-6 grid gap-2">
@@ -1624,7 +1624,7 @@ function VaultApp() {
 
         {lockModalOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-            <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+            <div className="w-full max-w-lg rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
               {hasUnsyncedChanges ? (
                 <>
                   <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">
@@ -1815,7 +1815,7 @@ function VaultApp() {
 
       {unsavedModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+          <div className="w-full max-w-md rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
             <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
               <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM10.29 3.86L1.82 18a2.25 2.25 0 001.93 3.375h16.5A2.25 2.25 0 0022.18 18L13.71 3.86a2 2 0 00-3.42 0z" />
@@ -1858,7 +1858,7 @@ function VaultApp() {
 
       {lockModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-white/50 bg-white/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+          <div className="w-full max-w-lg rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
             {hasUnsyncedChanges ? (
               <>
                 <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">

@@ -343,7 +343,7 @@ export const MainArea = memo(function MainArea({
     onAction: () => void
   }) => (
     <div className="flex min-h-[320px] flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-white/72 px-6 text-center shadow-[0_18px_55px_rgba(15,23,42,0.04)] animate-vault-morph dark:border-[#2c2c2e] dark:bg-slate-800/50">
-      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-text-secondary shadow-sm ring-1 ring-black/5 dark:bg-slate-700 dark:ring-white/10">
+      <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-white text-text-secondary shadow-sm ring-1 ring-black/5 dark:bg-slate-700 dark:text-slate-300 dark:ring-white/10">
         <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
           <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v12m6-6H6" />
         </svg>
@@ -448,7 +448,7 @@ export const MainArea = memo(function MainArea({
                                   key={platform.name}
                                   type="button"
                                   onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
-                                  className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 dark:border-white/10 dark:bg-slate-800 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white dark:hover:bg-slate-700"
+                                  className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 dark:border-white/10 dark:bg-[#1c1c1e]/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white dark:hover:bg-[#2c2c2e]"
                                   style={{ animationDelay: `${index * 40}ms` }}
                                 >
                                   <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
@@ -477,7 +477,7 @@ export const MainArea = memo(function MainArea({
                     ) : syncing ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
                         {Array.from({ length: 16 }, (_, i) => i).map(i => (
-                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
+                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 dark:bg-slate-800/50 dark:border-white/5 p-4">
                             <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                             <div className="flex-1 space-y-2">
                               <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
@@ -498,7 +498,7 @@ export const MainArea = memo(function MainArea({
                     syncing ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
                         {Array.from({ length: 16 }, (_, i) => i).map(i => (
-                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 p-4">
+                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 dark:bg-slate-800/50 dark:border-white/5 p-4">
                             <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                             <div className="flex-1 space-y-2">
                               <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
@@ -510,7 +510,7 @@ export const MainArea = memo(function MainArea({
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5">
+                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 dark:bg-slate-700 dark:ring-white/10 text-text-secondary dark:text-slate-300">
                           <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
                           </svg>
@@ -526,7 +526,7 @@ export const MainArea = memo(function MainArea({
                           key={idItem.id}
                           type="button"
                           onClick={() => onRequestNavigation(() => onSelectIdentity(idItem.id))}
-                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-slate-800/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:bg-white dark:hover:bg-slate-800"
+                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-[#1c1c1e]/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#2c2c2e]"
                           style={{ animationDelay: `${index * 40}ms` }}
                         >
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700/50 font-bold text-text-primary dark:text-white ring-1 ring-black/5 dark:ring-white/5">
@@ -735,7 +735,10 @@ export const MainArea = memo(function MainArea({
                         ))}
                       </h3>
                       <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                        {items.map((item, index) => (
+                        {items.map((item, index) => {
+                          const isDoc = item.type === 'DOCUMENT'
+                          const isExpired = isDoc && item.hasExpiry && item.expiryDate && new Date(item.expiryDate) < new Date()
+                          return (
                           <button
                             key={item.id}
                             type="button"
@@ -744,20 +747,34 @@ export const MainArea = memo(function MainArea({
                               setView('edit')
                             }}
                             style={{ animationDelay: `${index * 45}ms` }}
-                            className="animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                            className={`animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border ${isExpired ? 'border-red-300 dark:border-red-500/50 bg-red-50/80 dark:bg-red-900/20' : 'border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90'} p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]`}
                           >
-                            <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-                            <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                              {LOCAL_ITEM_LABELS[item.type]}
-                            </span>
+                            <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 dark:via-white/10 to-transparent" />
+                            <div className="flex items-center justify-between">
+                              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+                                {LOCAL_ITEM_LABELS[item.type]}
+                              </span>
+                              {isExpired && (
+                                <span className="text-red-500" title="Este documento ha caducado">
+                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-1.998A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>
+                                </span>
+                              )}
+                            </div>
                             <span className="mt-2 block truncate text-sm font-semibold text-text-primary dark:text-white">
                               {vaultItemDisplayName(item)}
                             </span>
-                            <span className="mt-3 inline-flex rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                              Cifrado local
+                            <span className="mt-3 inline-flex gap-1.5 flex-wrap">
+                              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+                                Cifrado local
+                              </span>
+                              {isDoc && item.pastVersions && item.pastVersions.length > 0 && (
+                                <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-semibold">
+                                  {item.pastVersions.length} {item.pastVersions.length === 1 ? 'versión ant.' : 'versiones ant.'}
+                                </span>
+                              )}
                             </span>
                           </button>
-                        ))}
+                        )})}
                       </div>
                     </div>
                   ))}
@@ -1040,9 +1057,9 @@ export const MainArea = memo(function MainArea({
                         setView('edit')
                       }}
                       style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] bg-gradient-to-b from-white via-white to-slate-50/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                      className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
                     >
-                    <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
+                    <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 dark:via-white/10 to-transparent" />
                     <PlatformLogo name={platform.name} className="h-9 w-9" />
                     <span className="min-w-0 flex-1">
                       <span className="block truncate text-sm font-semibold text-text-primary pr-5">
@@ -1141,7 +1158,7 @@ export const MainArea = memo(function MainArea({
                           className={`p-1.5 rounded-lg shadow-sm border transition-all ${
                             quickTravelCopied === `identity-${platform.id}-pw`
                               ? 'bg-green-500 text-white border-green-400'
-                              : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                              : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600 dark:bg-slate-800 dark:text-slate-400 dark:border-white/10 dark:hover:text-indigo-400'
                           }`}
                         >
                           {quickTravelCopied === `identity-${platform.id}-pw` ? (
@@ -1165,7 +1182,7 @@ export const MainArea = memo(function MainArea({
                           className={`p-1.5 rounded-lg shadow-sm border transition-all ${
                             quickTravelCopied === `identity-${platform.id}-travel`
                               ? 'bg-green-500 text-white border-green-400'
-                              : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600'
+                              : 'bg-white/95 text-text-secondary border-black/10 hover:text-indigo-600 dark:bg-slate-800 dark:text-slate-400 dark:border-white/10 dark:hover:text-indigo-400'
                           }`}
                         >
                           {quickTravelCopied === `identity-${platform.id}-travel` ? (

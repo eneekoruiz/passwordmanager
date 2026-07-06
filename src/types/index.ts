@@ -29,7 +29,7 @@ export interface PasswordHistoryEntry {
   changedAt: string
 }
 
-export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE'
+export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE' | 'DOCUMENT'
 export type LocalVaultItemType = Exclude<VaultItemType, 'ACCOUNT'>
 export type VaultGroupMode = 'identity' | 'platform' | 'local'
 export type SortMode = 'alpha-asc' | 'alpha-desc' | 'created-desc' | 'created-asc' | 'access-desc' | 'usage-desc'
@@ -185,11 +185,26 @@ export interface SecureNoteVaultItem extends BaseVaultItem {
   markdown: string
 }
 
+export interface PastDocumentVersion {
+  id: string
+  archivedAt: string
+  expiryDate: string | null
+  attachments: FileAttachment[]
+}
+
+export interface DocumentVaultItem extends BaseVaultItem {
+  type: 'DOCUMENT'
+  hasExpiry: boolean
+  expiryDate: string | null
+  pastVersions?: PastDocumentVersion[]
+}
+
 export type LocalVaultItem =
   | WifiVaultItem
   | SoftwareLicenseVaultItem
   | FinanceVaultItem
   | SecureNoteVaultItem
+  | DocumentVaultItem
 
 export type VaultItem = AccountVaultItem | LocalVaultItem
 

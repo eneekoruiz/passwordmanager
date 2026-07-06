@@ -431,7 +431,7 @@ export const Sidebar = memo(function Sidebar({
   }
 
   const renderEmptyNavigationState = (label: string, onCreate: () => void) => (
-    <div className="mx-3 mt-4 rounded-2xl border border-dashed border-border bg-white/70 px-4 py-8 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] animate-vault-morph">
+    <div className="mx-3 mt-4 rounded-2xl border border-dashed border-border bg-white/70 dark:bg-slate-800/50 dark:border-white/10 px-4 py-8 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] animate-vault-morph">
       <p className="text-sm font-bold text-text-primary">Aún no tienes elementos aquí</p>
       <button
         type="button"
@@ -451,7 +451,7 @@ export const Sidebar = memo(function Sidebar({
       <li key={identity.id}>
         <div
           className={`group relative rounded-2xl border p-3.5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 ${
-            selected ? 'border-black/10 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.08)]' : 'border-black/[0.06] bg-white/82 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white'
+            selected ? 'border-black/10 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:bg-[#2c2c2e] dark:border-white/10' : 'border-black/[0.06] bg-white/82 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white dark:bg-[#1c1c1e]/90 dark:border-white/[0.06] dark:hover:bg-[#2c2c2e]'
           }`}
         >
           <button type="button" onClick={() => onSelect(identity.id)} className="flex min-h-[74px] w-full items-center gap-3 text-left active:scale-[0.99]">
@@ -467,7 +467,7 @@ export const Sidebar = memo(function Sidebar({
                 <span className="mt-2 flex items-center gap-2">
                   <span className="flex -space-x-2">
                     {(identity?.platforms || []).slice(0, 3).map((platform) => (
-                      <PlatformLogo key={`${identity.id}-${platform.id}`} name={platform.name} className="h-6 w-6 rounded-lg border border-white bg-white p-0.5 shadow-sm" />
+                      <PlatformLogo key={`${identity.id}-${platform.id}`} name={platform.name} className="h-6 w-6 rounded-lg border border-white dark:border-[#2c2c2e] bg-white dark:bg-[#2c2c2e] p-0.5 shadow-sm" />
                     ))}
                   </span>
                   <span className="truncate text-[11px] font-medium text-text-tertiary">
@@ -640,12 +640,12 @@ export const Sidebar = memo(function Sidebar({
                       <span className="flex min-w-0 items-center gap-3">
                         <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary dark:bg-white/5 dark:text-white">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                            <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
                           </svg>
                         </span>
                         <span className="min-w-0 flex-1">
-                          <span className="block text-sm font-bold leading-tight break-words">Directorio de Plataformas</span>
-                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary dark:text-[#6b6b70] break-words">Todas tus plataformas cloud</span>
+                          <span className="block text-sm font-bold leading-tight break-words">Plataformas Cloud</span>
+                          <span className="mt-0.5 block text-[11px] font-medium text-text-tertiary dark:text-[#6b6b70] break-words">Todas tus cuentas</span>
                         </span>
                       </span>
                       <span className="flex h-7 min-w-[28px] shrink-0 items-center justify-center rounded-full bg-slate-100 px-2 text-xs font-bold tabular-nums text-text-secondary shadow-sm ring-1 ring-black/[0.04] dark:bg-[#2c2c2e] dark:text-[#a0a0a5]">
@@ -756,7 +756,7 @@ export const Sidebar = memo(function Sidebar({
                     <button
                       type="button"
                       onClick={() => void handleAddLocalCategory()}
-                      className="rounded-lg border border-black/5 bg-white px-2 py-1 text-[10px] font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary"
+                      className="rounded-lg border border-black/5 bg-white px-2 py-1 text-[10px] font-bold text-text-secondary shadow-sm transition-colors hover:bg-surface-hover hover:text-text-primary dark:bg-slate-800 dark:border-white/5 dark:text-slate-400 dark:hover:text-white dark:hover:bg-slate-700"
                     >
                       + Nueva Categoría
                     </button>

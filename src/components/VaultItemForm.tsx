@@ -231,7 +231,7 @@ export function VaultItemForm({
 
   return (
     <form onSubmit={submit} className="mx-auto max-w-2xl space-y-6 pb-12 animate-fade-in select-none">
-      <section className="rounded-3xl border border-border-subtle bg-white p-5 shadow-subtle">
+      <section className="rounded-3xl border border-border-subtle bg-white dark:bg-[#1c1c1e] p-5 shadow-subtle">
         <div className="mb-5 border-b border-border-subtle pb-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">{item.type}</p>
           <h3 className="mt-1 text-base font-bold text-text-primary">{itemTitle(item)}</h3>
@@ -253,6 +253,100 @@ export function VaultItemForm({
             onChange={(val) => setDraft((prev) => ({ ...prev, section: val }))}
             placeholder="Ej. Beca / 2026 (opcional)"
           />
+
+          {draft.type === 'DOCUMENT' && (
+            <div className="space-y-6 pt-4 border-t border-border-subtle">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-sm font-bold text-text-primary">Caducidad de este documento</h4>
+                  <p className="mt-1 text-xs text-text-secondary">Si tiene fecha de caducidad (como un DNI), se te avisará cuando esté caducado.</p>
+                </div>
+                <label className="relative inline-flex cursor-pointer items-center">
+                  <input
+                    type="checkbox"
+                    className="peer sr-only"
+                    checked={draft.hasExpiry}
+                    onChange={(e) => {
+                      const hasExpiry = e.target.checked
+                      setDraft((prev) => ({
+                        ...prev,
+                        hasExpiry,
+                        expiryDate: hasExpiry ? ((prev as any).expiryDate || new Date().toISOString().split('T')[0]) : null
+                      }))
+                    }}
+                  />
+                  <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-indigo-300"></div>
+                </label>
+              </div>
+
+              {draft.hasExpiry && (
+                <div className="animate-fade-in animate-vault-slide-up">
+                  <FormField
+                    label="Fecha de expiración"
+                    value={(draft as any).expiryDate || ''}
+                    onChange={(e) => setDraft((prev) => ({ ...prev, expiryDate: e.target.value }))}
+                    placeholder="YYYY-MM-DD"
+                  />
+                  <p className="mt-1.5 text-[11px] text-text-tertiary">Formato YYYY-MM-DD (ej: 2026-10-31)</p>
+                </div>
+              )}
+
+              {(draft as any).pastVersions && (draft as any).pastVersions.length > 0 && (
+                <div className="mt-6 space-y-3">
+                  <h4 className="text-xs font-bold uppercase tracking-wider text-text-secondary">Historial de Versiones Anteriores</h4>
+                  {(draft as any).pastVersions.map((pv: any) => (
+                    <div key={pv.id} className="rounded-xl border border-black/5 bg-slate-50 p-4 shadow-sm">
+                      <div className="flex justify-between text-xs text-text-secondary mb-3">
+                        <span className="font-semibold text-text-primary">Versión archivada el {new Date(pv.archivedAt).toLocaleDateString()}</span>
+                        <span>{pv.expiryDate ? `Caducaba: ${pv.expiryDate}` : 'Sin caducidad'}</span>
+                      </div>
+                      <div className="space-y-2">
+                        {pv.attachments.map((att: any) => (
+                          <div key={att.id} className="flex items-center gap-2 rounded-lg bg-white dark:bg-[#2c2c2e] p-2 border border-black/5 dark:border-white/10 text-xs">
+                            <svg className="h-4 w-4 text-slate-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M15.182 15.182a4.5 4.5 0 01-6.364 0M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span className="truncate flex-1 font-medium text-text-primary">{att.name}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
+              <div className="pt-2">
+                <button
+                  type="button"
+                  onClick={() => {
+                    const currentAttachments = draft.attachments || []
+                    if (currentAttachments.length === 0 && !(draft as any).expiryDate) {
+                      return alert('No hay adjuntos ni fecha para archivar.')
+                    }
+                    if (!confirm('¿Archivar los adjuntos actuales como versión pasada para subir unos nuevos?')) return
+
+                    const newPastVersion = {
+                      id: crypto.randomUUID(),
+                      archivedAt: new Date().toISOString(),
+                      expiryDate: (draft as any).expiryDate || null,
+                      attachments: currentAttachments,
+                    }
+                    setDraft(prev => ({
+                      ...prev,
+                      pastVersions: [...((prev as any).pastVersions || []), newPastVersion],
+                      attachments: [],
+                      expiryDate: null,
+                      hasExpiry: false,
+                    }))
+                  }}
+                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-text-secondary dark:text-slate-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[0.98]"
+                >
+                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
+                  </svg>
+                  Renovar Documento (Archivar versión actual)
+                </button>
+              </div>
+            </div>
+          )}
 
           <div className="border-t border-border-subtle pt-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -427,7 +521,7 @@ export function VaultItemForm({
                 </p>
               </div>
               <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
+                <div className="rounded-xl bg-white dark:bg-slate-800 p-3 shadow-sm ring-1 ring-red-100 dark:ring-red-500/30">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-red-900">Modo Solo-Dispositivo</p>
@@ -445,7 +539,7 @@ export function VaultItemForm({
                   </div>
                 </div>
 
-                <div className="rounded-xl bg-white p-3 shadow-sm ring-1 ring-red-100">
+                <div className="rounded-xl bg-white dark:bg-slate-800 p-3 shadow-sm ring-1 ring-red-100 dark:ring-red-500/30">
                   <div className="flex items-center justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-red-900">Ocultar en Modo Viaje</p>

@@ -16,10 +16,11 @@ export const LOCAL_ITEM_LABELS: Record<LocalVaultItemType, string> = {
   SOFTWARE_LICENSE: 'Licencias',
   FINANCE: 'Finanzas',
   SECURE_NOTE: 'Notas seguras',
+  DOCUMENT: 'Documentos',
 }
 
 export const PRESET_LOCAL_CATEGORIES: LocalCategory[] = [
-  { id: 'preset-documents', label: 'Documentación (DNI, etc.)', type: 'SECURE_NOTE', custom: true },
+  { id: 'preset-documents', label: 'Documentación (DNI, etc.)', type: 'DOCUMENT', custom: true },
   { id: 'preset-academic', label: 'Académico', type: 'SECURE_NOTE', custom: true },
   { id: 'preset-work', label: 'Trabajo', type: 'SECURE_NOTE', custom: true },
   { id: 'preset-personal', label: 'Personal', type: 'SECURE_NOTE', custom: true },
@@ -85,6 +86,15 @@ export function createLocalVaultItem(
         ...base,
         type: 'SECURE_NOTE',
         markdown: '',
+      }
+    case 'DOCUMENT':
+      return {
+        ...base,
+        type: 'DOCUMENT',
+        hasExpiry: false,
+        expiryDate: null,
+        pastVersions: [],
+        attachments: [],
       }
   }
 }
@@ -153,6 +163,19 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
+    case 'DOCUMENT':
+      return {
+        ...item,
+        categoryId,
+        categoryLabel,
+        title: (item.title || 'Documento').trim(),
+        hasExpiry: Boolean(item.hasExpiry),
+        expiryDate: item.expiryDate ?? null,
+        pastVersions: item.pastVersions || [],
+        attachments: item.attachments || [],
+        customFields: customFields.length > 0 ? customFields : undefined,
+        updatedAt,
+      }
   }
 }
 
@@ -163,7 +186,8 @@ export function isLocalVaultItem(value: unknown): value is LocalVaultItem {
     type === 'WIFI' ||
     type === 'SOFTWARE_LICENSE' ||
     type === 'FINANCE' ||
-    type === 'SECURE_NOTE'
+    type === 'SECURE_NOTE' ||
+    type === 'DOCUMENT'
   )
 }
 
@@ -180,6 +204,7 @@ export function vaultItemDisplayName(item: VaultItem): string {
   if (item.type === 'WIFI') return item.ssid || item.title || 'Red Wi-Fi'
   if (item.type === 'SOFTWARE_LICENSE') return item.softwareName || item.title || 'Licencia'
   if (item.type === 'FINANCE') return item.title || 'Tarjeta'
+  if (item.type === 'DOCUMENT') return item.title || 'Documento'
   return item.title || 'Nota segura'
 }
 
