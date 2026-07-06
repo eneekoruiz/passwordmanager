@@ -1,5 +1,5 @@
 import { useState, FormEvent } from 'react'
-import type { Platform, Identity } from '../types'
+import type { Platform } from '../types'
 import { db, auth } from '../services/firebase'
 import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { hashEmailForDirectory } from '../utils/security'
@@ -8,7 +8,7 @@ import { generateSymmetricLinkKey, encryptForLink } from '../crypto/symmetric'
 
 export type SharePayload =
   | { type: 'single'; platform: Platform; identityEmail?: string }
-  | { type: 'bundle'; identity: Identity; platforms: Platform[] }
+  | { type: 'bundle'; bundleName: string; platforms: (Platform & { identityEmail?: string })[] }
 
 interface ShareModalProps {
   payload: SharePayload
@@ -20,29 +20,32 @@ type ExpirationType = '1h' | '24h' | '7d' | 'never' | 'burn' | 'custom'
 
 function payloadLabel(payload: SharePayload): string {
   if (payload.type === 'single') return payload.platform.name
-  return `${payload.identity.email} (${payload.platforms.length} plataformas)`
+  return `${payload.bundleName} (${payload.platforms.length} plataformas)`
 }
 
-function buildPayloadString(payload: SharePayload): string {
+function buildPayloadString(payload: SharePayload, hidePassword?: boolean): string {
   const senderEmail = auth?.currentUser?.email || 'Usuario de Contras'
   if (payload.type === 'single') {
     return JSON.stringify({
       type: 'single',
       senderEmail,
       identityEmail: payload.identityEmail,
+      hidePassword,
       data: { ...payload.platform, id: generateId(), identityId: undefined }
     })
   }
   return JSON.stringify({
     type: 'bundle',
     senderEmail,
-    identityEmail: payload.identity.email,
+    bundleName: payload.bundleName,
+    hidePassword,
     data: payload.platforms.map(p => ({ ...p, id: generateId(), identityId: undefined }))
   })
 }
 
 export function ShareModal({ payload, onClose }: ShareModalProps) {
   const [mode, setMode] = useState<ShareMode>('link')
+  const [hidePassword, setHidePassword] = useState(false)
 
   // P2P State
   const [email, setEmail] = useState('')
@@ -96,7 +99,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       const encryptedData = await encryptWithPublicKey(publicKey, payloadString)
 
       const shareId = generateId()
-      const label = payload.type === 'single' ? payload.platform.name : `Bundle: ${payload.identity.email}`
+      const label = payload.type === 'single' ? payload.platform.name : `Bundle: ${payload.bundleName}`
       const currentUser = auth?.currentUser
       if (!currentUser?.uid) throw new Error('Debes estar autenticado para compartir. Recarga la app e inicia sesión.')
       await setDoc(doc(db, 'shares', shareId), {
@@ -128,7 +131,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       if (!db) throw new Error('Firebase no está inicializado.')
 
       const { key, base64Key } = await generateSymmetricLinkKey()
-      const payloadString = buildPayloadString(payload)
+      const payloadString = buildPayloadString(payload, hidePassword)
       const { iv, ciphertext } = await encryptForLink(key, payloadString)
 
       const burnAfterRead = expiration === 'burn'
@@ -145,7 +148,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       }
 
       const linkId = generateId()
-      const label = payload.type === 'single' ? payload.platform.name : `${payload.identity.email} (${payload.platforms.length} cuentas)`
+      const label = payload.type === 'single' ? payload.platform.name : `${payload.bundleName} (${payload.platforms.length} cuentas)`
       const currentUser = auth?.currentUser
       if (!currentUser?.uid) throw new Error('Debes estar autenticado para generar un enlace. Recarga la app e inicia sesión.')
       await setDoc(doc(db, 'links', linkId), {
@@ -246,7 +249,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
               </svg>
             </div>
             <p className="text-xs text-indigo-800 font-medium leading-snug">
-              Compartirás <strong>{payload.platforms.length} plataformas</strong> de la identidad <strong>{payload.identity.email}</strong> como un paquete cifrado.
+              Compartirás <strong>{payload.platforms.length} plataformas</strong> de <strong>{payload.bundleName}</strong> como un paquete cifrado.
             </p>
           </div>
         )}
@@ -329,7 +332,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
                     <div className="mt-2 animate-in slide-in-from-top-1">
                       <input
                         type="datetime-local"
-                        className="w-full px-3 py-2 border border-border rounded-xl text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-indigo-500/50"
+                        className="mt-2 w-full rounded-xl border border-black/10 px-3 py-2 text-sm outline-none transition-colors focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
                         value={customExpirationDate}
                         onChange={(e) => setCustomExpirationDate(e.target.value)}
                         min={new Date().toISOString().slice(0, 16)}
@@ -341,6 +344,26 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
                       El enlace se borrará automáticamente de nuestros servidores después de ser visto una vez.
                     </p>
                   )}
+
+                  {/* Hide Password Toggle */}
+                  <div className="rounded-xl border border-black/5 bg-slate-50 p-4 pt-3 mt-4">
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <div className="flex h-5 items-center mt-0.5">
+                        <input
+                          type="checkbox"
+                          checked={hidePassword}
+                          onChange={(e) => setHidePassword(e.target.checked)}
+                          className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-600"
+                        />
+                      </div>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-bold text-text-primary">Solo permitir copiar contraseñas</span>
+                        <span className="text-xs text-text-secondary mt-0.5">
+                          Oculta el botón "Ver" para evitar que el receptor pueda leer la contraseña en texto claro en pantalla.
+                        </span>
+                      </div>
+                    </label>
+                  </div>
                 </div>
 
                 {linkStatus === 'error' && (

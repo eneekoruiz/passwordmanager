@@ -13,8 +13,8 @@ interface LinkPreviewProps {
 }
 
 type LinkPayload =
-  | { type: 'single'; senderEmail?: string; identityEmail?: string; data: Platform }
-  | { type: 'bundle'; senderEmail?: string; identityEmail: string; data: Platform[] }
+  | { type: 'single'; senderEmail?: string; identityEmail?: string; hidePassword?: boolean; data: Platform }
+  | { type: 'bundle'; senderEmail?: string; identityEmail?: string; bundleName?: string; hidePassword?: boolean; data: (Platform & { identityEmail?: string })[] }
 
 // For legacy links that didn't have type wrapper
 type ParsedPayload = LinkPayload | Platform
@@ -26,11 +26,12 @@ function normalizeParsedPayload(raw: ParsedPayload): LinkPayload {
   return { type: 'single', data: raw as Platform }
 }
 
-function PlatformCard({ platform, identityEmail, defaultOpen, isSingle }: { platform: Platform; identityEmail?: string; defaultOpen?: boolean; isSingle?: boolean }) {
+function PlatformCard({ platform, identityEmail, defaultOpen, isSingle, hidePassword }: { platform: Platform & { identityEmail?: string }; identityEmail?: string; defaultOpen?: boolean; isSingle?: boolean; hidePassword?: boolean }) {
   const [open, setOpen] = useState(!!defaultOpen)
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
   const canonicalName = getCanonicalPlatformName(platform.name)
+  const finalEmail = platform.identityEmail || identityEmail
 
   const copy = async (text: string, field: string) => {
     if (!text) return
@@ -81,12 +82,12 @@ function PlatformCard({ platform, identityEmail, defaultOpen, isSingle }: { plat
           </div>
         ) : (
           <div className="space-y-3">
-            {(platform.username || identityEmail) && (
+            {(platform.username || finalEmail) && (
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Usuario / Email</label>
                 <div className="flex items-center gap-2">
-                  <span className="flex-1 text-sm font-medium text-text-primary truncate">{platform.username || identityEmail}</span>
-                  <button onClick={() => copy((platform.username || identityEmail)!, `user-${methodId}`)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
+                  <span className="flex-1 text-sm font-medium text-text-primary truncate">{platform.username || finalEmail}</span>
+                  <button onClick={() => copy((platform.username || finalEmail)!, `user-${methodId}`)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
                     {copiedField === `user-${methodId}` ? '✓' : 'Copiar'}
                   </button>
                 </div>
@@ -97,11 +98,13 @@ function PlatformCard({ platform, identityEmail, defaultOpen, isSingle }: { plat
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Contraseña</label>
                 <div className="flex items-center gap-2 bg-black/5 dark:bg-white/5 rounded-xl px-3 py-2 border border-black/10 dark:border-white/10">
                   <span className="flex-1 text-sm font-mono text-text-primary truncate tracking-wider">
-                    {showPw ? method.password : '••••••••••••'}
+                    {hidePassword ? '••••••••••••' : showPw ? method.password : '••••••••••••'}
                   </span>
-                  <button onClick={() => togglePassword(methodId)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
-                    {showPw ? 'Ocultar' : 'Ver'}
-                  </button>
+                  {!hidePassword && (
+                    <button onClick={() => togglePassword(methodId)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
+                      {showPw ? 'Ocultar' : 'Ver'}
+                    </button>
+                  )}
                   <button onClick={() => copy(method.password, `pw-${methodId}`)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
                     {copiedField === `pw-${methodId}` ? '✓' : 'Copiar'}
                   </button>
@@ -308,14 +311,14 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
                   <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
                 </svg>
               </div>
-              <h3 className="text-xl font-bold">{parsedPayload.identityEmail}</h3>
+              <h3 className="text-xl font-bold">{parsedPayload.bundleName || parsedPayload.identityEmail}</h3>
               <p className="text-indigo-100 text-xs mt-1">{parsedPayload.data.length} plataformas compartidas</p>
             </>
           ) : (
             <>
               <PlatformLogo name={getCanonicalPlatformName(parsedPayload.data.name)} className="w-16 h-16 mx-auto mb-3 shadow-lg ring-4 ring-white/20" />
               <h3 className="text-xl font-bold">{parsedPayload.data.name}</h3>
-              {parsedPayload.identityEmail && (
+              {parsedPayload.identityEmail && parsedPayload.identityEmail !== parsedPayload.data.name && (
                 <p className="text-indigo-100 text-sm mt-1">{parsedPayload.identityEmail}</p>
               )}
             </>
@@ -355,11 +358,13 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
           )}
 
           {isBundle ? (
-            parsedPayload.data.map((platform, i) => (
-              <PlatformCard key={platform.id || i} platform={platform} identityEmail={parsedPayload.identityEmail} defaultOpen={i === 0} />
-            ))
+            <div className="space-y-3 px-1">
+              {parsedPayload.data.map((platform, i) => (
+                <PlatformCard key={platform.id || i} platform={platform} identityEmail={parsedPayload.identityEmail} defaultOpen={i === 0} hidePassword={parsedPayload.hidePassword} />
+              ))}
+            </div>
           ) : (
-            <PlatformCard platform={parsedPayload.data} identityEmail={parsedPayload.identityEmail} isSingle />
+            <PlatformCard platform={parsedPayload.data} identityEmail={parsedPayload.identityEmail} isSingle hidePassword={parsedPayload.hidePassword} />
           )}
         </div>
       </div>

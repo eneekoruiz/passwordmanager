@@ -651,13 +651,13 @@ export const MainArea = memo(function MainArea({
               if (groupMode === 'platform') {
                 setShowShareModal({
                   type: 'bundle',
-                  identity: { id: 'bundle', email: selectedPlatformName || 'Cuentas', platforms: platformAccounts.map(pa => pa.platform), createdAt: '', updatedAt: '' },
-                  platforms: platformAccounts.map(pa => pa.platform)
+                  bundleName: selectedPlatformDisplayName,
+                  platforms: platformAccounts.map(pa => ({ ...pa.platform, identityEmail: pa.identityEmail }))
                 })
               } else if (identity) {
                 setShowShareModal({
                   type: 'bundle',
-                  identity: identity,
+                  bundleName: identity.email,
                   platforms: identity.platforms || []
                 })
               }
