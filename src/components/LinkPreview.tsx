@@ -26,7 +26,7 @@ function normalizeParsedPayload(raw: ParsedPayload): LinkPayload {
   return { type: 'single', data: raw as Platform }
 }
 
-function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform; defaultOpen?: boolean; isSingle?: boolean }) {
+function PlatformCard({ platform, identityEmail, defaultOpen, isSingle }: { platform: Platform; identityEmail?: string; defaultOpen?: boolean; isSingle?: boolean }) {
   const [open, setOpen] = useState(!!defaultOpen)
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -54,9 +54,9 @@ function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform;
     const showPw = showPasswordMap[methodId]
 
     return (
-      <div key={methodId} className="bg-white border border-border rounded-2xl p-4 shadow-sm mb-3 last:mb-0">
+      <div key={methodId} className="bg-surface border border-border-subtle rounded-2xl p-4 shadow-sm mb-3 last:mb-0">
         <div className="flex items-center justify-between mb-3">
-          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-slate-100 text-slate-500 rounded-md">
+          <span className="text-[10px] font-bold uppercase tracking-wider px-2 py-1 bg-surface-elevated text-text-secondary rounded-md">
             {isPassword ? 'Contraseña' : isSso ? 'SSO / Social' : method.type}
           </span>
         </div>
@@ -81,12 +81,12 @@ function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform;
           </div>
         ) : (
           <div className="space-y-3">
-            {platform.username && (
+            {(platform.username || identityEmail) && (
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Usuario / Email</label>
                 <div className="flex items-center gap-2">
-                  <span className="flex-1 text-sm font-medium text-text-primary truncate">{platform.username}</span>
-                  <button onClick={() => copy(platform.username!, `user-${methodId}`)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
+                  <span className="flex-1 text-sm font-medium text-text-primary truncate">{platform.username || identityEmail}</span>
+                  <button onClick={() => copy((platform.username || identityEmail)!, `user-${methodId}`)} className="text-xs font-bold text-text-tertiary hover:text-indigo-600 transition-colors shrink-0">
                     {copiedField === `user-${methodId}` ? '✓' : 'Copiar'}
                   </button>
                 </div>
@@ -95,7 +95,7 @@ function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform;
             {isPassword && method.password && (
               <div>
                 <label className="block text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Contraseña</label>
-                <div className="flex items-center gap-2 bg-slate-50 rounded-xl px-3 py-2 border border-slate-100">
+                <div className="flex items-center gap-2 bg-black/5 dark:bg-white/5 rounded-xl px-3 py-2 border border-black/10 dark:border-white/10">
                   <span className="flex-1 text-sm font-mono text-text-primary truncate tracking-wider">
                     {showPw ? method.password : '••••••••••••'}
                   </span>
@@ -115,12 +115,12 @@ function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform;
   }
 
   return (
-    <div className={isSingle ? '' : "border border-border rounded-2xl overflow-hidden shadow-sm"}>
+    <div className={isSingle ? '' : "border border-border-subtle rounded-2xl overflow-hidden shadow-sm"}>
       {!isSingle && (
         <button
           type="button"
           onClick={() => setOpen(!open)}
-          className="w-full flex items-center gap-3 px-4 py-3 bg-white hover:bg-surface-hover transition-colors text-left"
+          className="w-full flex items-center gap-3 px-4 py-3 bg-surface hover:bg-surface-hover transition-colors text-left"
         >
           <PlatformLogo name={canonicalName} className="w-8 h-8 rounded-lg shrink-0" />
           <div className="flex-1 min-w-0">
@@ -136,11 +136,11 @@ function PlatformCard({ platform, defaultOpen, isSingle }: { platform: Platform;
       )}
 
       {(open || isSingle) && (
-        <div className={isSingle ? '' : "px-3 pb-3 pt-3 bg-slate-50/50 border-t border-border-subtle animate-in slide-in-from-top-1 duration-150"}>
+        <div className={isSingle ? '' : "px-3 pb-3 pt-3 bg-black/5 dark:bg-black/20 border-t border-border-subtle animate-in slide-in-from-top-1 duration-150"}>
           {(platform.accessMethods || []).map((method: any, idx: number) => renderMethod(method, idx))}
           
           {platform.notes && (
-            <div className="mt-3 bg-white border border-border rounded-xl p-3">
+            <div className="mt-3 bg-surface border border-border-subtle rounded-xl p-3">
               <label className="block text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-1">Notas</label>
               <p className="text-xs text-text-secondary whitespace-pre-wrap">{platform.notes}</p>
             </div>
@@ -356,10 +356,10 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
 
           {isBundle ? (
             parsedPayload.data.map((platform, i) => (
-              <PlatformCard key={platform.id || i} platform={platform} defaultOpen={i === 0} />
+              <PlatformCard key={platform.id || i} platform={platform} identityEmail={parsedPayload.identityEmail} defaultOpen={i === 0} />
             ))
           ) : (
-            <PlatformCard platform={parsedPayload.data} isSingle />
+            <PlatformCard platform={parsedPayload.data} identityEmail={parsedPayload.identityEmail} isSingle />
           )}
         </div>
       </div>

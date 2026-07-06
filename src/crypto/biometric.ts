@@ -203,7 +203,7 @@ export async function registerBiometricCredential(
   }
 }
 
-export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<string> {
+export async function unlockWithBiometrics(bundle: BiometricBundle, signal?: AbortSignal): Promise<string> {
   const challenge = new Uint8Array(32)
   crypto.getRandomValues(challenge)
 
@@ -238,6 +238,7 @@ export async function unlockWithBiometrics(bundle: BiometricBundle): Promise<str
     assertion = await navigator.credentials.get({
       publicKey: getOptions,
       mediation: 'optional',
+      signal,
     }) as PublicKeyCredential | null
   } finally {
     setPromptState(false)

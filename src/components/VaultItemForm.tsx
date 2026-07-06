@@ -249,8 +249,54 @@ export function VaultItemForm({
   }
 
   return (
-    <form onSubmit={submit} className="mx-auto max-w-2xl space-y-6 pb-12 animate-fade-in select-none">
-      <section className="rounded-3xl border border-border-subtle bg-white dark:bg-[#1c1c1e] p-5 shadow-subtle">
+    <form onSubmit={submit} className="flex w-full flex-col select-none font-sans animate-vault-morph pb-12">
+      {/* Sticky Header — Modo Edición / Creación */}
+      <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl dark:bg-[#1c1c1e]/90 lg:px-8 lg:py-4 mb-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <button type="button" onClick={handleCancelClick} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
+            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+            </svg>
+          </button>
+          <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-xl bg-slate-100 text-text-primary dark:bg-white/10 dark:text-white">
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
+            </svg>
+          </div>
+          <h2 className="truncate text-lg font-bold text-text-primary dark:text-white">
+            {item.id.startsWith('draft-') ? 'Añadir elemento' : 'Editar elemento'}
+          </h2>
+        </div>
+        <div className="flex items-center gap-2 shrink-0">
+          {onDelete && !item.id.startsWith('draft-') && (
+            <button type="button" onClick={() => void onDelete()} className="hidden sm:block rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95">
+              Eliminar
+            </button>
+          )}
+          <button type="submit" disabled={saving || isUploadingAttachment} title="Guardar cambios" className="flex items-center justify-center gap-1.5 rounded-xl bg-text-primary px-3 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
+            {saving ? (
+              <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+              </svg>
+            ) : item.id.startsWith('draft-') ? (
+              <>
+                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                <span className="hidden sm:inline">Añadir</span>
+              </>
+            ) : (
+              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4.5 12.75l6 6 9-13.5" />
+              </svg>
+            )}
+          </button>
+        </div>
+      </header>
+
+      <div className="mx-auto w-full max-w-2xl px-4 space-y-6">
+        <section className="rounded-3xl border border-border-subtle bg-white dark:bg-[#1c1c1e] p-5 shadow-subtle">
         <div className="mb-5 border-b border-border-subtle pb-3">
           <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-text-tertiary">{item.type}</p>
           <h3 className="mt-1 text-base font-bold text-text-primary">{itemTitle(item)}</h3>
@@ -357,6 +403,102 @@ export function VaultItemForm({
             </div>
           )}
 
+      {draft.type === 'DOCUMENT' && (
+        <div className="space-y-6 pt-4 border-t border-border-subtle">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold text-text-primary">Tipo de Documento Legal</h3>
+            <select
+              value={(draft as any).documentTemplate || 'CUSTOM'}
+              onChange={(e) => setDraft(prev => ({ ...prev, documentTemplate: e.target.value as any }))}
+              className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
+            >
+              <option value="DNI">DNI / Documento Nacional de Identidad</option>
+              <option value="PASSPORT">Pasaporte</option>
+              <option value="DRIVING_LICENSE">Carnet de Conducir</option>
+              <option value="CUSTOM">Documento Genérico / Personalizado</option>
+            </select>
+            <div className="mt-3 text-xs text-text-secondary">
+              {(draft as any).documentTemplate === 'DNI' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>parte delantera</strong> y otra de la <strong>parte trasera</strong> del DNI.</p>}
+              {(draft as any).documentTemplate === 'PASSPORT' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>página principal</strong> con tus datos y foto.</p>}
+              {(draft as any).documentTemplate === 'DRIVING_LICENSE' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>parte delantera</strong> y otra de la <strong>parte trasera</strong> del carnet.</p>}
+              {(!(draft as any).documentTemplate || (draft as any).documentTemplate === 'CUSTOM') && <p>Adjunta cualquier archivo PDF o imagen relacionada con este documento.</p>}
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="mt-6 mb-6">
+        <div className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 shadow-sm">
+          <AttachmentsList
+            attachments={draft.attachments || []}
+            onAttachmentsChange={(attachments) => setDraft(prev => ({ ...prev, attachments }))}
+            onUploadingChange={setIsUploadingAttachment}
+            templateType={draft.type === 'DOCUMENT' ? (draft as any).documentTemplate : undefined}
+          />
+
+          {['DOCUMENT', 'PAPERWORK'].includes(draft.type) && item.id && (
+            <div className="mt-6 border-t border-black/5 pt-4">
+              <div className="flex items-center justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-text-primary">¿El documento ha caducado o sido renovado?</h4>
+                  <p className="text-[10px] text-text-secondary mt-0.5">Archiva la versión actual para subir una nueva.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => {
+                    const isPaperwork = draft.type === 'PAPERWORK';
+                    if (!window.confirm(`¿Quieres archivar las fotos actuales y ${isPaperwork ? 'el periodo' : 'la fecha de caducidad'} en el historial para subir las nuevas?`)) return;
+                    setDraft(prev => {
+                      const past = (prev as any).pastVersions || [];
+                      const newPast = [{
+                        id: `archived-${Date.now()}`,
+                        attachments: prev.attachments || [],
+                        ...(isPaperwork ? { period: (prev as any).period || '' } : { expiryDate: (prev as any).expiryDate || null }),
+                        replacedAt: new Date().toISOString()
+                      }, ...past];
+                      return {
+                        ...prev,
+                        attachments: [],
+                        ...(isPaperwork ? { period: '' } : { expiryDate: null }),
+                        pastVersions: newPast
+                      };
+                    });
+                  }}
+                  className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
+                >
+                  Renovar {draft.type === 'PAPERWORK' ? 'Trámite' : 'Documento'}
+                </button>
+              </div>
+
+              {(draft as any).pastVersions?.length > 0 && (
+                <div className="mt-4 space-y-3">
+                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary">Versiones Anteriores ({(draft as any).pastVersions.length})</h4>
+                  <ul className="space-y-2">
+                    {(draft as any).pastVersions.map((version: any) => (
+                      <li key={version.id} className="rounded-xl border border-black/5 bg-white p-3 shadow-sm opacity-80">
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="text-[10px] font-bold text-text-secondary">
+                            Archivado el {new Date(version.replacedAt).toLocaleDateString()}
+                          </span>
+                          {(version.expiryDate || version.period) && (
+                            <span className="text-[10px] text-text-tertiary">
+                              {version.expiryDate ? `Caducaba: ${new Date(version.expiryDate).toLocaleDateString()}` : `Periodo: ${version.period}`}
+                            </span>
+                          )}
+                        </div>
+                        <AttachmentsList
+                          attachments={version.attachments || []}
+                          readOnly
+                        />
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
 
           <div className="border-t border-border-subtle pt-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -500,105 +642,8 @@ export function VaultItemForm({
                   </div>
                 )
               })}
-            </div>
           </div>
         </div>
-      </section>
-
-      {draft.type === 'DOCUMENT' && (
-        <section className="mt-6 mb-6">
-          <div className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-sm">
-            <h3 className="mb-4 text-sm font-bold text-text-primary">Tipo de Documento Legal</h3>
-            <select
-              value={(draft as any).documentTemplate || 'CUSTOM'}
-              onChange={(e) => setDraft(prev => ({ ...prev, documentTemplate: e.target.value as any }))}
-              className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
-            >
-              <option value="DNI">DNI / Documento Nacional de Identidad</option>
-              <option value="PASSPORT">Pasaporte</option>
-              <option value="DRIVING_LICENSE">Carnet de Conducir</option>
-              <option value="CUSTOM">Documento Genérico / Personalizado</option>
-            </select>
-            <div className="mt-3 text-xs text-text-secondary">
-              {(draft as any).documentTemplate === 'DNI' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>parte delantera</strong> y otra de la <strong>parte trasera</strong> del DNI.</p>}
-              {(draft as any).documentTemplate === 'PASSPORT' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>página principal</strong> con tus datos y foto.</p>}
-              {(draft as any).documentTemplate === 'DRIVING_LICENSE' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>parte delantera</strong> y otra de la <strong>parte trasera</strong> del carnet.</p>}
-              {(!(draft as any).documentTemplate || (draft as any).documentTemplate === 'CUSTOM') && <p>Adjunta cualquier archivo PDF o imagen relacionada con este documento.</p>}
-            </div>
-          </div>
-        </section>
-      )}
-
-      <section className="mt-6 mb-6">
-        <div className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 shadow-sm">
-          <AttachmentsList
-            attachments={draft.attachments || []}
-            onAttachmentsChange={(attachments) => setDraft(prev => ({ ...prev, attachments }))}
-            onUploadingChange={setIsUploadingAttachment}
-            templateType={draft.type === 'DOCUMENT' ? (draft as any).documentTemplate : undefined}
-          />
-
-          {['DOCUMENT', 'PAPERWORK'].includes(draft.type) && item.id && (
-            <div className="mt-6 border-t border-black/5 pt-4">
-              <div className="flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-bold text-text-primary">¿El documento ha caducado o sido renovado?</h4>
-                  <p className="text-[10px] text-text-secondary mt-0.5">Archiva la versión actual para subir una nueva.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    const isPaperwork = draft.type === 'PAPERWORK';
-                    if (!window.confirm(`¿Quieres archivar las fotos actuales y ${isPaperwork ? 'el periodo' : 'la fecha de caducidad'} en el historial para subir las nuevas?`)) return;
-                    setDraft(prev => {
-                      const past = (prev as any).pastVersions || [];
-                      const newPast = [{
-                        id: `archived-${Date.now()}`,
-                        attachments: prev.attachments || [],
-                        ...(isPaperwork ? { period: (prev as any).period || '' } : { expiryDate: (prev as any).expiryDate || null }),
-                        replacedAt: new Date().toISOString()
-                      }, ...past];
-                      return {
-                        ...prev,
-                        attachments: [],
-                        ...(isPaperwork ? { period: '' } : { expiryDate: null }),
-                        pastVersions: newPast
-                      };
-                    });
-                  }}
-                  className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
-                >
-                  Renovar {draft.type === 'PAPERWORK' ? 'Trámite' : 'Documento'}
-                </button>
-              </div>
-
-              {(draft as any).pastVersions?.length > 0 && (
-                <div className="mt-4 space-y-3">
-                  <h4 className="text-[11px] font-bold uppercase tracking-wider text-text-tertiary">Versiones Anteriores ({(draft as any).pastVersions.length})</h4>
-                  <ul className="space-y-2">
-                    {(draft as any).pastVersions.map((version: any) => (
-                      <li key={version.id} className="rounded-xl border border-black/5 bg-white p-3 shadow-sm opacity-80">
-                        <div className="flex items-center justify-between mb-2">
-                          <span className="text-[10px] font-bold text-text-secondary">
-                            Archivado el {new Date(version.replacedAt).toLocaleDateString()}
-                          </span>
-                          {(version.expiryDate || version.period) && (
-                            <span className="text-[10px] text-text-tertiary">
-                              {version.expiryDate ? `Caducaba: ${new Date(version.expiryDate).toLocaleDateString()}` : `Periodo: ${version.period}`}
-                            </span>
-                          )}
-                        </div>
-                        <AttachmentsList
-                          attachments={version.attachments || []}
-                          readOnly
-                        />
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-            </div>
-          )}
         </div>
       </section>
 
@@ -665,26 +710,6 @@ export function VaultItemForm({
         </div>
       )}
 
-      <div className="flex items-center justify-between border-t border-border-subtle pt-5">
-        <div>
-          {onDelete && (
-            <button type="button" onClick={() => void onDelete()} className="text-sm font-semibold text-red-600">
-              Eliminar
-            </button>
-          )}
-        </div>
-        <div className="flex gap-2">
-          <button type="button" onClick={handleCancelClick} className="rounded-lg px-4 py-2 text-sm font-semibold text-text-secondary hover:bg-surface-hover">
-            Cancelar
-          </button>
-          <button
-            type="submit"
-            disabled={saving || isUploadingAttachment}
-            className="flex items-center gap-2 rounded-xl bg-slate-900 px-4 py-2 text-xs font-bold text-white transition-all hover:bg-black active:scale-95 disabled:opacity-50"
-          >
-            {saving ? 'Guardando...' : isUploadingAttachment ? 'Subiendo...' : 'Guardar'}
-          </button>
-        </div>
       </div>
     </form>
   )

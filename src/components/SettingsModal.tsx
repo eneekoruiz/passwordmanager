@@ -6,6 +6,7 @@ import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadP
 import { passwordStrengthIssue, evaluatePassword, isPasswordExposedInCache } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 import { ThemeToggle } from './ui/ThemeToggle'
+import { ExposedPasswordsModal } from './ExposedPasswordsModal'
 
 type PlaintextExportFormat = 'csv' | 'json' | 'zip'
 
@@ -112,8 +113,6 @@ export function SettingsModal({
   const [selectedWeakPasswords, setSelectedWeakPasswords] = useState<string[]>([])
   
   const [exposedPasswordsModalOpen, setExposedPasswordsModalOpen] = useState(false)
-  const [selectedExposedPasswords, setSelectedExposedPasswords] = useState<string[]>([])
-  
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
       
@@ -1373,157 +1372,13 @@ export function SettingsModal({
           </div>
         </div>
       )}
-      {exposedPasswordsModalOpen && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
-          <div className="flex max-h-[82vh] w-full max-w-2xl flex-col rounded-3xl border border-red-100 bg-white p-6 text-left shadow-[0_30px_90px_rgba(15,23,42,0.22)]">
-            <div className="mb-4 flex items-start justify-between gap-4">
-              <div>
-                <h2 className="text-lg font-bold tracking-tight text-text-primary">Contraseñas Expuestas</h2>
-                <p className="mt-1 text-xs leading-relaxed text-text-secondary">Estas cuentas utilizan contraseñas que han aparecido en filtraciones mundiales. Cámbialas de inmediato.</p>
-              </div>
-              <div className="flex items-center gap-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    showToast('Iniciando análisis profundo en la base de datos de filtraciones...', 'info')
-                    setTimeout(() => showToast('Análisis completado. Base de datos actualizada.', 'success'), 3000)
-                  }}
-                  className="rounded-xl px-4 py-2 bg-indigo-50 text-indigo-700 text-xs font-bold hover:bg-indigo-100 transition-colors flex items-center gap-1.5"
-                >
-                  <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
-                  </svg>
-                  Revisar Ahora
-                </button>
-                <button
-                  type="button"
-                  onClick={() => setExposedPasswordsModalOpen(false)}
-                  className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
-                  aria-label="Cerrar análisis de contraseñas expuestas"
-                >
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-                  </svg>
-                </button>
-              </div>
-            </div>
-            
-            {exposedPasswords.length > 0 && (
-              <div className="mb-3 flex items-center justify-between rounded-xl bg-surface p-3">
-                <label className="flex items-center gap-2 text-sm font-semibold text-text-primary cursor-pointer">
-                  <input
-                    type="checkbox"
-                    className="h-4 w-4 rounded border-gray-300 text-red-600 focus:ring-red-500"
-                    checked={selectedExposedPasswords.length === exposedPasswords.length}
-                    onChange={(e) => {
-                      if (e.target.checked) {
-                        setSelectedExposedPasswords(exposedPasswords.map(wp => `${wp.identityEmail}-${wp.platform!.id}`))
-                      } else {
-                        setSelectedExposedPasswords([])
-                      }
-                    }}
-                  />
-                  Seleccionar Todas
-                </label>
-                <button
-                  type="button"
-                  disabled={selectedExposedPasswords.length === 0}
-                  onClick={async () => {
-                    for (const wpId of selectedExposedPasswords) {
-                      const [email, platformId] = wpId.split('-')
-                      const identity = identities.find(id => id.email === email)
-                      const platform = exposedPasswords.find(wp => wp.platform?.id === platformId)?.platform
-                      if (identity && platform) {
-                        await onUpdatePlatform?.(identity.id, platform.id, { ...platform, ignoreExposedPasswordWarning: true })
-                      }
-                    }
-                    showToast(`${selectedExposedPasswords.length} aviso(s) ignorado(s).`, 'success')
-                    setSelectedExposedPasswords([])
-                  }}
-                  className="rounded-lg bg-red-100 px-4 py-2 text-xs font-bold text-red-800 transition-colors hover:bg-red-200 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  Ignorar Seleccionadas
-                </button>
-              </div>
-            )}
-
-            <div className="min-h-0 flex-1 space-y-3 overflow-y-auto pr-1 scrollbar-thin">
-              {exposedPasswords.map((entry) => {
-                const platformId = entry?.platform?.id
-                const key = `${entry?.identityEmail}-${platformId}`
-                const isSelected = selectedExposedPasswords.includes(key)
-
-                return (
-                  <div key={key} className={`rounded-2xl border ${isSelected ? 'border-red-400 ring-2 ring-red-400/20' : 'border-red-100'} bg-red-50/50 p-4 transition-all group`}>
-                    <div className="flex items-start gap-3">
-                      <input
-                        type="checkbox"
-                        className="mt-1 h-4 w-4 shrink-0 rounded border-gray-300 text-red-600 focus:ring-red-500 cursor-pointer"
-                        checked={isSelected}
-                        onChange={(e) => {
-                          if (e.target.checked) setSelectedExposedPasswords([...selectedExposedPasswords, key])
-                          else setSelectedExposedPasswords(selectedExposedPasswords.filter(id => id !== key))
-                        }}
-                      />
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-bold text-red-950">{entry?.platform?.name || 'Plataforma desconocida'}</p>
-                            <p className="mt-0.5 truncate text-[11px] font-medium text-red-800">{entry?.identityEmail || 'Identidad sin email'}</p>
-                          </div>
-                          <span className="shrink-0 rounded-full bg-white px-2 py-1 text-[10px] font-bold text-red-900 shadow-sm flex items-center gap-1">
-                            <span className="h-1.5 w-1.5 rounded-full bg-red-600 animate-pulse"></span>
-                            Filtrada
-                          </span>
-                        </div>
-                        
-                        <div className="mt-4 flex flex-wrap items-center gap-2">
-                          {onUpdatePlatform && entry?.identityEmail && platformId && (
-                            <button
-                              type="button"
-                              onClick={async () => {
-                                const identity = identities.find(id => id.email === entry.identityEmail)
-                                if (identity) {
-                                  await onUpdatePlatform(identity.id, platformId, { ...entry.platform!, ignoreExposedPasswordWarning: true })
-                                  showToast('Aviso de contraseña expuesta ignorado.', 'success')
-                                }
-                              }}
-                              className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition-colors hover:bg-red-100"
-                            >
-                              Ignorar este aviso
-                            </button>
-                          )}
-                          <button
-                            type="button"
-                            onClick={() => {
-                              if (onEditPlatform) {
-                                onEditPlatform(platformId)
-                                onClose()
-                              }
-                            }}
-                            className="flex items-center gap-1.5 rounded-lg border border-black/5 bg-slate-900 px-3 py-1.5 text-xs font-semibold text-white shadow-sm transition-all hover:bg-slate-800"
-                          >
-                            <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.112l-2.83.849a.5.5 0 01-.632-.632l.849-2.83a4.5 4.5 0 011.112-1.89l13.43-13.43z" />
-                              <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5" />
-                            </svg>
-                            Editar plataforma
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </div>
-                )
-              })}
-              {exposedPasswords.length === 0 && (
-                <div className="py-8 text-center text-sm text-text-tertiary">
-                  ¡No se encontraron contraseñas expuestas!
-                </div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
+      <ExposedPasswordsModal
+        isOpen={exposedPasswordsModalOpen}
+        onClose={() => setExposedPasswordsModalOpen(false)}
+        identities={identities}
+        onUpdatePlatform={onUpdatePlatform ? async (i, p, u) => { await onUpdatePlatform(i, p, u) } : undefined}
+        onEditPlatform={onEditPlatform}
+      />
       {securityModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-950/25 p-4 backdrop-blur-md animate-vault-morph">
           <div className="w-full max-w-md rounded-3xl border border-amber-200 bg-white/95 p-6 text-left shadow-[0_30px_90px_rgba(146,64,14,0.22)]">

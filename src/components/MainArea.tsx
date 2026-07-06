@@ -688,9 +688,13 @@ export const MainArea = memo(function MainArea({
               }
               setView('create')
             }}
-            className="rounded-lg border border-border-subtle bg-surface-elevated dark:bg-slate-800 px-3 py-2 text-sm font-medium text-text-primary dark:text-white shadow-subtle transition-colors hover:bg-surface-hover dark:hover:bg-slate-700"
+            className="flex items-center justify-center rounded-lg border border-border-subtle bg-surface-elevated dark:bg-slate-800 px-3 py-2 text-sm font-medium text-text-primary dark:text-white shadow-subtle transition-colors hover:bg-surface-hover dark:hover:bg-slate-700"
           >
-            Añadir
+            {isMobile ? (
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+              </svg>
+            ) : 'Añadir'}
           </button>
         )}
       </header>

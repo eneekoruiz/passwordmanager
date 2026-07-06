@@ -1525,19 +1525,25 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           const timeoutMs = 7000
           let timeoutId: any
           
+          const abortController = new AbortController()
+
           const biometricTimeout = new Promise<never>((_, reject) => {
-            timeoutId = setTimeout(() => reject(new Error('biometric_timeout')), timeoutMs)
+            timeoutId = setTimeout(() => {
+              abortController.abort(new Error('biometric_timeout'))
+              reject(new Error('biometric_timeout'))
+            }, timeoutMs)
           })
 
           const manualAbort = new Promise<never>((_, reject) => {
             setBiometricFallbackAbort(() => () => {
               clearTimeout(timeoutId)
+              abortController.abort(new Error('manual_fallback'))
               reject(new Error('manual_fallback'))
             })
           })
 
           const masterPassword = await Promise.race([
-            unlockWithBiometrics(bundle as BiometricBundle),
+            unlockWithBiometrics(bundle as BiometricBundle, abortController.signal),
             biometricTimeout,
             manualAbort
           ])

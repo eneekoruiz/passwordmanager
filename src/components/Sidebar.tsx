@@ -88,6 +88,7 @@ export const Sidebar = memo(function Sidebar({
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
   const [sidebarError, setSidebarError] = useState<string | null>(null)
+  const [activeMenuCategoryId, setActiveMenuCategoryId] = useState<string | null>(null)
   const [activeLetter, setActiveLetter] = useState<string>('')
   const navRef = useRef<HTMLElement>(null)
   const query = searchQuery.trim().toLowerCase()
@@ -427,16 +428,46 @@ export const Sidebar = memo(function Sidebar({
             </span>
           </button>
           
-          <button 
-            type="button"
-            onClick={() => void handleAddLocalCategory(category.id)} 
-            className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
-            title="Añadir subcarpeta"
-          >
-            <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-            </svg>
-          </button>
+          <div className="relative flex">
+            <button 
+              type="button"
+              onClick={(e) => {
+                e.stopPropagation();
+                setActiveMenuCategoryId(activeMenuCategoryId === category.id ? null : category.id);
+              }} 
+              className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
+              title="Opciones"
+            >
+              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+              </svg>
+            </button>
+
+            {activeMenuCategoryId === category.id && (
+              <>
+                <div 
+                  className="fixed inset-0 z-40"
+                  onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
+                />
+                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-border-subtle bg-surface shadow-lg overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
+                  <button
+                    type="button"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setActiveMenuCategoryId(null);
+                      void handleAddLocalCategory(category.id);
+                    }}
+                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
+                  >
+                    <svg className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                    </svg>
+                    Añadir subcarpeta
+                  </button>
+                </div>
+              </>
+            )}
+          </div>
         </div>
 
         {children.length > 0 && (
@@ -544,23 +575,21 @@ export const Sidebar = memo(function Sidebar({
         }
         aria-label="Lista de identidades"
       >
-        <header className="flex items-start justify-between px-4 pb-3 pt-4 lg:px-5 lg:pt-5">
-          <div className="min-w-0 text-left">
-            {!isMobile && (
-              <>
-                <div className="flex items-center gap-2">
-                  <h1 className="text-xl font-bold tracking-tight text-text-primary dark:text-white">Contras</h1>
-                  {activeSyncIndicator}
-                </div>
-                {profileName && (
-                  <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
-                    {profileName}
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </header>
+        {!isMobile && (
+          <header className="flex items-start justify-between px-4 pb-3 pt-4 lg:px-5 lg:pt-5">
+            <div className="min-w-0 text-left">
+              <div className="flex items-center gap-2">
+                <h1 className="text-xl font-bold tracking-tight text-text-primary dark:text-white">Contras</h1>
+                {activeSyncIndicator}
+              </div>
+              {profileName && (
+                <p className="mt-0.5 truncate text-[10px] font-semibold uppercase tracking-wider text-text-secondary">
+                  {profileName}
+                </p>
+              )}
+            </div>
+          </header>
+        )}
 
         {showAddForm && (
           <div className="px-4 pb-3 lg:px-5">
