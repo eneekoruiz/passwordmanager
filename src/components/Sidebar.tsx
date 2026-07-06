@@ -574,7 +574,7 @@ export const Sidebar = memo(function Sidebar({
               {sidebarError}
             </div>
           )}
-          <div className="mb-3 grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e]">
+          <div className="mb-3 hidden lg:grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e]">
             {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
               <button
                 key={mode}

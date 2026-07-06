@@ -1710,7 +1710,7 @@ function VaultApp() {
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated lg:rounded-l-2xl lg:border-l lg:border-border-subtle">
+        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated dark:bg-slate-950 lg:rounded-l-2xl lg:border-l lg:border-border-subtle dark:lg:border-white/5">
           {desktopToolbar}
           <MainArea
             identities={displayIdentities}
