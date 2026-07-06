@@ -86,7 +86,7 @@ export class StorageService {
     // Firestore batch.commit() puede colgarse si no hay conexión real
     await Promise.race([
       batch.commit(),
-      new Promise((_, reject) => setTimeout(() => reject(new Error('La subida ha tardado demasiado (timeout)')), 20000))
+      new Promise((_, reject) => setTimeout(() => reject(new Error('La subida ha tardado demasiado (timeout)')), 60000))
     ])
 
     return metadata

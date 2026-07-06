@@ -187,13 +187,16 @@ export interface SecureNoteVaultItem extends BaseVaultItem {
 
 export interface PastDocumentVersion {
   id: string
-  archivedAt: string
   expiryDate: string | null
   attachments: FileAttachment[]
+  replacedAt: string
 }
+
+export type DocumentTemplateType = 'DNI' | 'PASSPORT' | 'DRIVING_LICENSE' | 'CUSTOM'
 
 export interface DocumentVaultItem extends BaseVaultItem {
   type: 'DOCUMENT'
+  documentTemplate?: DocumentTemplateType
   hasExpiry: boolean
   expiryDate: string | null
   pastVersions?: PastDocumentVersion[]

@@ -479,8 +479,8 @@ function VaultApp() {
           const dateB = b.createdAt ? new Date(b.createdAt).getTime() : 0
           return dateA - dateB
         } else if (sortMode === 'access-desc') {
-          const dateA = a.lastAccessedAt ? new Date(a.lastAccessedAt).getTime() : 0
-          const dateB = b.lastAccessedAt ? new Date(b.lastAccessedAt).getTime() : 0
+          const dateA = new Date(a.lastAccessedAt || a.updatedAt || a.createdAt || 0).getTime()
+          const dateB = new Date(b.lastAccessedAt || b.updatedAt || b.createdAt || 0).getTime()
           return dateB - dateA
         } else if (sortMode === 'usage-desc') {
           return (b.accessCount || 0) - (a.accessCount || 0) || a.name.localeCompare(b.name)
@@ -1106,25 +1106,7 @@ function VaultApp() {
         </div>
       )}
 
-      {/* Row 3: Tabs selector (only on list view) */}
-      {showExtraHeaderElements && (
-        <div className="grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle">
-          {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => handleGroupModeChange(mode)}
-              className={`min-h-9 rounded-lg px-2 py-1 text-xs font-bold transition-all duration-150 ${
-                groupMode === mode
-                  ? 'bg-text-primary text-white shadow-sm'
-                  : 'text-text-secondary hover:bg-surface-hover'
-              }`}
-            >
-              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
-            </button>
-          ))}
-        </div>
-      )}
+
     </div>
   ) : null
   const globalOverlays = null

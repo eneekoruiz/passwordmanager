@@ -25,7 +25,7 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
   const [breachedPasswords, setBreachedPasswords] = useState<BreachedEntry[]>([])
   const [selectedBreaches, setSelectedBreaches] = useState<string[]>([])
   const [scanComplete, setScanComplete] = useState(false)
-
+  const [hasStartedScan, setHasStartedScan] = useState(false)
 
 
   const runScan = useCallback(async () => {
@@ -62,12 +62,13 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
     if (!isOpen) {
       setBreachedPasswords([])
       setScanComplete(false)
+      setHasStartedScan(false)
       setSelectedBreaches([])
       return
     }
 
     let isMounted = true
-    if (isMounted) {
+    if (isMounted && hasStartedScan && !scanComplete) {
       runScan()
     }
     return () => {
@@ -129,6 +130,21 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
             <span className="h-10 w-10 rounded-full border-4 border-red-500/20 border-t-red-600 animate-spin" />
             <p className="text-sm font-bold text-slate-600">Escaneando bóveda de forma anónima...</p>
             <p className="text-xs text-slate-400">Usando K-Anonymity para proteger tu privacidad.</p>
+          </div>
+        ) : !hasStartedScan ? (
+          <div className="flex h-[300px] flex-col items-center justify-center text-center animate-in fade-in duration-300">
+            <div className="mb-4 flex h-20 w-20 items-center justify-center rounded-full bg-indigo-50 text-indigo-500">
+              <svg className="h-10 w-10" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-text-primary">¿Listos para revisar?</h3>
+            <p className="max-w-[280px] text-sm text-text-tertiary mt-2">
+              Comprobaremos tus contraseñas contra bases de datos públicas de filtraciones de forma segura.
+            </p>
+            <button onClick={() => { setHasStartedScan(true); runScan(); }} className="mt-6 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700">
+              Revisar
+            </button>
           </div>
         ) : breachedPasswords.length === 0 ? (
           <div className="flex h-[300px] flex-col items-center justify-center text-center animate-in fade-in duration-300">

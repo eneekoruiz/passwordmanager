@@ -82,20 +82,18 @@ export function createLocalVaultItem(
         expiry: null,
       }
     case 'SECURE_NOTE':
-      return {
-        ...base,
-        type: 'SECURE_NOTE',
-        markdown: '',
-      }
+      return { ...base, type: 'SECURE_NOTE', markdown: '' }
     case 'DOCUMENT':
-      return {
-        ...base,
-        type: 'DOCUMENT',
-        hasExpiry: false,
-        expiryDate: null,
+      return { 
+        ...base, 
+        type: 'DOCUMENT', 
+        hasExpiry: false, 
+        expiryDate: null, 
         pastVersions: [],
-        attachments: [],
+        documentTemplate: 'CUSTOM' 
       }
+    default:
+      return base as any
   }
 }
 

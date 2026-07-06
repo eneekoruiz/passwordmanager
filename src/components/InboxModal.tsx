@@ -53,13 +53,20 @@ function SkeletonCard() {
 
 function LinkEditModal({ link, onClose }: { link: LinkItem; onClose: () => void }) {
   const [loading, setLoading] = useState(false)
-  const [expiration, setExpiration] = useState<'1h' | '24h' | '7d' | 'never' | 'burn'>(() => {
+  const [expiration, setExpiration] = useState<'1h' | '24h' | '7d' | 'never' | 'burn' | 'custom'>(() => {
     if (link.burnAfterRead) return 'burn'
     if (!link.expiresAt) return 'never'
     const diff = link.expiresAt - Date.now()
     if (diff <= 3600000) return '1h'
     if (diff <= 86400000) return '24h'
-    return '7d'
+    if (diff <= 604800000) return '7d'
+    return 'custom'
+  })
+  const [customExpirationDate, setCustomExpirationDate] = useState(() => {
+    if (link.expiresAt) {
+      return new Date(link.expiresAt).toISOString().slice(0, 16)
+    }
+    return ''
   })
 
   const handleSave = async () => {
@@ -68,8 +75,14 @@ function LinkEditModal({ link, onClose }: { link: LinkItem; onClose: () => void 
       const burnAfterRead = expiration === 'burn'
       let expiresAt: number | null = null
       if (!burnAfterRead && expiration !== 'never') {
-        const hours = expiration === '1h' ? 1 : expiration === '24h' ? 24 : 168
-        expiresAt = Date.now() + hours * 60 * 60 * 1000
+        if (expiration === 'custom') {
+          if (!customExpirationDate) throw new Error('Debes seleccionar una fecha y hora.')
+          expiresAt = new Date(customExpirationDate).getTime()
+          if (expiresAt <= Date.now()) throw new Error('La fecha debe ser en el futuro.')
+        } else {
+          const hours = expiration === '1h' ? 1 : expiration === '24h' ? 24 : 168
+          expiresAt = Date.now() + hours * 60 * 60 * 1000
+        }
       }
 
       if (!db) return
@@ -103,9 +116,22 @@ function LinkEditModal({ link, onClose }: { link: LinkItem; onClose: () => void 
               <option value="1h">1 hora a partir de ahora</option>
               <option value="24h">24 horas a partir de ahora</option>
               <option value="7d">7 días a partir de ahora</option>
+              <option value="custom">Expiración personalizada</option>
               <option value="never">Nunca expira</option>
             </select>
           </div>
+          
+          {expiration === 'custom' && (
+            <div className="animate-in slide-in-from-top-1">
+              <label className="block text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-2">Fecha y Hora de Expiración</label>
+              <input
+                type="datetime-local"
+                value={customExpirationDate}
+                onChange={(e) => setCustomExpirationDate(e.target.value)}
+                className="w-full rounded-xl border border-slate-200 bg-slate-50 px-3 py-2.5 text-sm font-medium text-slate-800 outline-none focus:border-indigo-500 focus:ring-2 focus:ring-indigo-200"
+              />
+            </div>
+          )}
         </div>
 
         <div className="mt-8 flex gap-3">
@@ -413,19 +439,17 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
                           Expira: {new Date(link.expiresAt).toLocaleString()}
                         </p>
                       )}
-                      {(link.viewsCount !== undefined) && (
-                        <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 inline-flex w-fit">
-                          <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
-                            {link.viewsCount} vistas
-                          </span>
-                          <span className="w-1 h-1 rounded-full bg-slate-300"></span>
-                          <span className="flex items-center gap-1">
-                            <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
-                            {link.viewedDevices?.length || 0} dispositivos
-                          </span>
-                        </div>
-                      )}
+                      <div className="mt-2 flex items-center gap-2 text-[10px] font-bold text-slate-500 bg-slate-50 border border-slate-100 rounded-lg px-2 py-1 inline-flex w-fit">
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" /></svg>
+                          {link.viewsCount || 0} vistas
+                        </span>
+                        <span className="w-1 h-1 rounded-full bg-slate-300"></span>
+                        <span className="flex items-center gap-1">
+                          <svg className="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 18h.01M8 21h8a2 2 0 002-2V5a2 2 0 00-2-2H8a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+                          {link.viewedDevices?.length || 0} dispositivos
+                        </span>
+                      </div>
                     </div>
                   </div>
 

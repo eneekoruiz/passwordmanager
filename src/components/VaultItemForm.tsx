@@ -8,7 +8,7 @@ import { SecretField } from './ui/SecretField'
 import { UnsavedFormActions } from './AccountForm'
 import { useVault } from '../context/VaultContext'
 import { AttachmentsList } from './ui/AttachmentsList'
-import { Combobox } from './ui/Combobox'
+
 
 interface VaultItemFormProps {
   item: LocalVaultItem
@@ -245,14 +245,34 @@ export function VaultItemForm({
             placeholder="Nombre visible en la bóveda"
           />
 
-          <Combobox
-            label="Sección"
-            value={draft.section || ''}
-            options={existingSections}
-            onInputChange={(val) => setDraft((prev) => ({ ...prev, section: val }))}
-            onChange={(val) => setDraft((prev) => ({ ...prev, section: val }))}
-            placeholder="Ej. Beca / 2026 (opcional)"
-          />
+          <div className="space-y-1.5">
+            <label className="block text-xs font-medium text-text-secondary">Carpeta</label>
+            <div className="flex items-center gap-2">
+              <select
+                value={draft.section || ''}
+                onChange={(e) => {
+                  if (e.target.value === '__NEW__') {
+                    const newFolder = window.prompt('Nombre de la nueva carpeta (ej. Beca / 2026):')
+                    if (newFolder && newFolder.trim()) {
+                      setDraft((prev) => ({ ...prev, section: newFolder.trim() }))
+                    }
+                  } else {
+                    setDraft((prev) => ({ ...prev, section: e.target.value }))
+                  }
+                }}
+                className="flex-1 rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
+              >
+                <option value="">Sin carpeta (Raíz)</option>
+                {existingSections.map((sec) => (
+                  <option key={sec.label} value={sec.label}>{sec.label}</option>
+                ))}
+                {draft.section && !existingSections.some(s => s.label === draft.section) && (
+                  <option value={draft.section}>{draft.section}</option>
+                )}
+                <option value="__NEW__" className="font-bold text-indigo-600">➕ Crear nueva carpeta...</option>
+              </select>
+            </div>
+          </div>
 
           {draft.type === 'DOCUMENT' && (
             <div className="space-y-6 pt-4 border-t border-border-subtle">
@@ -494,6 +514,30 @@ export function VaultItemForm({
           </div>
         </div>
       </section>
+
+      {draft.type === 'DOCUMENT' && (
+        <section className="mt-6 mb-6">
+          <div className="rounded-2xl border border-border-subtle bg-surface p-5 shadow-sm">
+            <h3 className="mb-4 text-sm font-bold text-text-primary">Tipo de Documento Legal</h3>
+            <select
+              value={(draft as any).documentTemplate || 'CUSTOM'}
+              onChange={(e) => setDraft(prev => ({ ...prev, documentTemplate: e.target.value as any }))}
+              className="w-full rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2.5 text-sm text-text-primary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50"
+            >
+              <option value="DNI">DNI / Documento Nacional de Identidad</option>
+              <option value="PASSPORT">Pasaporte</option>
+              <option value="DRIVING_LICENSE">Carnet de Conducir</option>
+              <option value="CUSTOM">Documento Genérico / Personalizado</option>
+            </select>
+            <div className="mt-3 text-xs text-text-secondary">
+              {(draft as any).documentTemplate === 'DNI' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>parte delantera</strong> y otra de la <strong>parte trasera</strong> del DNI.</p>}
+              {(draft as any).documentTemplate === 'PASSPORT' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>página principal</strong> con tus datos y foto.</p>}
+              {(draft as any).documentTemplate === 'DRIVING_LICENSE' && <p>👉 <strong>Obligatorio:</strong> Adjunta una foto de la <strong>parte delantera</strong> y otra de la <strong>parte trasera</strong> del carnet.</p>}
+              {(!(draft as any).documentTemplate || (draft as any).documentTemplate === 'CUSTOM') && <p>Adjunta cualquier archivo PDF o imagen relacionada con este documento.</p>}
+            </div>
+          </div>
+        </section>
+      )}
 
       <section className="mt-6 mb-6">
         <div className="rounded-2xl border border-black/5 bg-black/[0.02] p-5 shadow-sm">

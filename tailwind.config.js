@@ -16,21 +16,21 @@ export default {
       },
       colors: {
         surface: {
-          DEFAULT: '#f9f9f9',
-          elevated: '#ffffff',
-          hover: '#f0f0f0',
+          DEFAULT: 'var(--surface)',
+          elevated: 'var(--surface-elevated)',
+          hover: 'var(--surface-hover)',
           active: '#e8e8e8',
           primary: '#ffffff',
         },
         border: {
-          subtle: '#e5e5e5',
-          DEFAULT: '#d4d4d4',
-          default: '#d4d4d4',
+          subtle: 'var(--border-subtle)',
+          DEFAULT: 'var(--border)',
+          default: 'var(--border)',
         },
         text: {
-          primary: '#1a1a1a',
-          secondary: '#6b6b6b',
-          tertiary: '#9a9a9a',
+          primary: 'var(--text-primary)',
+          secondary: 'var(--text-secondary)',
+          tertiary: 'var(--text-tertiary)',
         },
       },
       boxShadow: {

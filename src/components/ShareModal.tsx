@@ -24,14 +24,17 @@ function payloadLabel(payload: SharePayload): string {
 }
 
 function buildPayloadString(payload: SharePayload): string {
+  const senderEmail = auth?.currentUser?.email || 'Usuario de Contras'
   if (payload.type === 'single') {
     return JSON.stringify({
       type: 'single',
+      senderEmail,
       data: { ...payload.platform, id: generateId(), identityId: undefined }
     })
   }
   return JSON.stringify({
     type: 'bundle',
+    senderEmail,
     identityEmail: payload.identity.email,
     data: payload.platforms.map(p => ({ ...p, id: generateId(), identityId: undefined }))
   })

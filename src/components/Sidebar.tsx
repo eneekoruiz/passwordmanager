@@ -110,7 +110,7 @@ export const Sidebar = memo(function Sidebar({
         if (!name) continue
         const key = name.toLowerCase()
         const date = platform.createdAt || new Date(0).toISOString()
-        const accessDate = platform.lastAccessedAt || ''
+        const accessDate = platform.lastAccessedAt || platform.updatedAt || platform.createdAt || ''
         const existing = platformData.get(key)
         if (existing) {
           existing.count += 1

@@ -385,15 +385,15 @@ export const MainArea = memo(function MainArea({
             <div className="p-1">
               <div className="grid gap-6">
                 <section className="space-y-5">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-black/[0.04] pb-4">
+                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border-subtle dark:border-white/10 pb-4">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
                         {groupMode === 'platform' ? 'Vista por plataforma' : groupMode === 'local' ? 'Bóveda Local' : 'Tus Identidades'}
                       </p>
-                      <h2 className="mt-1 text-2xl font-black tracking-tight text-text-primary">
+                      <h2 className="mt-1 text-2xl font-black tracking-tight text-text-primary dark:text-white">
                         {groupMode === 'platform' ? 'Explora tus accesos con la vista visual' : groupMode === 'local' ? 'Gestiona tus notas y secretos locales' : 'Gestiona tus cuentas por identidad'}
                       </h2>
-                      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-text-secondary">
+                      <p className="mt-1 max-w-2xl text-xs leading-relaxed text-text-secondary dark:text-[#a0a0a5]">
                         {groupMode === 'platform'
                           ? 'Selecciona una plataforma para ver las cuentas, comparar accesos y editar.'
                           : groupMode === 'local'
@@ -404,7 +404,7 @@ export const MainArea = memo(function MainArea({
                     <button
                       type="button"
                       onClick={() => onCreate()}
-                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-black px-4 text-xs font-bold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95 self-start md:self-center"
+                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-black dark:bg-white dark:text-black px-4 text-xs font-bold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95 self-start md:self-center"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -413,15 +413,15 @@ export const MainArea = memo(function MainArea({
                     </button>
                   </div>
                   {isMobile && groupMode === 'platform' && (
-                    <div className="mt-4 flex items-center gap-3 border-t border-black/[0.04] pt-4">
+                    <div className="mt-4 flex items-center gap-3 border-t border-border-subtle dark:border-white/10 pt-4">
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Plataformas</span>
-                        <span className="text-sm font-semibold text-text-primary">{featuredPlatforms.length}</span>
+                        <span className="text-sm font-semibold text-text-primary dark:text-white">{featuredPlatforms.length}</span>
                       </div>
-                      <div className="h-6 w-px bg-black/[0.04]"></div>
+                      <div className="h-6 w-px bg-black/[0.04] dark:bg-white/10"></div>
                       <div className="flex flex-col">
                         <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">Cuentas</span>
-                        <span className="text-sm font-semibold text-text-primary">{identities.reduce((sum, id) => sum + (id.platforms?.length || 0), 0)}</span>
+                        <span className="text-sm font-semibold text-text-primary dark:text-white">{identities.reduce((sum, id) => sum + (id.platforms?.length || 0), 0)}</span>
                       </div>
                     </div>
                   )}
@@ -453,7 +453,7 @@ export const MainArea = memo(function MainArea({
                                 >
                                   <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
                                   <span className="min-w-0 flex-1 relative">
-                                    <span className="block truncate text-sm font-semibold text-text-primary pr-5 dark:text-white">{getCanonicalPlatformName(platform.name)}</span>
+                                    <span className="block break-words line-clamp-2 text-sm font-semibold text-text-primary pr-5 dark:text-white leading-tight" title={getCanonicalPlatformName(platform.name)}>{getCanonicalPlatformName(platform.name)}</span>
                                     {(!hideWarnings && platform.hasWeakPassword) && (
                                       <div className="absolute right-0 top-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
                                         <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -533,7 +533,7 @@ export const MainArea = memo(function MainArea({
                             {idItem.email.charAt(0).toUpperCase()}
                           </div>
                           <span className="min-w-0 flex-1 relative">
-                            <span className="block truncate text-sm font-semibold text-text-primary dark:text-white pr-5">{idItem.email}</span>
+                            <span className="block break-words line-clamp-2 leading-tight text-sm font-semibold text-text-primary dark:text-white pr-5" title={idItem.email}>{idItem.email}</span>
                             <span className="mt-1 block text-xs text-text-secondary">
                               {(idItem?.platforms || []).length} plataforma{(idItem?.platforms || []).length !== 1 ? 's' : ''} vinculada{(idItem?.platforms || []).length !== 1 ? 's' : ''}
                             </span>
@@ -1331,8 +1331,8 @@ export const MainArea = memo(function MainArea({
               <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 text-indigo-600 dark:bg-indigo-900/30 dark:text-indigo-400">
                 <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 11V7a4 4 0 118 0m-4 8v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2z" /></svg>
               </div>
-              <h3 className="text-lg font-bold text-text-primary dark:text-white mb-2">¿Ha funcionado?</h3>
-              <p className="text-sm text-text-secondary dark:text-slate-400 mb-6">Hemos copiado la contraseña y abierto la página web. ¿Has podido iniciar sesión correctamente?</p>
+              <h3 className="text-lg font-bold text-text-primary dark:text-white mb-2">Prueba Semi-Asistida</h3>
+              <p className="text-sm text-text-secondary dark:text-slate-400 mb-6">Debido a las protecciones antibot (Captchas/CORS), el inicio de sesión no puede ser 100% invisible. Hemos <strong>copiado tu contraseña</strong> y abierto la web en una nueva pestaña. ¿Pudiste entrar?</p>
               <div className="flex flex-col gap-2">
                 <button
                   type="button"

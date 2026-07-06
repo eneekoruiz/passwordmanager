@@ -246,6 +246,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     return window.localStorage.getItem('contras.hardwareKeyRegistered.default') === 'true'
   })
 
+  // Biometric fallback abort controller
+  const [biometricFallbackAbort, setBiometricFallbackAbort] = useState<(() => void) | null>(null)
+
   const { showToast } = useToast()
 
   // Check biometric & hardware key availability on mount
@@ -1518,15 +1521,30 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         // Continuamos con el fallback
       } else {
         try {
-          showToast('Verifica tu identidad en el dispositivo...', 'info')
           // Race: si la biometría no responde en 7s, caemos al fallback de contraseña
-          const biometricTimeout = new Promise<never>((_, reject) =>
-            setTimeout(() => reject(new Error('biometric_timeout')), 7000)
-          )
+          const timeoutMs = 7000
+          let timeoutId: any
+          
+          const biometricTimeout = new Promise<never>((_, reject) => {
+            timeoutId = setTimeout(() => reject(new Error('biometric_timeout')), timeoutMs)
+          })
+
+          const manualAbort = new Promise<never>((_, reject) => {
+            setBiometricFallbackAbort(() => () => {
+              clearTimeout(timeoutId)
+              reject(new Error('manual_fallback'))
+            })
+          })
+
           const masterPassword = await Promise.race([
             unlockWithBiometrics(bundle as BiometricBundle),
-            biometricTimeout
+            biometricTimeout,
+            manualAbort
           ])
+          
+          clearTimeout(timeoutId)
+          setBiometricFallbackAbort(null)
+
           const passwordIsValid = await storeRef.current.unlockProfile(currentProfileId, masterPassword)
           if (passwordIsValid) {
             lastAuthorizedTimeRef.current = Date.now()
@@ -1534,9 +1552,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
           // Si la contraseña no es válida (bundle corrupto), continuamos al fallback
         } catch (err) {
+          setBiometricFallbackAbort(null)
           const msg = err instanceof Error ? err.message : ''
           if (msg === 'biometric_timeout') {
             console.warn('Biometría no respondió a tiempo, usando fallback.')
+          } else if (msg === 'manual_fallback') {
+            console.warn('Usuario saltó la biometría manualmente.')
           } else {
             console.warn('Biometría cancelada o fallida, usando fallback.', err)
           }
@@ -1849,7 +1870,31 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     ],
   )
 
-  return <VaultContext.Provider value={value}>{children}</VaultContext.Provider>
+  return (
+    <VaultContext.Provider value={value}>
+      {children}
+
+      {biometricFallbackAbort && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-slate-900/40 p-4 backdrop-blur-sm animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-white p-6 shadow-2xl animate-in zoom-in-95 duration-200 text-center flex flex-col items-center">
+            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-indigo-50 text-indigo-600">
+              <svg className="w-8 h-8 animate-pulse" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 11c0 3.517-1.009 6.799-2.753 9.571m-3.44-2.04l.054-.09A13.916 13.916 0 008 11a4 4 0 118 0c0 1.017-.07 2.019-.203 3m-2.118 6.844A21.88 21.88 0 0015.171 17m3.839 1.132c.645-2.266.99-4.659.99-7.132A8 8 0 008 4.07M3 15.364c.64-1.319 1-2.8 1-4.364 0-1.457.39-2.823 1.07-4" />
+              </svg>
+            </div>
+            <h3 className="text-lg font-bold text-slate-800 mb-2">Verificando Biometría...</h3>
+            <p className="text-sm text-slate-500 mb-6">Toca el sensor de huellas o mira a la cámara.</p>
+            <button
+              onClick={() => biometricFallbackAbort()}
+              className="w-full rounded-xl bg-slate-100 py-3 text-sm font-bold text-slate-700 hover:bg-slate-200 transition-colors"
+            >
+              Usar contraseña maestra
+            </button>
+          </div>
+        </div>
+      )}
+    </VaultContext.Provider>
+  )
 }
 
 export function useVault(): VaultContextValue {
