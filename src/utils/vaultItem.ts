@@ -193,6 +193,33 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
+    case 'PAPERWORK':
+      return {
+        ...item,
+        categoryId,
+        categoryLabel,
+        title: (item.title || 'Trámite / Solicitud').trim(),
+        period: item.period?.trim() || '',
+        pastVersions: item.pastVersions || [],
+        attachments: item.attachments || [],
+        customFields: customFields.length > 0 ? customFields : undefined,
+        updatedAt,
+      }
+    case 'INVOICE':
+      return {
+        ...item,
+        categoryId,
+        categoryLabel,
+        title: (item.title || 'Factura / Ticket').trim(),
+        amount: item.amount?.trim() || '',
+        currency: item.currency?.trim() || 'EUR',
+        purchaseDate: item.purchaseDate?.trim() || '',
+        warrantyExpiry: item.warrantyExpiry?.trim() || '',
+        vendor: item.vendor?.trim() || '',
+        attachments: item.attachments || [],
+        customFields: customFields.length > 0 ? customFields : undefined,
+        updatedAt,
+      }
   }
 }
 
@@ -204,7 +231,9 @@ export function isLocalVaultItem(value: unknown): value is LocalVaultItem {
     type === 'SOFTWARE_LICENSE' ||
     type === 'FINANCE' ||
     type === 'SECURE_NOTE' ||
-    type === 'DOCUMENT'
+    type === 'DOCUMENT' ||
+    type === 'PAPERWORK' ||
+    type === 'INVOICE'
   )
 }
 
@@ -222,6 +251,8 @@ export function vaultItemDisplayName(item: VaultItem): string {
   if (item.type === 'SOFTWARE_LICENSE') return item.softwareName || item.title || 'Licencia'
   if (item.type === 'FINANCE') return item.title || 'Tarjeta'
   if (item.type === 'DOCUMENT') return item.title || 'Documento'
+  if (item.type === 'PAPERWORK') return item.title || 'Trámite / Solicitud'
+  if (item.type === 'INVOICE') return item.title || 'Factura / Ticket'
   return item.title || 'Nota segura'
 }
 
