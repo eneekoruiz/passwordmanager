@@ -17,6 +17,8 @@ export const LOCAL_ITEM_LABELS: Record<LocalVaultItemType, string> = {
   FINANCE: 'Finanzas',
   SECURE_NOTE: 'Notas seguras',
   DOCUMENT: 'Documentos',
+  PAPERWORK: 'Trámites y Solicitudes',
+  INVOICE: 'Facturas y Tickets',
 }
 
 export const PRESET_LOCAL_CATEGORIES: LocalCategory[] = [
@@ -91,6 +93,23 @@ export function createLocalVaultItem(
         expiryDate: null, 
         pastVersions: [],
         documentTemplate: 'CUSTOM' 
+      }
+    case 'PAPERWORK':
+      return {
+        ...base,
+        type: 'PAPERWORK',
+        period: '',
+        pastVersions: []
+      }
+    case 'INVOICE':
+      return {
+        ...base,
+        type: 'INVOICE',
+        amount: '',
+        currency: 'EUR',
+        purchaseDate: '',
+        warrantyExpiry: '',
+        vendor: ''
       }
     default:
       return base as any

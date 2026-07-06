@@ -50,6 +50,12 @@ function getInitialFields(item: LocalVaultItem): FormFieldItem[] {
     fields.push({ id: 'pin', key: 'PIN', value: item.pin || '', type: 'password', isDefault: true })
     fields.push({ id: 'cvv', key: 'CVV', value: item.cvv || '', type: 'password', isDefault: true })
     fields.push({ id: 'expiry', key: 'Caducidad', value: item.expiry || '', type: 'text', isDefault: true })
+  } else if (item.type === 'INVOICE') {
+    fields.push({ id: 'amount', key: 'Importe', value: item.amount || '', type: 'text', isDefault: true })
+    fields.push({ id: 'currency', key: 'Moneda (ej. EUR, USD)', value: item.currency || 'EUR', type: 'text', isDefault: true })
+    fields.push({ id: 'vendor', key: 'Comercio / Vendedor', value: item.vendor || '', type: 'text', isDefault: true })
+    fields.push({ id: 'purchaseDate', key: 'Fecha de compra (YYYY-MM-DD)', value: item.purchaseDate || '', type: 'text', isDefault: true })
+    fields.push({ id: 'warrantyExpiry', key: 'Fin de garantía (YYYY-MM-DD)', value: item.warrantyExpiry || '', type: 'text', isDefault: true })
   } else if (item.type === 'SECURE_NOTE') {
     fields.push({ id: 'markdown', key: 'Nota', value: item.markdown || '', type: 'textarea', isDefault: true })
   }
@@ -124,6 +130,12 @@ export function VaultItemForm({
       finalItem.pin = fields.find((f) => f.id === 'pin')?.value || null
       finalItem.cvv = fields.find((f) => f.id === 'cvv')?.value || null
       finalItem.expiry = fields.find((f) => f.id === 'expiry')?.value || null
+    } else if (finalItem.type === 'INVOICE') {
+      finalItem.amount = fields.find((f) => f.id === 'amount')?.value || ''
+      finalItem.currency = fields.find((f) => f.id === 'currency')?.value || 'EUR'
+      finalItem.vendor = fields.find((f) => f.id === 'vendor')?.value || ''
+      finalItem.purchaseDate = fields.find((f) => f.id === 'purchaseDate')?.value || ''
+      finalItem.warrantyExpiry = fields.find((f) => f.id === 'warrantyExpiry')?.value || ''
     } else if (finalItem.type === 'SECURE_NOTE') {
       finalItem.markdown = fields.find((f) => f.id === 'markdown')?.value || ''
     }
@@ -328,41 +340,23 @@ export function VaultItemForm({
                   ))}
                 </div>
               )}
+            </div>
+          )}
 
-              <div className="pt-2">
-                <button
-                  type="button"
-                  onClick={() => {
-                    const currentAttachments = draft.attachments || []
-                    if (currentAttachments.length === 0 && !(draft as any).expiryDate) {
-                      return alert('No hay adjuntos ni fecha para archivar.')
-                    }
-                    if (!confirm('¿Archivar los adjuntos actuales como versión pasada para subir unos nuevos?')) return
-
-                    const newPastVersion = {
-                      id: crypto.randomUUID(),
-                      archivedAt: new Date().toISOString(),
-                      expiryDate: (draft as any).expiryDate || null,
-                      attachments: currentAttachments,
-                    }
-                    setDraft(prev => ({
-                      ...prev,
-                      pastVersions: [...((prev as any).pastVersions || []), newPastVersion],
-                      attachments: [],
-                      expiryDate: null,
-                      hasExpiry: false,
-                    }))
-                  }}
-                  className="w-full flex items-center justify-center gap-2 rounded-xl border border-black/5 dark:border-white/10 bg-white dark:bg-slate-800 px-4 py-3 text-sm font-bold text-text-secondary dark:text-slate-300 shadow-sm transition-all hover:-translate-y-0.5 hover:bg-slate-50 dark:hover:bg-slate-700 active:scale-[0.98]"
-                >
-                  <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                  </svg>
-                  Renovar Documento (Archivar versión actual)
-                </button>
+          {draft.type === 'PAPERWORK' && (
+            <div className="space-y-6 pt-4 border-t border-border-subtle">
+              <div className="animate-fade-in animate-vault-slide-up">
+                <FormField
+                  label="Periodo / Año"
+                  value={(draft as any).period || ''}
+                  onChange={(e) => setDraft((prev) => ({ ...prev, period: e.target.value }))}
+                  placeholder="ej. 2024 o 2025/2026"
+                />
+                <p className="mt-1.5 text-[11px] text-text-tertiary">Identificador temporal para el papeleo vigente.</p>
               </div>
             </div>
           )}
+
 
           <div className="border-t border-border-subtle pt-4 space-y-4">
             <div className="flex items-center justify-between">
@@ -544,7 +538,7 @@ export function VaultItemForm({
             templateType={draft.type === 'DOCUMENT' ? (draft as any).documentTemplate : undefined}
           />
 
-          {draft.type === 'DOCUMENT' && item.id && (
+          {['DOCUMENT', 'PAPERWORK'].includes(draft.type) && item.id && (
             <div className="mt-6 border-t border-black/5 pt-4">
               <div className="flex items-center justify-between">
                 <div>
@@ -554,26 +548,27 @@ export function VaultItemForm({
                 <button
                   type="button"
                   onClick={() => {
-                    if (!window.confirm('¿Quieres archivar las fotos actuales y la fecha de caducidad en el historial para subir las nuevas?')) return;
+                    const isPaperwork = draft.type === 'PAPERWORK';
+                    if (!window.confirm(`¿Quieres archivar las fotos actuales y ${isPaperwork ? 'el periodo' : 'la fecha de caducidad'} en el historial para subir las nuevas?`)) return;
                     setDraft(prev => {
                       const past = (prev as any).pastVersions || [];
                       const newPast = [{
                         id: `archived-${Date.now()}`,
                         attachments: prev.attachments || [],
-                        expiryDate: (prev as any).expiryDate || null,
+                        ...(isPaperwork ? { period: (prev as any).period || '' } : { expiryDate: (prev as any).expiryDate || null }),
                         replacedAt: new Date().toISOString()
                       }, ...past];
                       return {
                         ...prev,
                         attachments: [],
-                        expiryDate: null,
+                        ...(isPaperwork ? { period: '' } : { expiryDate: null }),
                         pastVersions: newPast
                       };
                     });
                   }}
                   className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
                 >
-                  Renovar Documento
+                  Renovar {draft.type === 'PAPERWORK' ? 'Trámite' : 'Documento'}
                 </button>
               </div>
 
@@ -587,9 +582,9 @@ export function VaultItemForm({
                           <span className="text-[10px] font-bold text-text-secondary">
                             Archivado el {new Date(version.replacedAt).toLocaleDateString()}
                           </span>
-                          {version.expiryDate && (
+                          {(version.expiryDate || version.period) && (
                             <span className="text-[10px] text-text-tertiary">
-                              Caducaba: {new Date(version.expiryDate).toLocaleDateString()}
+                              {version.expiryDate ? `Caducaba: ${new Date(version.expiryDate).toLocaleDateString()}` : `Periodo: ${version.period}`}
                             </span>
                           )}
                         </div>

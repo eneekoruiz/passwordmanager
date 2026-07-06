@@ -30,7 +30,7 @@ export interface PasswordHistoryEntry {
   changedAt: string
 }
 
-export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE' | 'DOCUMENT'
+export type VaultItemType = 'ACCOUNT' | 'WIFI' | 'SOFTWARE_LICENSE' | 'FINANCE' | 'SECURE_NOTE' | 'DOCUMENT' | 'PAPERWORK' | 'INVOICE'
 export type LocalVaultItemType = Exclude<VaultItemType, 'ACCOUNT'>
 export type VaultGroupMode = 'identity' | 'platform' | 'local'
 export type SortMode = 'alpha-asc' | 'alpha-desc' | 'created-desc' | 'created-asc' | 'access-desc' | 'usage-desc'
@@ -204,12 +204,36 @@ export interface DocumentVaultItem extends BaseVaultItem {
   pastVersions?: PastDocumentVersion[]
 }
 
+export interface PastPaperworkVersion {
+  id: string
+  period: string
+  attachments: FileAttachment[]
+  replacedAt: string
+}
+
+export interface PaperworkVaultItem extends BaseVaultItem {
+  type: 'PAPERWORK'
+  period: string
+  pastVersions?: PastPaperworkVersion[]
+}
+
+export interface InvoiceVaultItem extends BaseVaultItem {
+  type: 'INVOICE'
+  amount?: string
+  currency?: string
+  purchaseDate?: string
+  warrantyExpiry?: string
+  vendor?: string
+}
+
 export type LocalVaultItem =
   | WifiVaultItem
   | SoftwareLicenseVaultItem
   | FinanceVaultItem
   | SecureNoteVaultItem
   | DocumentVaultItem
+  | PaperworkVaultItem
+  | InvoiceVaultItem
 
 export type VaultItem = AccountVaultItem | LocalVaultItem
 
