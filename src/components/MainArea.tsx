@@ -11,7 +11,6 @@ import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ExposedPasswordWarningPopover } from './ui/ExposedPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
-import { AlphabetScroller } from './AlphabetScroller'
 type ViewMode = 'grid' | 'create' | 'edit'
 
 const getPlatformUrl = (name: string): string => {
@@ -309,27 +308,7 @@ export const MainArea = memo(function MainArea({
       return 0
     })
 
-  const availableLetters = useMemo(() => {
-    if ((sortMode !== 'alpha-asc' && sortMode !== 'alpha-desc') || isFormView || itemQuery) return []
-    if (groupMode === 'identity' && identityPlatforms.length > 0) {
-      const letters = Array.from(new Set(identityPlatforms.map(p => p.name.charAt(0).toUpperCase()).filter(c => /[A-Z]/.test(c))))
-      return sortMode === 'alpha-desc' ? letters.sort((a, b) => b.localeCompare(a)) : letters.sort((a, b) => a.localeCompare(b))
-    }
-    return []
-  }, [identityPlatforms, sortMode, isFormView, groupMode, itemQuery])
-
   const scrollContainerRef = useRef<HTMLDivElement>(null)
-
-  const handleLetterSelect = (letter: string) => {
-    const el = document.getElementById(`letter-${letter}`)
-    if (el && scrollContainerRef.current) {
-      // scroll Into view smoothly but correctly offset
-      scrollContainerRef.current.scrollTo({
-        top: el.offsetTop - 80, // offset header
-        behavior: 'smooth'
-      })
-    }
-  }
 
   const renderProactiveEmptyState = ({
     title = 'Aún no tienes elementos aquí',
@@ -701,9 +680,6 @@ export const MainArea = memo(function MainArea({
       )}
 
       <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain relative ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
-        {!isFormView && availableLetters.length > 0 && (
-          <AlphabetScroller letters={availableLetters} onLetterSelect={handleLetterSelect} />
-        )}
         {view === 'grid' && (
           <>
 
