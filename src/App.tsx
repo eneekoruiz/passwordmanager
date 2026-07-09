@@ -87,6 +87,7 @@ function VaultApp() {
     disableHardwareKeyUnlock,
     cloudUserEmail,
     localCategories,
+    isVaultLoaded,
   } = useVault()
 
   const { showToast } = useToast()
@@ -301,12 +302,12 @@ function VaultApp() {
       const time = Date.parse(value)
       return Number.isFinite(time) ? Math.max(latestVal, time) : latestVal
     }, 0)
-
     return latest > 0 ? new Date(latest).toLocaleString() : 'Nunca'
   }, [identities, localItems, localCategories])
 
   const syncState = useMemo(() => {
-    if (cloudSyncStatus === 'checking_storage') {
+    const displayStatus = (!isVaultLoaded && (cloudSyncStatus === 'idle' || cloudSyncStatus === 'synced')) ? 'syncing' : cloudSyncStatus;
+    if (displayStatus === 'checking_storage') {
       return {
         color: 'text-slate-500 bg-slate-50 border-slate-200 hover:bg-slate-100/50',
         dotColor: 'bg-slate-400',
@@ -319,7 +320,7 @@ function VaultApp() {
         )
       }
     }
-    if (isInMemory || cloudSyncStatus === 'error' || !isOnline) {
+    if (isInMemory || displayStatus === 'error' || !isOnline) {
       return {
         color: 'text-amber-600 bg-amber-50 border-amber-100 hover:bg-amber-100/50',
         dotColor: 'bg-amber-500',
@@ -336,16 +337,16 @@ function VaultApp() {
         )
       }
     }
-    if (hasUnsyncedChanges || cloudSyncStatus === 'syncing') {
+    if (hasUnsyncedChanges || displayStatus === 'syncing') {
       return {
         color: 'text-blue-500 bg-blue-50 border-blue-100 hover:bg-blue-100/50',
         dotColor: 'bg-blue-500',
-        label: cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Cambios locales pendientes',
-        description: cloudSyncStatus === 'syncing'
+        label: displayStatus === 'syncing' ? 'Sincronizando...' : 'Cambios locales pendientes',
+        description: displayStatus === 'syncing'
           ? 'Actualizando cambios de forma segura en Google Cloud...'
           : 'Tienes cambios locales guardados. Se subirán a la nube automáticamente en unos segundos.',
         icon: (
-          <svg className={`h-5 w-5 ${cloudSyncStatus === 'syncing' ? 'animate-pulse' : 'animate-pulse'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+          <svg className={`h-5 w-5 ${displayStatus === 'syncing' ? 'animate-pulse' : 'animate-pulse'}`} fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
             <path strokeLinecap="round" strokeLinejoin="round" d="M12 16.5V9.75m0 0l3 3m-3-3l-3 3M6.75 19.5a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" />
           </svg>
         )
@@ -364,7 +365,7 @@ function VaultApp() {
         </svg>
       )
     }
-  }, [isInMemory, cloudSyncStatus, isOnline, hasUnsyncedChanges, cloudUserEmail])
+  }, [isInMemory, cloudSyncStatus, isOnline, hasUnsyncedChanges, cloudUserEmail, isVaultLoaded])
 
   const CloudSyncIndicator = (
     <div className="relative inline-block">

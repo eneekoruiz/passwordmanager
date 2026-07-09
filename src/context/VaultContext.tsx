@@ -61,6 +61,7 @@ interface VaultContextValue {
   isReady: boolean
   isInitialized: boolean
   isUnlocked: boolean
+  isVaultLoaded: boolean
   identities: Identity[]
   localItems: LocalVaultItem[]
   localCategories: LocalCategory[]
@@ -198,6 +199,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [isAuthReady, setIsAuthReady] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
   const [isUnlocked, setIsUnlocked] = useState(false)
+  const [isVaultLoaded, setIsVaultLoaded] = useState(false)
   const [identities, setIdentities] = useState<Identity[]>([])
   const [localItems, setLocalItems] = useState<LocalVaultItem[]>([])
   const [localCategories, setLocalCategories] = useState<LocalCategory[]>([])
@@ -320,6 +322,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
       setLocalItems(loadedLocalItems)
       setLocalCategories(loadedLocalCategories)
+      setIsVaultLoaded(true)
     } catch (error) {
       setIdentities([])
       setLocalItems([])
@@ -338,6 +341,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setIdentities(loadedIdentities.length > 0 ? loadedIdentities : [createIdentity()])
     setLocalItems(loadedLocalItems)
     setLocalCategories(loadedLocalCategories)
+    setIsVaultLoaded(true)
   }, [])
 
   useEffect(() => {
@@ -449,6 +453,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     setIdentities([])
     setLocalItems([])
     setLocalCategories([])
+    setIsVaultLoaded(false)
   }, [])
 
   const getLocalVaultUpdatedAt = useCallback(() => {
@@ -646,6 +651,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (!currentProfileId || !user) {
       setCloudSyncStatus('idle')
       return { action: 'idle', message: 'Conecta Google Cloud para sincronizar esta bóveda.' }
+    }
+
+    if (!isVaultLoaded) {
+      return { action: 'idle', message: 'Esperando a que se cargue la bóveda...' }
     }
 
     syncInProgressRef.current = true
@@ -1745,6 +1754,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       setCloudVaultExists(null)
       setCloudSyncStatus('idle')
       setIsUnlocked(false)
+
       setCurrentProfileId(null)
       setCurrentProfileName(null)
       setIdentities([])
@@ -1852,6 +1862,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isReady: isReady && isAuthReady,
       isInitialized,
       isUnlocked,
+      isVaultLoaded,
       identities,
       localItems,
       localCategories,
