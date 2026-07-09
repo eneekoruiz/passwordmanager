@@ -1465,6 +1465,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
     if (!bundle) {
       localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+      localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
+      localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
       setBiometricRegistered(false)
       throw new Error('No hay una llave de acceso local registrada para esta bóveda.')
     }
@@ -1491,6 +1493,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await storeRef.current.deleteBiometricBundle(profileId)
         localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
         localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
+        localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
         setBiometricRegistered(false)
         throw new Error('El dispositivo ya no encuentra la llave de acceso local de Contras. Vuelve a activarla desde Ajustes después de entrar con tu Contraseña Maestra.')
       }
@@ -1502,6 +1505,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         await storeRef.current.deleteBiometricBundle(profileId)
         localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
         localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
+        localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
         setBiometricRegistered(false)
         throw new Error('La llave local ya no es compatible con este navegador o dispositivo. Se ha desactivado automáticamente. Entra con tu Contraseña Maestra y vuelve a activarla desde Ajustes si lo deseas.')
       }
@@ -1557,6 +1561,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       if (!bundle) {
         localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
+        localStorage.removeItem(`contras.biometricBundleBackup.${currentProfileId}`)
+        localStorage.removeItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`)
         setBiometricRegistered(false)
         // Continuamos con el fallback
       } else {
@@ -1599,6 +1605,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           // Si la contraseña no es válida (bundle corrupto), continuamos al fallback
         } catch (err) {
           setBiometricFallbackAbort(null)
+          if (isMissingBiometricCredentialError(err)) {
+            await storeRef.current.deleteBiometricBundle(currentProfileId)
+            localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
+            localStorage.removeItem(`contras.biometricBundleBackup.${currentProfileId}`)
+            localStorage.removeItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`)
+            setBiometricRegistered(false)
+          }
           const msg = err instanceof Error ? err.message : ''
           if (msg === 'biometric_timeout') {
             console.warn('Biometría no respondió a tiempo, usando fallback.')

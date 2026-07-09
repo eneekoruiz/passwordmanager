@@ -697,6 +697,7 @@ function VaultApp() {
   useEffect(() => {
     if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
     if (typeof window === 'undefined') return
+    if (window.localStorage.getItem('contras.biometricPromptEnabled') === 'false') return
     if (window.localStorage.getItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`) === 'true') return
 
     const timer = window.setTimeout(() => setBiometricPromptOpen(true), 1500)
@@ -1123,7 +1124,7 @@ function VaultApp() {
           <div className="flex-1">
             <h3 className="text-sm font-bold text-text-primary">¿Entrar más rápido?</h3>
             <p className="mt-1 text-xs text-text-secondary">Activa el desbloqueo por huella o cara para no tener que escribir tu contraseña maestra.</p>
-            <div className="mt-3 flex gap-2">
+            <div className="mt-3 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1141,6 +1142,16 @@ function VaultApp() {
                 className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-black/5 active:bg-black/10"
               >
                 Ignorar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  window.localStorage.setItem('contras.biometricPromptEnabled', 'false')
+                  setBiometricPromptOpen(false)
+                }}
+                className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+              >
+                No preguntar más
               </button>
             </div>
           </div>

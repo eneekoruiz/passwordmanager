@@ -82,6 +82,9 @@ export function SettingsModal({
   const [hideWeakPasswordWarnings, setHideWeakPasswordWarnings] = useState(() => {
     return typeof window !== 'undefined' && window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true'
   })
+  const [biometricPromptEnabled, setBiometricPromptEnabled] = useState(() => {
+    return typeof window !== 'undefined' && window.localStorage.getItem('contras.biometricPromptEnabled') !== 'false'
+  })
   const [requireSecretAuth, setRequireSecretAuth] = useState(() => {
     return typeof window !== 'undefined' && window.localStorage.getItem('contras.requireSecretAuth') !== 'false'
   })
@@ -604,6 +607,24 @@ export function SettingsModal({
                               window.localStorage.removeItem('contras.hideWeakPasswordWarnings')
                             }
                             window.dispatchEvent(new Event('contras:weak-passwords-toggled'))
+                          }}
+                        />
+                      </label>
+                      <label className="flex w-full items-center justify-between gap-3 p-4 transition-colors hover:bg-slate-50/50 cursor-pointer">
+                        <div>
+                          <span className="block text-sm font-bold text-slate-800">Sugerir biometría al entrar</span>
+                          <span className="mt-0.5 block text-[11px] leading-relaxed text-slate-500">
+                            Muestra un aviso para configurar Face ID/Touch ID si está disponible.
+                          </span>
+                        </div>
+                        <input
+                          type="checkbox"
+                          className={checkboxClassName}
+                          checked={biometricPromptEnabled}
+                          onChange={(e) => {
+                            const checked = e.target.checked
+                            setBiometricPromptEnabled(checked)
+                            window.localStorage.setItem('contras.biometricPromptEnabled', checked ? 'true' : 'false')
                           }}
                         />
                       </label>
