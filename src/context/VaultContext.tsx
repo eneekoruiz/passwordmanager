@@ -347,7 +347,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       storeRef.current.hasBiometricBundle('default').then((registered) => {
         if (!mounted) return
         setBiometricRegistered(registered)
-        if (registered) localStorage.setItem('contras.biometricRegistered.default', 'true')
+        if (registered) {
+          localStorage.setItem('contras.biometricRegistered.default', 'true')
+        } else {
+          if (localStorage.getItem('contras.biometricRegistered.default') === 'true') {
+            console.warn('Degraded memory detected: Biometric bundle lost. Resetting prompt status.')
+            localStorage.removeItem('contras.biometricRegistered.default')
+            localStorage.removeItem('contras.biometricPromptDismissed.v3.default')
+          }
+        }
       }),
       storeRef.current.hasHardwareKeyBundle('default').then((registered) => {
         if (!mounted) return
@@ -524,6 +532,37 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
+        const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
+
+        const mergedLocalItems = [...(decryptedCloud.localItems || [])]
+        for (const localItem of localItemsDb) {
+          const index = mergedLocalItems.findIndex(i => i.id === localItem.id)
+          if (index >= 0) {
+            if (resolutions[localItem.id] === 'local') {
+              mergedLocalItems[index] = localItem
+              localWinsExist = true
+            }
+          } else {
+            mergedLocalItems.push(localItem)
+            localWinsExist = true
+          }
+        }
+
+        const mergedCats = [...(decryptedCloud.localCategories || [])]
+        for (const localCat of localCatsDb) {
+          const index = mergedCats.findIndex(i => i.id === localCat.id)
+          if (index >= 0) {
+            if (resolutions[localCat.id] === 'local') {
+              mergedCats[index] = localCat
+              localWinsExist = true
+            }
+          } else {
+            mergedCats.push(localCat)
+            localWinsExist = true
+          }
+        }
+
         // Rebuild/Restore using solved items
         const db = await getVaultDb()
         const tx = db.transaction(['platforms'], 'readwrite')
@@ -542,6 +581,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         for (const idn of mergedIdns) {
           const encrypted = await vaultRef.current.encryptJson(idn)
           await platformsStore.put(encrypted, `${currentProfileId}_${idn.id}`)
+        }
+        for (const item of mergedLocalItems) {
+          const encrypted = await vaultRef.current.encryptJson(item)
+          await platformsStore.put(encrypted, `${currentProfileId}_item_${item.id}`)
+        }
+        for (const cat of mergedCats) {
+          const encrypted = await vaultRef.current.encryptJson(cat)
+          await platformsStore.put(encrypted, `${currentProfileId}_cat_${cat.id}`)
         }
         await tx.done
 
@@ -717,9 +764,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             throw err
           }
 
+          const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
+          const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
+
           const diffResult = computeSyncDiff(
-            filteredLocalIdns, [], [],
-            filteredCloudIdns, [], []
+            filteredLocalIdns, localItemsDb, localCatsDb,
+            filteredCloudIdns, decryptedCloud.localItems || [], decryptedCloud.localCategories || []
           )
 
           if (!diffResult.hasChanges) {

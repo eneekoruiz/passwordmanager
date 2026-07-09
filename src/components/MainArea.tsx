@@ -46,6 +46,7 @@ interface MainAreaProps {
   onDeleteLocalItem: (itemId: string) => Promise<void>
   isMobile?: boolean
   createTrigger?: number
+  onCreateHandled?: () => void
   editPlatformTrigger?: string | null
   onEditPlatformHandled?: () => void
   sortMode: SortMode
@@ -96,6 +97,7 @@ export const MainArea = memo(function MainArea({
   onDeleteLocalItem,
   isMobile = false,
   createTrigger = 0,
+  onCreateHandled,
   editPlatformTrigger = null,
   onEditPlatformHandled,
   sortMode,
@@ -163,8 +165,9 @@ export const MainArea = memo(function MainArea({
         })
         setView('create')
       }
+      onCreateHandled?.()
     }
-  }, [createTrigger])
+  }, [createTrigger, identity, identities, localCategory, onCreateHandled])
 
   useEffect(() => {
     if (editPlatformTrigger) {

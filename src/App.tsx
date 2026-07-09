@@ -1163,10 +1163,12 @@ function VaultApp() {
                 onClick={() => {
                   window.localStorage.setItem('contras.biometricPromptEnabled', 'false')
                   setBiometricPromptOpen(false)
+                  window.alert("Se ha ocultado la sugerencia. Si cambias de opinión, puedes activarlo manualmente en Ajustes.")
                 }}
                 className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
+                title="Desactivar sugerencia (puedes configurarlo en Ajustes)"
               >
-                No preguntar más
+                No sugerir más
               </button>
             </div>
           </div>
@@ -1555,7 +1557,7 @@ function VaultApp() {
       <div className="fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface overscroll-none">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[116px]' : 'pt-[68px]'} pb-16`}>
+        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden pt-[124px] pb-16`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
@@ -1633,6 +1635,7 @@ function VaultApp() {
               onDeleteLocalItem={deleteLocalItem}
               isMobile={true}
               createTrigger={createTrigger}
+              onCreateHandled={() => setCreateTrigger(0)}
               editPlatformTrigger={editPlatformTrigger}
               onEditPlatformHandled={clearEditPlatformTrigger}
               sortMode={sortMode}
@@ -1911,6 +1914,7 @@ function VaultApp() {
             onDeleteLocalItem={deleteLocalItem}
             isMobile={false}
             createTrigger={createTrigger}
+            onCreateHandled={() => setCreateTrigger(0)}
             editPlatformTrigger={editPlatformTrigger}
             onEditPlatformHandled={clearEditPlatformTrigger}
             sortMode={sortMode}
