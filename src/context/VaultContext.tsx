@@ -1445,12 +1445,24 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     )
     await storeRef.current.saveBiometricBundle(bundle)
     localStorage.setItem(`contras.biometricRegistered.${currentProfileId}`, 'true')
+    localStorage.setItem(`contras.biometricBundleBackup.${currentProfileId}`, JSON.stringify(bundle))
     setBiometricRegistered(true)
   }, [currentProfileId, cloudUserEmail])
 
   const unlockWithBiometricSensor = useCallback(async () => {
     const profileId = 'default'
-    const bundle = await storeRef.current.loadBiometricBundle(profileId)
+    let bundle = await storeRef.current.loadBiometricBundle(profileId)
+    
+    if (!bundle) {
+      const backupStr = localStorage.getItem(`contras.biometricBundleBackup.${profileId}`)
+      if (backupStr) {
+        try {
+          bundle = JSON.parse(backupStr)
+          await storeRef.current.saveBiometricBundle(bundle as BiometricBundle)
+        } catch (e) {}
+      }
+    }
+
     if (!bundle) {
       localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
       setBiometricRegistered(false)
@@ -1458,21 +1470,38 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
 
     try {
-      const masterPassword = await unlockWithBiometrics(bundle as BiometricBundle)
+      const abortController = new AbortController()
+      const timeoutMs = 15000
+      let timeoutId: any
+      const timeoutPromise = new Promise<never>((_, reject) => {
+        timeoutId = setTimeout(() => {
+          abortController.abort(new Error('biometric_timeout'))
+          reject(new Error('biometric_timeout'))
+        }, timeoutMs)
+      })
+
+      const masterPassword = await Promise.race([
+        unlockWithBiometrics(bundle as BiometricBundle, abortController.signal),
+        timeoutPromise
+      ])
+      clearTimeout(timeoutId)
       await unlockOrRestoreVault(masterPassword)
     } catch (error) {
       if (isMissingBiometricCredentialError(error)) {
         await storeRef.current.deleteBiometricBundle(profileId)
         localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+        localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
         setBiometricRegistered(false)
         throw new Error('El dispositivo ya no encuentra la llave de acceso local de Contras. Vuelve a activarla desde Ajustes después de entrar con tu Contraseña Maestra.')
       }
-      // Si el PRF no es compatible en este navegador/dispositivo, limpiamos el bundle
-      // para que el usuario pueda volver a entrar con contraseña sin quedar bloqueado.
       const errorMessage = error instanceof Error ? error.message : ''
+      if (errorMessage === 'biometric_timeout') {
+        throw new Error('La autenticación biométrica tardó demasiado o fue bloqueada por el navegador. Usa tu Contraseña Maestra.')
+      }
       if (errorMessage.includes('PRF') || errorMessage.includes('prf')) {
         await storeRef.current.deleteBiometricBundle(profileId)
         localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+        localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
         setBiometricRegistered(false)
         throw new Error('La llave local ya no es compatible con este navegador o dispositivo. Se ha desactivado automáticamente. Entra con tu Contraseña Maestra y vuelve a activarla desde Ajustes si lo deseas.')
       }
@@ -1514,7 +1543,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     
     // Si tiene biometría activa, la preferimos – pero siempre hacemos fallback al modal.
     if (biometricRegistered) {
-      const bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
+      let bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
+      
+      if (!bundle) {
+        const backupStr = localStorage.getItem(`contras.biometricBundleBackup.${currentProfileId}`)
+        if (backupStr) {
+          try {
+            bundle = JSON.parse(backupStr)
+            await storeRef.current.saveBiometricBundle(bundle as BiometricBundle)
+          } catch (e) {}
+        }
+      }
+
       if (!bundle) {
         localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
         setBiometricRegistered(false)
@@ -1615,6 +1655,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     if (!currentProfileId) return
     await storeRef.current.deleteBiometricBundle(currentProfileId)
     localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
+    localStorage.removeItem(`contras.biometricBundleBackup.${currentProfileId}`)
     setBiometricRegistered(false)
   }, [currentProfileId])
 

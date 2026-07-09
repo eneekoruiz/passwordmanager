@@ -1377,7 +1377,7 @@ function VaultApp() {
       <div className="fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface overscroll-none">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[180px]' : 'pt-[68px]'} pb-16`}>
+        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden ${showExtraHeaderElements ? 'pt-[116px]' : 'pt-[68px]'} pb-16`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}

@@ -29,9 +29,64 @@
     />
     <link rel="manifest" href="/manifest.json" />
     <title>Contras</title>
+    <style>
+      body {
+        margin: 0;
+        background-color: #f9f9f9;
+        -webkit-font-smoothing: antialiased;
+      }
+      @media (prefers-color-scheme: dark) {
+        body {
+          background-color: #0f0f10;
+        }
+      }
+      .preloader-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        height: 100dvh;
+        width: 100vw;
+        font-family: 'Inter', system-ui, -apple-system, sans-serif;
+      }
+      .preloader-logo {
+        width: 72px;
+        height: 72px;
+        margin-bottom: 24px;
+        animation: preloader-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+        border-radius: 18px;
+        box-shadow: 0 12px 32px rgba(0,0,0,0.08);
+      }
+      @media (prefers-color-scheme: dark) {
+        .preloader-logo {
+          box-shadow: 0 12px 32px rgba(255,255,255,0.03);
+        }
+      }
+      .preloader-text {
+        font-size: 12px;
+        font-weight: 700;
+        color: #888;
+        letter-spacing: 0.15em;
+        text-transform: uppercase;
+      }
+      @media (prefers-color-scheme: dark) {
+        .preloader-text {
+          color: #6b6b70;
+        }
+      }
+      @keyframes preloader-pulse {
+        0%, 100% { opacity: 1; transform: scale(1); }
+        50% { opacity: 0.5; transform: scale(0.92); }
+      }
+    </style>
   </head>
   <body>
-    <div id="root"></div>
+    <div id="root">
+      <div class="preloader-container">
+        <img src="/icon-192.png" alt="Contras" class="preloader-logo" />
+        <div class="preloader-text">Cargando</div>
+      </div>
+    </div>
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>
