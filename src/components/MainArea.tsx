@@ -511,7 +511,7 @@ export const MainArea = memo(function MainArea({
                           className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-[#1c1c1e]/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#2c2c2e]"
                           style={{ animationDelay: `${index * 40}ms` }}
                         >
-                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 dark:bg-slate-700/50 font-bold text-text-primary dark:text-white ring-1 ring-black/5 dark:ring-white/5">
+                          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white dark:bg-[#2c2c2e] font-bold text-text-primary dark:text-white border border-black/[0.05] dark:border-white/5 shadow-sm">
                             {idItem.email.charAt(0).toUpperCase()}
                           </div>
                           <span className="min-w-0 flex-1 relative">
@@ -520,7 +520,7 @@ export const MainArea = memo(function MainArea({
                               {(idItem?.platforms || []).length} plataforma{(idItem?.platforms || []).length !== 1 ? 's' : ''} vinculada{(idItem?.platforms || []).length !== 1 ? 's' : ''}
                             </span>
                           </span>
-                          <span className="rounded-full bg-slate-100 dark:bg-slate-700/50 px-2.5 py-1 text-[10px] font-bold text-text-secondary dark:text-slate-300">
+                          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary dark:bg-slate-900 dark:text-slate-300">
                             Abrir
                           </span>
                         </button>

@@ -779,7 +779,7 @@ export function UnlockScreen() {
                           <p className="text-xs font-bold text-amber-900 dark:text-amber-400">Kit de Recuperación de Emergencia</p>
                           <p className="mt-1 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200/80">
                             Esta Frase Semilla es tu único salvavidas zero-knowledge. Si olvidas la Contraseña Maestra, estas palabras son la unica forma de recuperar y re-cifrar la bóveda. Guárdalas fuera de este dispositivo.
-                          </p>>
+                          </p>
                         </div>
                         {onboardingRecoveryStep === 'display' ? (
                           <div className="space-y-3 animate-vault-morph">
