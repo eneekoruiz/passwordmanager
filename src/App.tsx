@@ -1019,6 +1019,7 @@ function VaultApp() {
     setSelectedPlatformName(null)
   }
 
+  const isInsideView = selectedId !== null || selectedPlatformName !== null || selectedLocalCategory !== null
   // La barra de búsqueda extra en móvil siempre se muestra
   const showExtraHeaderElements = true
 
@@ -1179,7 +1180,7 @@ function VaultApp() {
       )}
 
       {/* Row 3: Group Mode Toggle */}
-      {showExtraHeaderElements && (
+      {showExtraHeaderElements && !isInsideView && (
         <div className="grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e] shrink-0">
           {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
             <button

@@ -801,8 +801,14 @@ export const MainArea = memo(function MainArea({
                           <span className="block truncate text-sm font-semibold text-text-primary dark:text-white min-h-[20px] pr-5">
                             {platform.username}
                           </span>
-                          <span className="mt-1 block truncate text-xs text-text-secondary">
-                            {identityEmail}
+                          <span className="mt-1 block text-xs text-text-secondary max-w-full">
+                            {revealedPasswords.has(`${identityId}-${platform.id}`) && pwMethod?.password ? (
+                              <span className="block overflow-x-auto whitespace-nowrap custom-scrollbar pb-1 text-indigo-600 dark:text-indigo-400 font-mono font-bold" onClick={e => e.stopPropagation()}>
+                                {pwMethod.password}
+                              </span>
+                            ) : (
+                              <span className="block truncate">{identityEmail}</span>
+                            )}
                           </span>
                           <span className="mt-3 flex flex-wrap gap-1.5">
                             {(platform?.accessMethods || [])
@@ -977,16 +983,7 @@ export const MainArea = memo(function MainArea({
                           )}
                         </div>
                       )}
-                      {/* Revealed Password Banner */}
-                      {pwMethod?.password && revealedPasswords.has(`${identityId}-${platform.id}`) && (
-                        <div className="absolute left-4 right-24 bottom-3 max-h-[60px] overflow-y-auto custom-scrollbar z-10" onClick={(e) => e.stopPropagation()}>
-                          <div className="flex min-h-full items-center rounded-lg border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#1c1c1e] px-3 py-1.5 shadow-sm">
-                            <span className="font-mono text-xs font-semibold tracking-wider text-text-primary dark:text-slate-200 select-all break-all">
-                              {pwMethod.password}
-                            </span>
-                          </div>
-                        </div>
-                      )}
+                      {/* Password is now displayed inline */}
                       {/* Last Verified Banner */}
                       {platform.lastVerifiedAt && !revealedPasswords.has(`${identityId}-${platform.id}`) && (
                         <div className="absolute left-4 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">

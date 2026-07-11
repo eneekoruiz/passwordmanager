@@ -767,7 +767,6 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
           const filterIdentities = (idns: any[]) => {
             return (idns || [])
-              .filter((idn) => idn && idn.email !== LOCAL_IDENTITY_EMAIL)
               .map((idn) => ({
                 ...idn,
                 platforms: (idn.platforms || []).filter((p: any) => p && !p.isLocalOnly)
@@ -1558,7 +1557,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [currentProfileId, cloudUserEmail])
 
   const unlockWithBiometricSensor = useCallback(async () => {
-    const profileId = 'default'
+    const profileId = currentProfileId || 'default'
     let bundle = await storeRef.current.loadBiometricBundle(profileId)
     
     if (!bundle) {
@@ -1608,7 +1607,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       const errorMessage = error instanceof Error ? error.message : ''
       if (errorMessage === 'biometric_timeout') {
-        throw new Error('La autenticación biométrica tardó demasiado o fue bloqueada por el navegador. Usa tu Contraseña Maestra.')
+        await storeRef.current.deleteBiometricBundle(profileId)
+        localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+        localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
+        localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
+        setBiometricRegistered(false)
+        throw new Error('La autenticación biométrica tardó demasiado o fue bloqueada por el navegador. Se ha desactivado temporalmente. Usa tu Contraseña Maestra y vuelve a activarla.')
       }
       if (errorMessage.includes('PRF') || errorMessage.includes('prf')) {
         await storeRef.current.deleteBiometricBundle(profileId)
@@ -1620,7 +1624,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
       throw error
     }
-  }, [unlockOrRestoreVault])
+  }, [currentProfileId, unlockOrRestoreVault])
 
   const registerHardwareKeyUnlock = useCallback(async (masterPassword: string) => {
     if (!currentProfileId || !cloudUserEmail) throw new Error('No hay un perfil activo.')
@@ -1654,8 +1658,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       return true
     }
     
-    // Si tiene biometría activa, la preferimos – pero siempre hacemos fallback al modal.
-    if (biometricRegistered) {
+    // Si tiene biometría activa, la preferimos – pero solo en móvil/táctil.
+    // En desktop (sin touchpoints) ir directamente al modal de contraseña maestra
+    // porque Windows Hello / Mac TouchID pueden colgar la UI silenciosamente.
+    const isTouchDevice = typeof window !== 'undefined' && navigator.maxTouchPoints > 0
+    if (biometricRegistered && isTouchDevice) {
       let bundle = await storeRef.current.loadBiometricBundle(currentProfileId)
       
       if (!bundle) {
