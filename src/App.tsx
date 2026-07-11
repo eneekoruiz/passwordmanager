@@ -434,39 +434,6 @@ function VaultApp() {
     </div>
   )
 
-  const desktopSyncSection = !isMobile ? (
-    <div className="border-t border-border-subtle bg-surface p-4 dark:border-[#2c2c2e] dark:bg-[#0f0f10] mt-auto">
-      <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-3 dark:text-[#6b6b70]">
-        Estado de Sincronización
-      </h4>
-      <div className="flex items-center gap-2 mb-2">
-        <span className={`h-2.5 w-2.5 rounded-full ${syncState.dotColor}`} />
-        <span className="text-xs font-semibold text-text-primary dark:text-white">{syncState.label}</span>
-      </div>
-      <p className="text-[11px] text-text-secondary leading-relaxed mb-3 dark:text-[#a0a0a5]">
-        {syncState.description}
-      </p>
-      <div className="text-[10px] text-text-tertiary space-y-1 mb-3 dark:text-[#6b6b70]">
-        <div className="flex justify-between">
-          <span>Local:</span>
-          <span className="font-medium text-text-secondary dark:text-slate-400">{localUpdatedAt}</span>
-        </div>
-        <div className="flex justify-between">
-          <span>Nube:</span>
-          <span className="font-medium text-text-secondary truncate ml-2 dark:text-slate-400">{cloudUserEmail ?? 'No conectado'}</span>
-        </div>
-      </div>
-      <button
-        type="button"
-        onClick={handleManualSync}
-        disabled={cloudSyncStatus === 'syncing'}
-        className="w-full min-h-[36px] rounded-xl bg-text-primary dark:bg-white dark:text-black text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
-      >
-        {cloudSyncStatus === 'syncing' && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-black/30 dark:border-t-black" />}
-        {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Refrescar Sincronización'}
-      </button>
-    </div>
-  ) : null;
 
   const displayIdentities = useMemo(() => {
     let list = travelModeEnabled
@@ -1237,6 +1204,57 @@ function VaultApp() {
       )}
     </div>
   ) : null
+
+
+
+  const desktopSyncSection = !isMobile ? (
+    <div className="flex flex-col gap-3 p-3 bg-surface border-t border-border-subtle animate-fade-in relative z-[60]">
+      <div className="flex items-center gap-2">
+        <div className="flex h-8 w-8 items-center justify-center rounded-xl bg-slate-100 text-slate-500 dark:bg-slate-800">
+          {cloudSyncStatus === 'syncing' ? (
+            <svg className="h-4 w-4 animate-spin text-emerald-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+            </svg>
+          ) : !isOnline ? (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+              <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+            </svg>
+          ) : (
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3 15a4 4 0 004 4h9a5 5 0 10-.1-9.999 5.002 5.002 0 10-9.78 2.096A4.001 4.001 0 003 15z" />
+            </svg>
+          )}
+        </div>
+        <div className="flex-1 min-w-0">
+          <p className="text-xs font-bold text-text-primary">Estado de la nube</p>
+          <p className="text-[10px] text-text-secondary truncate">
+            {cloudSyncStatus === 'syncing' ? 'Sincronizando cambios...' : !isOnline ? 'Sin conexión a internet' : 'Actualizado y protegido'}
+          </p>
+        </div>
+      </div>
+      <div className="flex flex-col gap-1 text-[10px] text-text-tertiary">
+        <div className="flex justify-between">
+          <span>Local:</span>
+          <span className="font-medium text-text-secondary dark:text-slate-400">{localUpdatedAt}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Nube:</span>
+          <span className="font-medium text-text-secondary truncate ml-2 dark:text-slate-400">{cloudUserEmail ?? 'No conectado'}</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleManualSync}
+        disabled={cloudSyncStatus === 'syncing'}
+        className="w-full min-h-[36px] rounded-xl bg-text-primary dark:bg-white dark:text-black text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {cloudSyncStatus === 'syncing' && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-black/30 dark:border-t-black" />}
+        {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Refrescar Sincronización'}
+      </button>
+    </div>
+  ) : null;
+
   const globalOverlays = null
 
   const biometricOnboardingModal = biometricPromptOpen ? (
@@ -1703,12 +1721,10 @@ function VaultApp() {
               syncing={cloudSyncStatus === 'syncing'}
               syncIndicator={CloudSyncIndicator}
               syncSection={desktopSyncSection}
-              onSelect={handleIdentitySelect}
               showAddForm={showAddForm}
               onToggleAddForm={handleToggleAddForm}
               onAddClick={handleAddClick}
               sortMode={sortMode}
-              onSortModeChange={setSortMode}
             />
           ) : (
             <MainArea
@@ -1922,7 +1938,6 @@ function VaultApp() {
           onToggleAddForm={handleToggleAddForm}
           onAddClick={handleAddClick}
           sortMode={sortMode}
-          onSortModeChange={setSortMode}
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">

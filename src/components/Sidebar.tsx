@@ -41,7 +41,6 @@ interface SidebarProps {
   onToggleAddForm: (show?: boolean) => void
   onAddClick: () => void
   sortMode: SortMode
-  onSortModeChange: (mode: SortMode) => void
 }
 
 
@@ -81,7 +80,6 @@ export const Sidebar = memo(function Sidebar({
   onToggleAddForm,
   onAddClick,
   sortMode,
-  onSortModeChange,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, cloudVaultExists, localCategories, saveLocalCategory } = useVault()
   const { showToast } = useToast()

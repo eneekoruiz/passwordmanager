@@ -230,9 +230,6 @@ function buildSources(name: string) {
   const encodedDomain = domain ? encodeURIComponent(domain) : null
   const iconSlugs = getSimpleIconSlugs(name)
 
-  // Si el dominio es un subdominio muy específico (ej. maps.google.com), clearbit devolverá el de google.com
-  // Para evitar esto, ponemos google favicons ANTES de clearbit si es un subdominio conocido.
-  const isSpecificSubdomain = domain?.includes('google.com') && domain !== 'google.com' || domain?.includes('aws.amazon.com')
 
   return uniq([
     domain ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
