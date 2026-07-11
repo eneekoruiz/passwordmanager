@@ -724,7 +724,7 @@ export function UnlockScreen() {
 
                     {canUseBiometricUnlock && (
                       <BiometricMasterPasswordShortcut
-                        loading={loading || biometricLoading || isCloudLoading}
+                        loading={loading || biometricLoading}
                         failed={biometricFailed}
                         onUnlock={handleBiometricVaultUnlock}
                       />
@@ -732,7 +732,7 @@ export function UnlockScreen() {
 
                     {canUseHardwareKeyUnlock && (
                       <HardwareKeyMasterPasswordShortcut
-                        loading={loading || hardwareKeyLoading || isCloudLoading}
+                        loading={loading || hardwareKeyLoading}
                         onUnlock={handleHardwareKeyVaultUnlock}
                       />
                     )}
@@ -886,14 +886,13 @@ export function UnlockScreen() {
                       type="submit"
                       disabled={
                         loading ||
-                        isCloudLoading ||
                         !masterPassword ||
                         (cloudVaultExists === false &&
                           !canCreateVault)
                       }
-                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 dark:bg-white px-4 py-3 text-xs font-semibold text-white dark:text-black transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
                     >
-                      {loading || isCloudLoading
+                      {loading
                         ? cloudVaultExists === false
                           ? 'Inicializando bóveda...'
                           : 'Desbloqueando bóveda...'
