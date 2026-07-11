@@ -189,7 +189,7 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, on
   }
 
   return (
-    <div className="group relative flex flex-col gap-1.5 rounded-2xl border border-black/[0.03] bg-white p-4 shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 hover:-translate-y-[1px]">
+    <div className="group relative flex flex-col gap-1.5 rounded-2xl border border-black/[0.03] dark:border-white/5 bg-white dark:bg-[#1c1c1e] p-4 shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 dark:hover:border-white/10 hover:-translate-y-[1px]">
       <div className="flex items-center justify-between">
         <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{label}</span>
         <div className="flex min-h-12 shrink-0 items-center gap-3">
@@ -198,7 +198,7 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, on
               type="button"
               onClick={() => void handleReveal()}
               disabled={authenticating}
-              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 bg-surface px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary focus:outline-none disabled:cursor-wait disabled:opacity-60"
+              className="inline-flex min-h-11 items-center rounded-xl border border-black/5 dark:border-white/5 bg-surface dark:bg-slate-800 px-4 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover dark:hover:bg-slate-700 hover:text-text-primary focus:outline-none disabled:cursor-wait disabled:opacity-60"
             >
               {authenticating ? 'Verificando...' : revealed ? 'Ocultar' : 'Mostrar'}
             </button>
@@ -206,7 +206,7 @@ function ReadOnlyField({ label, value, isSecret = false, isMultiline = false, on
           <button
             type="button"
             onClick={(event) => void handleCopy(event)}
-            className={'inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-90 ' + (copied ? 'border-green-100 bg-green-50 text-green-600' : 'border-black/5 bg-surface text-text-tertiary hover:bg-surface-hover hover:text-text-primary')}
+            className={'inline-flex h-11 w-11 items-center justify-center rounded-xl border shadow-sm transition-all duration-200 active:scale-90 ' + (copied ? 'border-green-100 bg-green-50 text-green-600 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400' : 'border-black/5 bg-surface dark:border-white/5 dark:bg-slate-800 text-text-tertiary hover:bg-surface-hover dark:hover:bg-slate-700 hover:text-text-primary')}
             title="Copiar"
           >
             {copied ? <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <CopyIcon />}
@@ -302,7 +302,7 @@ function SecuritySummaryCard({
   }
 
   return (
-    <div className="group flex flex-col rounded-2xl border border-black/[0.03] bg-white shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 hover:-translate-y-[1px]">
+    <div className="group flex flex-col rounded-2xl border border-black/[0.03] dark:border-white/5 bg-white dark:bg-[#1c1c1e] shadow-[0_2px_8px_rgba(0,0,0,0.015)] transition-all duration-300 hover:shadow-[0_8px_20px_rgba(0,0,0,0.06)] hover:border-black/10 dark:hover:border-white/10 hover:-translate-y-[1px]">
       <div className="flex p-4">
         <div className="flex-1 min-w-0 pr-4">
           <span className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary">{eyebrow}</span>
@@ -314,7 +314,7 @@ function SecuritySummaryCard({
             <button
               type="button"
               onClick={(event) => void handleCopy(event)}
-              className={'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-all active:scale-95 ' + (copied ? 'border-green-100 bg-green-50 text-green-700' : 'border-black/5 bg-surface text-text-secondary hover:bg-surface-hover hover:text-text-primary')}
+              className={'inline-flex items-center gap-1.5 rounded-lg border px-2.5 py-1.5 text-xs font-bold transition-all active:scale-95 ' + (copied ? 'border-green-100 bg-green-50 text-green-700 dark:border-green-800 dark:bg-green-900/30 dark:text-green-400' : 'border-black/5 bg-surface dark:border-white/5 dark:bg-slate-800 text-text-secondary hover:bg-surface-hover dark:hover:bg-slate-700 hover:text-text-primary')}
             >
               {copied ? <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={3}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg> : <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z" /></svg>}
               Copiar {actionLabel}
@@ -325,7 +325,7 @@ function SecuritySummaryCard({
               type="button"
               onClick={() => void handleReveal()}
               disabled={authenticating}
-              className="inline-flex items-center gap-1.5 rounded-lg bg-surface px-2.5 py-1.5 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary disabled:opacity-50 border border-black/5"
+              className="inline-flex items-center gap-1.5 rounded-lg bg-surface dark:bg-slate-800 px-2.5 py-1.5 text-xs font-bold text-text-secondary transition-colors hover:bg-surface-hover dark:hover:bg-slate-700 hover:text-text-primary disabled:opacity-50 border border-black/5 dark:border-white/5"
             >
               <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 {revealed ? (
@@ -846,7 +846,7 @@ export function AccountForm({
     return (
       <div className="w-full font-sans animate-vault-morph">
         {/* Sticky Header — Vista Lectura */}
-        <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
+        <header className="sticky top-0 z-40 flex flex-wrap items-center justify-between gap-3 border-b border-border-subtle bg-white/90 dark:bg-[#0f0f10]/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
           <div className="flex items-center gap-3 min-w-0">
             <button type="button" onClick={onCancel} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -861,7 +861,7 @@ export function AccountForm({
               <button
                 type="button"
                 onClick={handleGlobalUnlock}
-                className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95"
+                className="flex items-center gap-1.5 rounded-xl border border-black/10 dark:border-white/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-95"
                 title="Desbloquear vista completa"
               >
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -870,7 +870,7 @@ export function AccountForm({
                 <span className="hidden sm:inline">Desbloquear vista</span>
               </button>
             ) : (
-              <div className="flex items-center gap-1.5 rounded-xl border border-emerald-200 bg-emerald-50 px-3 py-2 sm:px-4 text-sm font-semibold text-emerald-700">
+              <div className="flex items-center gap-1.5 rounded-xl border border-emerald-200 dark:border-emerald-800/50 bg-emerald-50 dark:bg-emerald-900/20 px-3 py-2 sm:px-4 text-sm font-semibold text-emerald-700 dark:text-emerald-400">
                 <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M13.5 10.5V6.75a4.5 4.5 0 00-9 0v3.75M3.75 21.75h16.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H3.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
                 </svg>
@@ -878,14 +878,14 @@ export function AccountForm({
               </div>
             )}
             {onShare && (
-              <button type="button" onClick={onShare} className="flex items-center gap-1.5 rounded-xl border border-black/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 active:scale-95" title="Compartir">
+              <button type="button" onClick={onShare} className="flex items-center gap-1.5 rounded-xl border border-black/10 dark:border-white/10 px-3 py-2 sm:px-4 text-sm font-semibold text-text-primary transition-all hover:bg-black/5 dark:hover:bg-white/5 active:scale-95" title="Compartir">
                 <svg className="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z" />
                 </svg>
                 <span className="hidden sm:inline">Compartir</span>
               </button>
             )}
-            <button type="button" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 shrink-0 rounded-xl bg-text-primary px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95" title="Editar">
+            <button type="button" onClick={() => setIsEditing(true)} className="flex items-center gap-1.5 shrink-0 rounded-xl bg-slate-900 dark:bg-white px-3 py-2 sm:px-5 sm:py-2.5 text-sm font-semibold text-white dark:text-black shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-95" title="Editar">
               <svg className="w-4 h-4 sm:hidden" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L6.832 19.82a4.5 4.5 0 01-1.89 1.13l-2.685.8.8-2.685a4.5 4.5 0 011.13-1.89l12.685-12.684z" />
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 7.125L16.875 4.5" />
@@ -911,7 +911,7 @@ export function AccountForm({
             <div className="flex flex-col gap-2">
               <ReadOnlyField label="Contraseña" value={passwordMethod.password} isSecret autoReveal={isUnlocked} />
               {!account.ignoreWeakPasswordWarning && hasWeakPassword(account) && (
-                <div className="flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 border border-amber-100">
+                <div className="flex items-center gap-2 rounded-lg bg-amber-50 dark:bg-amber-900/20 px-3 py-2 text-xs font-medium text-amber-800 dark:text-amber-200/80 border border-amber-100 dark:border-amber-700/50">
                   <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
                   </svg>

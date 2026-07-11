@@ -756,13 +756,7 @@ function VaultApp() {
     prevMutationCount.current = mutationCount
   }, [mutationCount, hasUnsyncedChanges])
 
-  const prevSyncStatusRef = useRef(cloudSyncStatus)
-  useEffect(() => {
-    if (prevSyncStatusRef.current === 'syncing' && cloudSyncStatus === 'idle' && isOnline) {
-      showToast('Bóveda sincronizada correctamente con la nube.', 'success')
-    }
-    prevSyncStatusRef.current = cloudSyncStatus
-  }, [cloudSyncStatus, isOnline, showToast])
+
   const requestNavigation = (action: () => void) => {
     if (unsavedDirty && unsavedActions) {
       setPendingNavigation(() => action)
