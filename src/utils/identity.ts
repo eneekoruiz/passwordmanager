@@ -91,6 +91,10 @@ export function createPlatform(name: string, defaults?: Partial<Platform>): Plat
     customFields: defaults?.customFields ?? [],
     passwordHistory: defaults?.passwordHistory ?? [],
     sensitive: defaults?.sensitive ?? false,
+    ignoreWeakPasswordWarning: defaults?.ignoreWeakPasswordWarning,
+    ignoreExposedPasswordWarning: defaults?.ignoreExposedPasswordWarning,
+    exposedBreachCount: defaults?.exposedBreachCount,
+    lastExposedCheckAt: defaults?.lastExposedCheckAt,
     createdAt: defaults?.createdAt ?? now,
     updatedAt: now,
   }

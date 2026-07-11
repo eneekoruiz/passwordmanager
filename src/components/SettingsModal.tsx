@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip } from '../utils/exportVault'
-import { passwordStrengthIssue, evaluatePassword, isPasswordExposedInCache } from '../utils/security'
+import { passwordStrengthIssue, evaluatePassword, hasExposedPassword } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { ExposedPasswordsModal } from './ExposedPasswordsModal'
@@ -184,7 +184,7 @@ export function SettingsModal({
       all.some((other) => other !== entry && other?.password === entry?.password),
     )
     const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || '') && !entry?.platform?.ignoreWeakPasswordWarning)
-    const exposed = entries.filter((entry) => isPasswordExposedInCache(entry?.password || '') && !entry?.platform?.ignoreExposedPasswordWarning)
+    const exposed = entries.filter((entry) => hasExposedPassword(entry?.platform))
     const old = entries.filter((entry) => {
       if (!entry?.platform) return false
       const history: Array<{ changedAt: string }> = entry.platform.passwordHistory ?? []
