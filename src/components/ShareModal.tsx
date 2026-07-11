@@ -23,15 +23,32 @@ function payloadLabel(payload: SharePayload): string {
   return `${payload.bundleName} (${payload.platforms.length} plataformas)`
 }
 
-function buildPayloadString(payload: SharePayload, hidePassword?: boolean): string {
+function buildPayloadString(
+  payload: SharePayload, 
+  hidePassword?: boolean,
+  options?: { includeTotp: boolean; includeNotes: boolean; includeCustomFields: boolean }
+): string {
   const senderEmail = auth?.currentUser?.email || 'Usuario de Contras'
+
+  const filterPlatform = (p: Platform) => {
+    const newP = { ...p, id: generateId() } as any
+    delete newP.identityId
+    if (!options?.includeTotp) {
+      delete newP.twoFactorAuth
+      delete newP.twoFactorAuths
+    }
+    if (!options?.includeNotes) delete newP.notes
+    if (!options?.includeCustomFields) delete newP.customFields
+    return newP as Platform
+  }
+
   if (payload.type === 'single') {
     return JSON.stringify({
       type: 'single',
       senderEmail,
       identityEmail: payload.identityEmail,
       hidePassword,
-      data: { ...payload.platform, id: generateId(), identityId: undefined }
+      data: filterPlatform(payload.platform)
     })
   }
   return JSON.stringify({
@@ -39,13 +56,18 @@ function buildPayloadString(payload: SharePayload, hidePassword?: boolean): stri
     senderEmail,
     bundleName: payload.bundleName,
     hidePassword,
-    data: payload.platforms.map(p => ({ ...p, id: generateId(), identityId: undefined }))
+    data: payload.platforms.map(p => filterPlatform(p))
   })
 }
 
 export function ShareModal({ payload, onClose }: ShareModalProps) {
   const [mode, setMode] = useState<ShareMode>('link')
   const [hidePassword, setHidePassword] = useState(false)
+  
+  // Granular Options
+  const [includeTotp, setIncludeTotp] = useState(true)
+  const [includeNotes, setIncludeNotes] = useState(true)
+  const [includeCustomFields, setIncludeCustomFields] = useState(true)
 
   // P2P State
   const [email, setEmail] = useState('')
@@ -95,7 +117,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       const recipientPublicKeyJwk = publicKeySnap.data()?.publicKey
       const { importKeyFromJwkString, encryptWithPublicKey } = await import('../crypto/asymmetric')
       const publicKey = await importKeyFromJwkString(recipientPublicKeyJwk, 'public')
-      const payloadString = buildPayloadString(payload)
+      const payloadString = buildPayloadString(payload, false, { includeTotp, includeNotes, includeCustomFields })
       const encryptedData = await encryptWithPublicKey(publicKey, payloadString)
 
       const shareId = generateId()
@@ -131,7 +153,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       if (!db) throw new Error('Firebase no está inicializado.')
 
       const { key, base64Key } = await generateSymmetricLinkKey()
-      const payloadString = buildPayloadString(payload, hidePassword)
+      const payloadString = buildPayloadString(payload, hidePassword, { includeTotp, includeNotes, includeCustomFields })
       const { iv, ciphertext } = await encryptForLink(key, payloadString)
 
       const burnAfterRead = expiration === 'burn'
@@ -253,6 +275,31 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
             </p>
           </div>
         )}
+
+        {/* Granular Sharing UI (Global) */}
+        <div className="px-6 pt-5">
+          <label className="block text-xs font-bold uppercase tracking-wider text-text-tertiary mb-2">
+            ¿Qué información quieres incluir?
+          </label>
+          <div className="grid grid-cols-2 gap-2">
+            <label className="flex items-center gap-2.5 p-2.5 border border-black/5 rounded-xl bg-slate-50 opacity-60 cursor-not-allowed">
+              <input type="checkbox" checked disabled className="rounded text-indigo-600 focus:ring-indigo-600 ml-1" />
+              <span className="text-xs font-bold text-text-primary">Credenciales base</span>
+            </label>
+            <label className={`flex items-center gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-colors ${includeTotp ? 'bg-indigo-50/50 border-indigo-100' : 'bg-white border-black/5 hover:border-black/15'}`}>
+              <input type="checkbox" checked={includeTotp} onChange={e => setIncludeTotp(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-600 ml-1" />
+              <span className="text-xs font-semibold text-text-primary">TOTP (2FA)</span>
+            </label>
+            <label className={`flex items-center gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-colors ${includeNotes ? 'bg-indigo-50/50 border-indigo-100' : 'bg-white border-black/5 hover:border-black/15'}`}>
+              <input type="checkbox" checked={includeNotes} onChange={e => setIncludeNotes(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-600 ml-1" />
+              <span className="text-xs font-semibold text-text-primary">Notas Seguras</span>
+            </label>
+            <label className={`flex items-center gap-2.5 p-2.5 border rounded-xl cursor-pointer transition-colors ${includeCustomFields ? 'bg-indigo-50/50 border-indigo-100' : 'bg-white border-black/5 hover:border-black/15'}`}>
+              <input type="checkbox" checked={includeCustomFields} onChange={e => setIncludeCustomFields(e.target.checked)} className="rounded text-indigo-600 focus:ring-indigo-600 ml-1" />
+              <span className="text-xs font-semibold text-text-primary">Campos Personalizados Extras</span>
+            </label>
+          </div>
+        </div>
 
         {/* LINK MODE */}
         {mode === 'link' && (

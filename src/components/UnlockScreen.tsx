@@ -400,10 +400,16 @@ export function UnlockScreen() {
   useEffect(() => {
     if (cloudVaultExists !== false && biometricRegistered && !hasMountedBiometricRef.current) {
       hasMountedBiometricRef.current = true
-      handleBiometricVaultUnlock()
+      
+      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      
+      // En iOS/Safari, llamar a WebAuthn sin interacción de usuario hace que la promesa
+      // se quede colgada silenciosamente, provocando el timeout de 15 segundos.
+      if (!isIOS && !isSafari) {
+        handleBiometricVaultUnlock()
+      }
     }
-  // Solo debe ejecutarse cuando la pantalla se monta y tenemos datos de la nube.
-  // No re-ejecutar si cambia biometricRegistered (eso causaría el bucle).
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [cloudVaultExists])
 

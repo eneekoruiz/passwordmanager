@@ -88,6 +88,7 @@ function VaultApp() {
     cloudUserEmail,
     localCategories,
     isVaultLoaded,
+    mutationCount,
   } = useVault()
 
   const { showToast } = useToast()
@@ -707,9 +708,9 @@ function VaultApp() {
     return () => window.clearTimeout(timer)
   }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
 
-  const prevHasUnsyncedChanges = useRef(hasUnsyncedChanges)
+  const prevMutationCount = useRef(mutationCount)
   useEffect(() => {
-    if (hasUnsyncedChanges && !prevHasUnsyncedChanges.current) {
+    if (mutationCount > prevMutationCount.current) {
       setShowSyncReminder(true)
       setShowSyncCloseWarning(false)
     }
@@ -717,8 +718,8 @@ function VaultApp() {
       setShowSyncReminder(false)
       setShowSyncCloseWarning(false)
     }
-    prevHasUnsyncedChanges.current = hasUnsyncedChanges
-  }, [hasUnsyncedChanges])
+    prevMutationCount.current = mutationCount
+  }, [mutationCount, hasUnsyncedChanges])
 
   const prevSyncStatusRef = useRef(cloudSyncStatus)
   useEffect(() => {

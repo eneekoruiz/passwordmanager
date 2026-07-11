@@ -124,6 +124,7 @@ interface VaultContextValue {
   unlockWithHardwareKeySensor: () => Promise<void>
   disableHardwareKeyUnlock: () => Promise<void>
   masterKey: CryptoKey | null
+  mutationCount: number
 }
 
 export interface CloudSyncResult {
@@ -195,6 +196,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const syncInProgressRef = useRef(false)
   const lastAuthorizedTimeRef = useRef<number>(0)
 
+  const [mutationCount, setMutationCount] = useState(0)
   const [isReady, setIsReady] = useState(false)
   const [isAuthReady, setIsAuthReady] = useState(false)
   const [isInitialized, setIsInitialized] = useState(false)
@@ -358,6 +360,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             console.warn('Degraded memory detected: Biometric bundle lost. Resetting prompt status.')
             localStorage.removeItem('contras.biometricRegistered.default')
             localStorage.removeItem('contras.biometricPromptDismissed.v3.default')
+            localStorage.removeItem('contras.biometricPromptEnabled')
           }
         }
       }),
@@ -894,28 +897,44 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const user = firebaseUserRef.current
     if (user && currentProfileId) {
       // Both user logged in and profile unlocked.
-      // Trigger auto-sync!
+      // Trigger auto-sync with retries!
       setCloudSyncStatus('syncing')
-      void syncActiveProfileToCloud(true).then((result) => {
-        if (result.action === 'downloaded' || result.action === 'uploaded') {
-          setCloudSyncStatus('synced')
-        } else if (result.action === 'download_available') {
-          setCloudSyncStatus('idle')
-          setHasUnsyncedChanges(true)
-        } else if (result.action === 'idle') {
-          setCloudSyncStatus('idle')
+      
+      const bootSyncWithRetries = async (attempt = 1) => {
+        try {
+          const result = await syncActiveProfileToCloud(true) // silent=true
+          if (result.action === 'downloaded' || result.action === 'uploaded' || result.action === 'synced') {
+            setCloudSyncStatus('synced')
+          } else if (result.action === 'download_available') {
+            // There are pending changes (either from cloud or local).
+            // We just set it to idle and let the user see the blue indicator.
+            // We do NOT auto-merge to avoid data loss on conflicts.
+            setCloudSyncStatus('idle')
+            setHasUnsyncedChanges(true) 
+          } else if (result.action === 'idle') {
+            setCloudSyncStatus('idle')
+          }
+        } catch (err) {
+          if (attempt <= 3) {
+            console.warn(`Boot sync failed (attempt ${attempt}/3). Retrying in ${attempt * 2}s...`, err)
+            setTimeout(() => bootSyncWithRetries(attempt + 1), attempt * 2000)
+          } else {
+            logUnexpectedError('Auto sync failed completely after retries at boot', err)
+            setCloudSyncStatus('error')
+          }
         }
-      }).catch((err) => {
-        logUnexpectedError('Auto sync failed at boot state machine', err)
-        setCloudSyncStatus('error')
-      })
+      }
+      
+      void bootSyncWithRetries()
     } else {
       // Not logged in or profile not unlocked yet
       setCloudSyncStatus('idle')
     }
-  }, [isReady, isAuthReady, currentProfileId, cloudUserEmail, syncActiveProfileToCloud])
+  }, [isReady, isAuthReady, currentProfileId, cloudUserEmail, syncActiveProfileToCloud, downloadLatestCloudVault])
 
   const triggerCloudSync = useCallback(() => {
+    setHasUnsyncedChanges(true)
+    setMutationCount(p => p + 1)
     void syncActiveProfileToCloud(true).then(result => {
       // Si hay un download_available y estamos en triggerCloudSync (auto-push),
       // no sobreescribimos y en su lugar notificamos de conflicto en la UI mediante un return
@@ -1553,6 +1572,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
         localStorage.removeItem(`contras.biometricBundleBackup.${profileId}`)
         localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
+        localStorage.removeItem('contras.biometricPromptEnabled')
         setBiometricRegistered(false)
         throw new Error('El dispositivo ya no encuentra la llave de acceso local de Contras. Vuelve a activarla desde Ajustes después de entrar con tu Contraseña Maestra.')
       }
@@ -1863,6 +1883,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isInitialized,
       isUnlocked,
       isVaultLoaded,
+      mutationCount,
       identities,
       localItems,
       localCategories,
@@ -1988,6 +2009,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isPromptingMasterPassword,
       resolveMasterPasswordPrompt,
       hasUnsyncedChanges,
+      mutationCount,
     ],
   )
 
