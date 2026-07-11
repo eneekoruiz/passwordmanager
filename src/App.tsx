@@ -1294,7 +1294,15 @@ function VaultApp() {
                 <input 
                   type="checkbox" 
                   checked={dontShowBiometricPromptAgain}
-                  onChange={(e) => setDontShowBiometricPromptAgain(e.target.checked)}
+                  onChange={(e) => {
+                    const checked = e.target.checked
+                    setDontShowBiometricPromptAgain(checked)
+                    if (checked) {
+                      window.localStorage.setItem('contras.biometricPromptEnabled', 'false')
+                    } else {
+                      window.localStorage.removeItem('contras.biometricPromptEnabled')
+                    }
+                  }}
                   className="rounded border-border-subtle bg-surface-elevated text-text-primary focus:ring-0 cursor-pointer"
                 />
                 No sugerir más
