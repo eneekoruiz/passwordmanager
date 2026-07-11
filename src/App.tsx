@@ -1023,7 +1023,7 @@ function VaultApp() {
   const showExtraHeaderElements = true
 
   const mobileTopBar = isMobile ? (
-    <div className="fixed left-0 right-0 top-0 z-50 flex flex-col bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-black/5 dark:border-white/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
+    <div className="relative shrink-0 z-50 flex flex-col bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-black/5 dark:border-white/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
       {/* Row 1: Title & Sync indicator */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
@@ -1638,7 +1638,7 @@ function VaultApp() {
       <div className="fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface overscroll-none">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden pt-[124px] pb-16`}>
+        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden pb-4`}>
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
