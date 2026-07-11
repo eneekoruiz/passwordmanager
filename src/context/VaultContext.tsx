@@ -528,13 +528,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         for (const localIdn of localIdns) {
           const index = mergedIdns.findIndex(i => i.id === localIdn.id)
           if (index >= 0) {
-            const resolution = resolutions[localIdn.id]
+            const resolution = resolutions?.[localIdn.id]
             if (resolution === 'local') {
               mergedIdns[index] = localIdn
               localWinsExist = true
+            } else if (resolution !== 'cloud') {
+              const localDate = new Date(localIdn.updatedAt || 0).getTime()
+              const cloudDate = new Date(mergedIdns[index].updatedAt || 0).getTime()
+              if (localDate > cloudDate) {
+                mergedIdns[index] = localIdn
+                localWinsExist = true
+              }
             }
           } else {
-            // Local item only, if not in cloud and not marked 'local' resolution (should not happen on modified/conflicts, but safety first)
             mergedIdns.push(localIdn)
             localWinsExist = true
           }
@@ -547,9 +553,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         for (const localItem of localItemsDb) {
           const index = mergedLocalItems.findIndex(i => i.id === localItem.id)
           if (index >= 0) {
-            if (resolutions[localItem.id] === 'local') {
+            const resolution = resolutions?.[localItem.id]
+            if (resolution === 'local') {
               mergedLocalItems[index] = localItem
               localWinsExist = true
+            } else if (resolution !== 'cloud') {
+              const localDate = new Date(localItem.updatedAt || 0).getTime()
+              const cloudDate = new Date(mergedLocalItems[index].updatedAt || 0).getTime()
+              if (localDate > cloudDate) {
+                mergedLocalItems[index] = localItem
+                localWinsExist = true
+              }
             }
           } else {
             mergedLocalItems.push(localItem)
@@ -561,9 +575,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         for (const localCat of localCatsDb) {
           const index = mergedCats.findIndex(i => i.id === localCat.id)
           if (index >= 0) {
-            if (resolutions[localCat.id] === 'local') {
+            const resolution = resolutions?.[localCat.id]
+            if (resolution === 'local') {
               mergedCats[index] = localCat
               localWinsExist = true
+            } else if (resolution !== 'cloud') {
+              const localDate = new Date(localCat.updatedAt || 0).getTime()
+              const cloudDate = new Date(mergedCats[index].updatedAt || 0).getTime()
+              if (localDate > cloudDate) {
+                mergedCats[index] = localCat
+                localWinsExist = true
+              }
             }
           } else {
             mergedCats.push(localCat)
@@ -907,10 +929,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             setCloudSyncStatus('synced')
           } else if (result.action === 'download_available') {
             // There are pending changes (either from cloud or local).
-            // We just set it to idle and let the user see the blue indicator.
-            // We do NOT auto-merge to avoid data loss on conflicts.
-            setCloudSyncStatus('idle')
-            setHasUnsyncedChanges(true) 
+            // We now auto-merge them using Last-Write-Wins and pull the data silently.
+            await downloadLatestCloudVault()
+            // After downloading/merging, trigger a silent push to upload the merged result back to cloud
+            void syncActiveProfileToCloud(true)
           } else if (result.action === 'idle') {
             setCloudSyncStatus('idle')
           }
@@ -1441,7 +1463,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             } else {
               if (localStorage.getItem(`contras.biometricRegistered.${profileId}`) === 'true') {
                 console.warn(`Degraded memory detected for profile ${profileId}. Resetting prompt status.`)
-                localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
+                window.localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
                 localStorage.removeItem('contras.biometricPromptEnabled')
               }
               localStorage.removeItem(`contras.biometricRegistered.${profileId}`)

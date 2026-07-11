@@ -668,8 +668,8 @@ export const Sidebar = memo(function Sidebar({
                   renderEmptyNavigationState('Crea una plataforma aquí', onAddClick)
                 ) : (
                   <div className="relative pr-6">
-                    {/* A-Z side bar — only in alpha sort and no search query */}
-                    {platformsByLetter && !searchQuery && (
+                    {/* A-Z side bar — only in alpha sort, no search query, and enough items */}
+                    {platformsByLetter && !searchQuery && sidebarPlatforms.length > 10 && (
                       <AlphaScrollBar
                         onLetterSelect={handleLetterSelect}
                         activeLetter={activeLetter}

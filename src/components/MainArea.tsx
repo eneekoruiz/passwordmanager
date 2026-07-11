@@ -979,9 +979,9 @@ export const MainArea = memo(function MainArea({
                       )}
                       {/* Revealed Password Banner */}
                       {pwMethod?.password && revealedPasswords.has(`${identityId}-${platform.id}`) && (
-                        <div className="absolute left-4 right-20 bottom-3">
-                          <div className="inline-flex items-center gap-3 rounded-lg border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#1c1c1e] px-3 py-1.5 shadow-sm">
-                            <span className="font-mono text-xs font-semibold tracking-wider text-text-primary dark:text-slate-200 select-all" onClick={(e) => e.stopPropagation()}>
+                        <div className="absolute left-4 right-24 bottom-3 max-h-[60px] overflow-y-auto custom-scrollbar z-10" onClick={(e) => e.stopPropagation()}>
+                          <div className="flex min-h-full items-center rounded-lg border border-black/10 dark:border-white/10 bg-white/95 dark:bg-[#1c1c1e] px-3 py-1.5 shadow-sm">
+                            <span className="font-mono text-xs font-semibold tracking-wider text-text-primary dark:text-slate-200 select-all break-all">
                               {pwMethod.password}
                             </span>
                           </div>
