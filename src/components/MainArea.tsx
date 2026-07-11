@@ -444,7 +444,7 @@ export const MainArea = memo(function MainArea({
                                       </div>
                                     )}
                                     <span className="mt-1 block text-xs text-text-secondary dark:text-slate-400">
-                                      {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registradas
+                                      {platform.count} cuenta{platform.count !== 1 ? 's' : ''} registrada{platform.count !== 1 ? 's' : ''}
                                     </span>
                                   </span>
                                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary dark:bg-slate-900 dark:text-slate-300">

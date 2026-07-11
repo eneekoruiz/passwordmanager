@@ -36,7 +36,6 @@ interface SidebarProps {
   onInstall?: () => void
   syncing?: boolean
   syncIndicator?: React.ReactNode
-  syncSection?: React.ReactNode
   showAddForm: boolean
   onToggleAddForm: (show?: boolean) => void
   onAddClick: () => void
@@ -75,7 +74,6 @@ export const Sidebar = memo(function Sidebar({
   onInstall,
   syncing = false,
   syncIndicator,
-  syncSection,
   showAddForm,
   onToggleAddForm,
   onAddClick,
@@ -394,7 +392,7 @@ export const Sidebar = memo(function Sidebar({
               {platform.count} cuenta{platform.count !== 1 ? 's' : ''} vinculada{platform.count !== 1 ? 's' : ''}
             </span>
           </span>
-          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#6b6b70] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
+          <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#a0a0a5] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
         </button>
       </li>
     )
@@ -528,7 +526,7 @@ export const Sidebar = memo(function Sidebar({
                 </span>
               )}
             </span>
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200">Abrir</span>
+            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#a0a0a5] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
           </button>
           <button
             type="button"
@@ -641,7 +639,7 @@ export const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
-        <nav ref={navRef} className="flex-1 overflow-y-auto px-2 pb-4 lg:px-3 relative">
+        <nav ref={navRef} className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-4 lg:px-3 relative">
           {(syncing || (cloudVaultExists === true && cloudSyncStatus === 'idle')) && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4">
               <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
@@ -826,7 +824,7 @@ export const Sidebar = memo(function Sidebar({
           )}
         </nav>
 
-        {!isMobile && syncSection}
+
 
         {isMobile && installPromptAvailable && onInstall && (
           <footer className="flex flex-col gap-2.5 border-t border-border-subtle bg-surface p-3 dark:border-[#2c2c2e] dark:bg-[#0f0f10]">
