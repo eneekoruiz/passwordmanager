@@ -256,6 +256,7 @@ function VaultApp() {
   const [editPlatformTrigger, setEditPlatformTrigger] = useState<string | null>(null)
   const clearEditPlatformTrigger = useCallback(() => setEditPlatformTrigger(null), [])
   const [biometricPromptOpen, setBiometricPromptOpen] = useState(false)
+  const [dontShowBiometricPromptAgain, setDontShowBiometricPromptAgain] = useState(false)
   const [importTextOpen, setImportTextOpen] = useState(false)
   const [travelModeEnabled, setTravelModeEnabled] = useState(() => {
     if (typeof window === 'undefined') return false
@@ -950,8 +951,9 @@ function VaultApp() {
   }
 
   const dismissBiometricPrompt = () => {
-    if (currentProfileId) {
-      window.localStorage.setItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`, 'true')
+    if (dontShowBiometricPromptAgain) {
+      window.localStorage.setItem('contras.biometricPromptEnabled', 'false')
+      showToast('Sugerencia desactivada. Puedes reactivarla en Ajustes.', 'success')
     }
     setBiometricPromptOpen(false)
   }
@@ -1255,7 +1257,7 @@ function VaultApp() {
           <div className="flex-1">
             <h3 className="text-sm font-bold text-text-primary">¿Entrar más rápido?</h3>
             <p className="mt-1 text-xs text-text-secondary">Activa el desbloqueo por huella o cara para no tener que escribir tu contraseña maestra.</p>
-            <div className="mt-3 flex flex-wrap gap-2">
+            <div className="mt-4 flex flex-wrap gap-2">
               <button
                 type="button"
                 onClick={() => {
@@ -1263,29 +1265,28 @@ function VaultApp() {
                   setSettingsOpen(true)
                   dismissBiometricPrompt()
                 }}
-                className="flex h-8 items-center justify-center rounded-lg bg-text-primary px-3 text-xs font-semibold text-white transition-transform hover:scale-105 active:scale-95"
+                className="flex h-8 items-center justify-center rounded-lg bg-slate-900 dark:bg-white px-3 text-xs font-semibold text-white dark:text-black transition-transform hover:scale-105 active:scale-95"
               >
                 Configurar
               </button>
               <button
                 type="button"
                 onClick={dismissBiometricPrompt}
-                className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-black/5 active:bg-black/10"
+                className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-text-secondary transition-colors hover:bg-black/5 dark:hover:bg-white/10 active:bg-black/10"
               >
                 Ignorar
               </button>
-              <button
-                type="button"
-                onClick={() => {
-                  window.localStorage.setItem('contras.biometricPromptEnabled', 'false')
-                  setBiometricPromptOpen(false)
-                  window.alert("Se ha ocultado la sugerencia. Si cambias de opinión, puedes activarlo manualmente en Ajustes.")
-                }}
-                className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-medium text-red-500 hover:bg-red-50 dark:hover:bg-red-950/20 transition-colors"
-                title="Desactivar sugerencia (puedes configurarlo en Ajustes)"
-              >
+            </div>
+            <div className="mt-3 flex items-center gap-2 border-t border-black/5 dark:border-white/5 pt-3">
+              <label className="flex items-center gap-2 cursor-pointer text-[11px] text-text-secondary hover:text-text-primary transition-colors">
+                <input 
+                  type="checkbox" 
+                  checked={dontShowBiometricPromptAgain}
+                  onChange={(e) => setDontShowBiometricPromptAgain(e.target.checked)}
+                  className="rounded border-border-subtle bg-surface-elevated text-text-primary focus:ring-0 cursor-pointer"
+                />
                 No sugerir más
-              </button>
+              </label>
             </div>
           </div>
           <button type="button" onClick={dismissBiometricPrompt} className="absolute right-2 top-2 rounded-full p-1 text-slate-400 hover:bg-slate-100 hover:text-slate-600">
