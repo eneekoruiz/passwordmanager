@@ -1160,12 +1160,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
         await refreshVaultData()
-        triggerCloudSync()
+        void syncActiveProfileToCloud(true)
       } catch (error) {
         console.warn('Failed to track item access:', error)
       }
     },
-    [currentProfileId, identities, localItems, refreshVaultData, triggerCloudSync],
+    [currentProfileId, identities, localItems, refreshVaultData, syncActiveProfileToCloud],
   )
 
   const loginWithGoogleCloud = useCallback((): Promise<void> => {
@@ -1436,8 +1436,16 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCloudSyncStatus('idle')
           void storeRef.current.hasBiometricBundle(profileId).then((hasBundle) => {
             setBiometricRegistered(hasBundle)
-            if (hasBundle) localStorage.setItem(`contras.biometricRegistered.${profileId}`, 'true')
-            else localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+            if (hasBundle) {
+              localStorage.setItem(`contras.biometricRegistered.${profileId}`, 'true')
+            } else {
+              if (localStorage.getItem(`contras.biometricRegistered.${profileId}`) === 'true') {
+                console.warn(`Degraded memory detected for profile ${profileId}. Resetting prompt status.`)
+                localStorage.removeItem(`contras.biometricPromptDismissed.v3.${profileId}`)
+                localStorage.removeItem('contras.biometricPromptEnabled')
+              }
+              localStorage.removeItem(`contras.biometricRegistered.${profileId}`)
+            }
           })
           void storeRef.current.hasHardwareKeyBundle(profileId).then((hasBundle) => {
             setHardwareKeyRegistered(hasBundle)
