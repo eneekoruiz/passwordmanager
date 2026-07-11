@@ -235,15 +235,9 @@ function buildSources(name: string) {
   const isSpecificSubdomain = domain?.includes('google.com') && domain !== 'google.com' || domain?.includes('aws.amazon.com')
 
   return uniq([
-    (isSpecificSubdomain && domain) ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
-    domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null,
     domain ? `https://www.google.com/s2/favicons?domain=${encodedDomain}&sz=256` : null,
-    domain ? `https://api.faviconkit.com/${domain}/256` : null,
-    domain ? `https://unavatar.io/${domain}` : null,
+    domain ? `https://icons.duckduckgo.com/ip3/${domain}.ico` : null,
     ...iconSlugs.map((slug) => `https://cdn.jsdelivr.net/npm/simple-icons@latest/icons/${slug}.svg`),
-    domain ? `https://icon.horse/icon/${domain}` : null,
-    domain ? `https://${domain}/apple-touch-icon.png` : null,
-    domain ? `https://${domain}/favicon.ico` : null,
   ])
 }
 

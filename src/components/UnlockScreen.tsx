@@ -10,7 +10,7 @@ import { useRecovery } from '../hooks/useRecovery'
 
 function SecurityNote() {
   return (
-    <div className="rounded-2xl border border-amber-100 bg-amber-50/80 p-3 text-left text-[11px] leading-relaxed text-amber-800">
+    <div className="rounded-2xl border border-amber-100 bg-amber-50/80 dark:border-amber-700/50 dark:bg-amber-900/20 p-3 text-left text-[11px] leading-relaxed text-amber-800 dark:text-amber-200/80">
       <p>
         <span className="font-bold">💡 Nota de seguridad:</span> Tu Contraseña Maestra no es la de tu correo. Es una clave única que solo tú conoces. No se envía a nuestros servidores, por lo que si la pierdes, no podremos recuperarla.
       </p>
@@ -239,13 +239,13 @@ function BiometricMasterPasswordShortcut({
   onUnlock: () => void
 }) {
   return (
-    <div className={`rounded-2xl border p-3 text-left shadow-sm ${failed ? 'border-amber-200 bg-amber-50/80' : 'border-emerald-100 bg-emerald-50/80'}`}>
+    <div className={`rounded-2xl border p-3 text-left shadow-sm ${failed ? 'border-amber-200 bg-amber-50/80 dark:border-amber-700/50 dark:bg-amber-900/20' : 'border-emerald-100 bg-emerald-50/80 dark:border-emerald-700/50 dark:bg-emerald-900/20'}`}>
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className={`text-xs font-bold ${failed ? 'text-amber-950' : 'text-emerald-950'}`}>
+          <p className={`text-xs font-bold ${failed ? 'text-amber-950 dark:text-amber-400' : 'text-emerald-950 dark:text-emerald-400'}`}>
             {failed ? 'Biometría no disponible' : 'Desbloqueo biométrico disponible'}
           </p>
-          <p className={`mt-0.5 text-[11px] leading-relaxed ${failed ? 'text-amber-800' : 'text-emerald-800'}`}>
+          <p className={`mt-0.5 text-[11px] leading-relaxed ${failed ? 'text-amber-800 dark:text-amber-200/70' : 'text-emerald-800 dark:text-emerald-200/70'}`}>
             {failed
               ? 'El dispositivo no pudo verificar la biometría. Usa tu Contraseña Maestra debajo para entrar.'
               : 'Usa la llave de acceso local protegida por Face ID, huella o Windows Hello.'}
@@ -284,12 +284,14 @@ function HardwareKeyMasterPasswordShortcut({
   onUnlock: () => void
 }) {
   return (
-    <div className="rounded-2xl border border-blue-100 bg-blue-50/80 p-3 text-left shadow-sm">
+    <div className="rounded-2xl border p-3 text-left shadow-sm border-blue-100 bg-blue-50/80 dark:border-blue-700/50 dark:bg-blue-900/20">
       <div className="flex items-center justify-between gap-3">
         <div>
-          <p className="text-xs font-bold text-blue-950">Llave física disponible</p>
-          <p className="mt-0.5 text-[11px] leading-relaxed text-blue-800">
-            Conecta tu YubiKey o llave FIDO2 compatible para desbloquear la bóveda.
+          <p className="text-xs font-bold text-blue-950 dark:text-blue-400">
+            Llave de seguridad (YubiKey) disponible
+          </p>
+          <p className="mt-0.5 text-[11px] leading-relaxed text-blue-800 dark:text-blue-200/70">
+            Inserta tu llave de seguridad o acércala por NFC para desbloquear.
           </p>
         </div>
         <button
@@ -401,12 +403,12 @@ export function UnlockScreen() {
     if (cloudVaultExists !== false && biometricRegistered && !hasMountedBiometricRef.current) {
       hasMountedBiometricRef.current = true
       
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-      const isSafari = /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+      const isAndroid = /Android/i.test(navigator.userAgent);
       
-      // En iOS/Safari, llamar a WebAuthn sin interacción de usuario hace que la promesa
-      // se quede colgada silenciosamente, provocando el timeout de 15 segundos.
-      if (!isIOS && !isSafari) {
+      // En escritorio e iOS, llamar a WebAuthn automáticamente puede causar bucles
+      // de renderizado con React StrictMode o colgar la promesa silenciosamente.
+      // Por tanto, sólo lo lanzamos automáticamente en Android.
+      if (isAndroid) {
         handleBiometricVaultUnlock()
       }
     }
@@ -644,7 +646,7 @@ export function UnlockScreen() {
     <div className="flex h-dvh max-h-dvh flex-col lg:flex-row overflow-hidden bg-surface select-none">
 
       <div className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-surface-elevated m-2 lg:m-3 lg:ml-0 rounded-3xl border border-border-subtle shadow-sm relative px-4 py-8">
-        <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
+        <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 dark:bg-[#1c1c1e]/80 dark:border-white/10 dark:shadow-[0_15px_50px_rgba(0,0,0,0.2)] p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
           <NativeIdentityStep
             loading={loading || isCloudLoading}
@@ -668,7 +670,7 @@ export function UnlockScreen() {
                   value={recoveryInput}
                   onChange={(event) => setRecoveryInput(event.target.value)}
                   placeholder={`pega aqui tus ${RECOVERY_PHRASE_WORD_COUNT} palabras de recuperacion`}
-                  className="min-h-[92px] w-full rounded-xl border border-black/[0.06] bg-white/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 focus:ring-2 focus:ring-black/[0.035]"
+                  className="min-h-[92px] w-full rounded-xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-[#0f0f10]/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 dark:focus:border-white/20 focus:ring-2 focus:ring-black/[0.035] dark:focus:ring-white/[0.035]"
                 />
                 <PasswordField
                   label="Nueva Contraseña Maestra"
@@ -772,12 +774,12 @@ export function UnlockScreen() {
                     </div>
 
                     {cloudVaultExists === false && recoveryPhrase && (
-                      <div className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 p-4 text-left shadow-sm animate-vault-morph">
+                      <div className="space-y-3 rounded-2xl border border-amber-200/70 bg-amber-50/80 dark:border-amber-700/50 dark:bg-amber-900/20 p-4 text-left shadow-sm animate-vault-morph">
                         <div>
-                          <p className="text-xs font-bold text-amber-900">Kit de Recuperación de Emergencia</p>
-                          <p className="mt-1 text-[11px] leading-relaxed text-amber-800">
+                          <p className="text-xs font-bold text-amber-900 dark:text-amber-400">Kit de Recuperación de Emergencia</p>
+                          <p className="mt-1 text-[11px] leading-relaxed text-amber-800 dark:text-amber-200/80">
                             Esta Frase Semilla es tu único salvavidas zero-knowledge. Si olvidas la Contraseña Maestra, estas palabras son la unica forma de recuperar y re-cifrar la bóveda. Guárdalas fuera de este dispositivo.
-                          </p>
+                          </p>>
                         </div>
                         {onboardingRecoveryStep === 'display' ? (
                           <div className="space-y-3 animate-vault-morph">
@@ -986,8 +988,8 @@ export function UnlockScreen() {
               <h3 className="font-bold text-slate-800">3. Limitación de Responsabilidad</h3>
               <p>El servicio se proporciona "tal cual". Contras no será responsable por la pérdida de datos, accesos no autorizados debidos a dispositivos comprometidos, u otros daños indirectos derivados del uso de la aplicación.</p>
             </div>
-            <div className="p-4 border-t border-black/5 bg-slate-50 flex-shrink-0 flex justify-end">
-              <button type="button" onClick={() => setShowTerms(false)} className="rounded-xl bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-700 active:scale-95">
+            <div className="p-4 border-t border-black/5 dark:border-white/5 bg-slate-50 dark:bg-slate-900 flex-shrink-0 flex justify-end">
+              <button type="button" onClick={() => setShowTerms(false)} className="rounded-xl bg-slate-800 dark:bg-white dark:text-black px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-700 dark:hover:bg-slate-200 active:scale-95">
                 Cerrar
               </button>
             </div>
@@ -1014,8 +1016,8 @@ export function UnlockScreen() {
               <h3 className="font-bold text-slate-800">Uso de Cookies y Almacenamiento Local</h3>
               <p>Contras utiliza `localStorage` y APIs nativas del navegador (como WebAuthn) para guardar la configuración (ej. modo de ordenación), los datos locales y las llaves biométricas. No usamos cookies de rastreo de terceros (tracking cookies).</p>
             </div>
-            <div className="p-4 border-t border-black/5 bg-slate-50 flex-shrink-0 flex justify-end">
-              <button type="button" onClick={() => setShowPrivacy(false)} className="rounded-xl bg-slate-800 px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-700 active:scale-95">
+            <div className="p-4 border-t border-black/5 dark:border-white/5 bg-slate-50 dark:bg-slate-900 flex-shrink-0 flex justify-end">
+              <button type="button" onClick={() => setShowPrivacy(false)} className="rounded-xl bg-slate-800 dark:bg-white dark:text-black px-6 py-2.5 text-sm font-semibold text-white transition-all hover:bg-slate-700 dark:hover:bg-slate-200 active:scale-95">
                 Cerrar
               </button>
             </div>

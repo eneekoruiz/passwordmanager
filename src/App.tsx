@@ -380,7 +380,7 @@ function VaultApp() {
         {syncState.icon}
       </button>
 
-      {syncPopoverOpen && createPortal(
+      {isMobile && syncPopoverOpen && createPortal(
         <>
           <div className="fixed inset-0 z-[60]" onClick={() => setSyncPopoverOpen(false)} />
           <div
@@ -432,6 +432,40 @@ function VaultApp() {
       )}
     </div>
   )
+
+  const desktopSyncSection = !isMobile ? (
+    <div className="border-t border-border-subtle bg-surface p-4 dark:border-[#2c2c2e] dark:bg-[#0f0f10] mt-auto">
+      <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-tertiary mb-3 dark:text-[#6b6b70]">
+        Estado de Sincronización
+      </h4>
+      <div className="flex items-center gap-2 mb-2">
+        <span className={`h-2.5 w-2.5 rounded-full ${syncState.dotColor}`} />
+        <span className="text-xs font-semibold text-text-primary dark:text-white">{syncState.label}</span>
+      </div>
+      <p className="text-[11px] text-text-secondary leading-relaxed mb-3 dark:text-[#a0a0a5]">
+        {syncState.description}
+      </p>
+      <div className="text-[10px] text-text-tertiary space-y-1 mb-3 dark:text-[#6b6b70]">
+        <div className="flex justify-between">
+          <span>Local:</span>
+          <span className="font-medium text-text-secondary dark:text-slate-400">{localUpdatedAt}</span>
+        </div>
+        <div className="flex justify-between">
+          <span>Nube:</span>
+          <span className="font-medium text-text-secondary truncate ml-2 dark:text-slate-400">{cloudUserEmail ?? 'No conectado'}</span>
+        </div>
+      </div>
+      <button
+        type="button"
+        onClick={handleManualSync}
+        disabled={cloudSyncStatus === 'syncing'}
+        className="w-full min-h-[36px] rounded-xl bg-text-primary dark:bg-white dark:text-black text-white text-[11px] font-bold hover:opacity-90 transition-all active:scale-[0.98] disabled:opacity-50 flex items-center justify-center gap-2"
+      >
+        {cloudSyncStatus === 'syncing' && <span className="h-3 w-3 animate-spin rounded-full border-2 border-white/30 border-t-white dark:border-black/30 dark:border-t-black" />}
+        {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Refrescar Sincronización'}
+      </button>
+    </div>
+  ) : null;
 
   const displayIdentities = useMemo(() => {
     let list = travelModeEnabled
@@ -1057,7 +1091,7 @@ function VaultApp() {
             <button
               type="button"
               onClick={() => setShowUserMenu(!showUserMenu)}
-              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-[10px] shadow-sm hover:bg-indigo-100 transition-all active:scale-95"
+              className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-[10px] shadow-sm hover:bg-indigo-100 transition-all active:scale-95 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-white/10 dark:hover:bg-indigo-900/50"
               aria-label="Menú de usuario"
             >
               {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
@@ -1078,7 +1112,7 @@ function VaultApp() {
                 <div className="absolute right-0 top-[110%] z-50 w-64 rounded-3xl border border-black/5 bg-white/95 p-2 shadow-[0_20px_60px_rgba(0,0,0,0.12)] backdrop-blur-xl text-left flex flex-col gap-1 animate-in fade-in zoom-in-95 duration-200 dark:border-white/10 dark:bg-slate-900/95">
                   <div className="px-3 py-3 border-b border-black/5 mb-1 bg-slate-50/50 rounded-2xl dark:border-white/5 dark:bg-slate-800/50">
                     <p className="text-sm font-bold text-slate-900 truncate dark:text-white">{currentProfileName || 'Bóveda Local'}</p>
-                    <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5">{cloudUserEmail}</p>
+                    <p className="text-[11px] text-slate-500 truncate font-medium mt-0.5 dark:text-slate-400">{cloudUserEmail}</p>
                   </div>
                   <button type="button" onClick={() => { setShowUserMenu(false); setSettingsOpen(true) }} className="flex items-center gap-3 w-full rounded-xl px-3 py-2.5 text-[13px] font-semibold text-slate-700 hover:bg-slate-100 hover:text-slate-900 transition-colors dark:text-slate-300 dark:hover:bg-slate-800 dark:hover:text-white">
                     <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-slate-100 text-slate-500 dark:bg-slate-800 dark:text-slate-400">
@@ -1673,6 +1707,8 @@ function VaultApp() {
               onInstall={handleInstallApp}
               syncing={cloudSyncStatus === 'syncing'}
               syncIndicator={CloudSyncIndicator}
+              syncSection={desktopSyncSection}
+              onSelect={handleIdentitySelect}
               showAddForm={showAddForm}
               onToggleAddForm={handleToggleAddForm}
               onAddClick={handleAddClick}
@@ -1886,6 +1922,7 @@ function VaultApp() {
           onInstall={handleInstallApp}
           syncing={cloudSyncStatus === 'syncing'}
           syncIndicator={CloudSyncIndicator}
+          syncSection={desktopSyncSection}
           showAddForm={showAddForm}
           onToggleAddForm={handleToggleAddForm}
           onAddClick={handleAddClick}

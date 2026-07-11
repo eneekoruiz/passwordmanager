@@ -21,12 +21,13 @@ type BreachedEntry = {
 }
 
 export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePlatform, onEditPlatform }: ExposedPasswordsModalProps) {
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(false)
   const [breachedPasswords, setBreachedPasswords] = useState<BreachedEntry[]>([])
   const [selectedBreaches, setSelectedBreaches] = useState<string[]>([])
   const [scanComplete, setScanComplete] = useState(false)
   const [hasStartedScan, setHasStartedScan] = useState(false)
-
+  const [scanProgress, setScanProgress] = useState(0)
+  const [totalScanCount, setTotalScanCount] = useState(0)
 
   const runScan = useCallback(async () => {
     setLoading(true)
@@ -40,17 +41,21 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
       }))
     )
     
-    for (const acc of allAccounts) {
-      if (acc.password && !acc.platform.ignoreExposedPasswordWarning) {
-        try {
-          const count = await checkPasswordBreach(acc.password)
-          if (count > 0) {
-            newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
-          }
-        } catch (e) {
-          console.error('Error scanning password', e)
+    const validAccounts = allAccounts.filter(acc => acc.password && !acc.platform.ignoreExposedPasswordWarning)
+    
+    setTotalScanCount(validAccounts.length)
+    setScanProgress(0)
+    
+    for (const acc of validAccounts) {
+      try {
+        const count = await checkPasswordBreach(acc.password)
+        if (count > 0) {
+          newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
         }
+      } catch (e) {
+        console.error('Error scanning password', e)
       }
+      setScanProgress(prev => prev + 1)
     }
     
     setBreachedPasswords(newBreached)
@@ -126,10 +131,20 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
         </div>
         
         {loading && !scanComplete ? (
-          <div className="flex h-64 flex-col items-center justify-center space-y-4">
-            <span className="h-10 w-10 rounded-full border-4 border-red-500/20 border-t-red-600 animate-spin" />
-            <p className="text-sm font-bold text-slate-600">Escaneando bóveda de forma anónima...</p>
-            <p className="text-xs text-slate-400">Usando K-Anonymity para proteger tu privacidad.</p>
+          <div className="flex h-64 flex-col items-center justify-center space-y-5">
+            <div className="relative flex h-14 w-14 items-center justify-center">
+              <svg className="absolute inset-0 h-full w-full -rotate-90 text-slate-100 dark:text-slate-800" viewBox="0 0 36 36">
+                <path className="stroke-current" strokeWidth="3" fill="none" d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" />
+                <path className="stroke-red-500 dark:stroke-red-400" strokeWidth="3" fill="none" strokeDasharray={`${Math.max(1, totalScanCount > 0 ? (scanProgress / totalScanCount) * 100 : 0)}, 100`} d="M18 2.0845 a 15.9155 15.9155 0 0 1 0 31.831 a 15.9155 15.9155 0 0 1 0 -31.831" style={{ transition: 'stroke-dasharray 0.3s ease-out' }} />
+              </svg>
+              <span className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                {totalScanCount > 0 ? Math.round((scanProgress / totalScanCount) * 100) : 0}%
+              </span>
+            </div>
+            <div className="text-center">
+              <p className="text-sm font-bold text-slate-600 dark:text-slate-300">Escaneando bóveda de forma anónima...</p>
+              <p className="text-xs text-slate-400 mt-1">Revisada {scanProgress} de {totalScanCount} cuentas</p>
+            </div>
           </div>
         ) : !hasStartedScan ? (
           <div className="flex h-[300px] flex-col items-center justify-center text-center animate-in fade-in duration-300">

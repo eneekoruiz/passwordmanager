@@ -36,6 +36,7 @@ interface SidebarProps {
   onInstall?: () => void
   syncing?: boolean
   syncIndicator?: React.ReactNode
+  syncSection?: React.ReactNode
   showAddForm: boolean
   onToggleAddForm: (show?: boolean) => void
   onAddClick: () => void
@@ -75,10 +76,12 @@ export const Sidebar = memo(function Sidebar({
   onInstall,
   syncing = false,
   syncIndicator,
+  syncSection,
   showAddForm,
   onToggleAddForm,
   onAddClick,
   sortMode,
+  onSortModeChange,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, cloudVaultExists, localCategories, saveLocalCategory } = useVault()
   const { showToast } = useToast()
@@ -824,6 +827,8 @@ export const Sidebar = memo(function Sidebar({
             </>
           )}
         </nav>
+
+        {!isMobile && syncSection}
 
         {isMobile && installPromptAvailable && onInstall && (
           <footer className="flex flex-col gap-2.5 border-t border-border-subtle bg-surface p-3 dark:border-[#2c2c2e] dark:bg-[#0f0f10]">
