@@ -1,16 +1,10 @@
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useMemo } from 'react'
 import type { Identity } from '../types'
-import { checkPasswordBreach } from '../utils/security'
-
-function passwordForPlatform(platform: Identity['platforms'][number] | undefined): string {
-  return platform?.accessMethods?.find((method) => method?.type === 'PASSWORD')?.password ?? ''
-}
+import { useVault } from '../context/VaultContext'
 
 interface ExposedPasswordsModalProps {
   isOpen: boolean
   onClose: () => void
-  identities: Identity[]
-  onUpdatePlatform?: (identityId: string, platformId: string, platform: Identity['platforms'][number]) => Promise<void>
   onEditPlatform?: (platformId: string) => void
 }
 
@@ -20,82 +14,76 @@ type BreachedEntry = {
   count: number
 }
 
-export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePlatform, onEditPlatform }: ExposedPasswordsModalProps) {
-  const [loading, setLoading] = useState(false)
-  const [breachedPasswords, setBreachedPasswords] = useState<BreachedEntry[]>([])
-  const [selectedBreaches, setSelectedBreaches] = useState<string[]>([])
-  const [scanComplete, setScanComplete] = useState(false)
-  const [hasStartedScan, setHasStartedScan] = useState(false)
-  const [scanProgress, setScanProgress] = useState(0)
-  const [totalScanCount, setTotalScanCount] = useState(0)
+export function ExposedPasswordsModal({ isOpen, onClose, onEditPlatform }: ExposedPasswordsModalProps) {
+  const {
+    identities,
+    updatePlatform,
+    isScanningExposed,
+    exposedScanProgress,
+    exposedScanTotal,
+    runExposedPasswordsScan
+  } = useVault()
 
-  const runScan = useCallback(async () => {
-    setLoading(true)
+  const [selectedBreaches, setSelectedBreaches] = useState<string[]>([])
+  const [localHasStartedScan, setLocalHasStartedScan] = useState(false)
+
+  const breachedPasswords = useMemo(() => {
     const newBreached: BreachedEntry[] = []
-    
-    const allAccounts = (identities || []).flatMap((identity) =>
-      (identity?.platforms || []).map((platform) => ({
-        identityEmail: identity?.email,
-        platform,
-        password: passwordForPlatform(platform),
-      }))
-    )
-    
-    const validAccounts = allAccounts.filter(acc => acc.password && !acc.platform.ignoreExposedPasswordWarning)
-    
-    setTotalScanCount(validAccounts.length)
-    setScanProgress(0)
-    
-    for (const acc of validAccounts) {
-      try {
-        const count = await checkPasswordBreach(acc.password)
-        if (count > 0) {
-          newBreached.push({ identityEmail: acc.identityEmail || '', platform: acc.platform, count })
+    for (const identity of identities || []) {
+      for (const platform of identity.platforms || []) {
+        if (
+          platform.exposedBreachCount !== undefined &&
+          platform.exposedBreachCount !== null &&
+          platform.exposedBreachCount > 0 &&
+          !platform.ignoreExposedPasswordWarning
+        ) {
+          newBreached.push({
+            identityEmail: identity.email,
+            platform,
+            count: platform.exposedBreachCount
+          })
         }
-      } catch (e) {
-        console.error('Error scanning password', e)
       }
-      setScanProgress(prev => prev + 1)
     }
-    
-    setBreachedPasswords(newBreached)
-    setLoading(false)
-    setScanComplete(true)
+    return newBreached
   }, [identities])
 
-  useEffect(() => {
-    if (!isOpen) {
-      setBreachedPasswords([])
-      setScanComplete(false)
-      setHasStartedScan(false)
-      setSelectedBreaches([])
-      return
-    }
+  const hasAnyScanned = useMemo(() => {
+    return (identities || []).some(id =>
+      (id.platforms || []).some(p => p.exposedBreachCount !== undefined && p.exposedBreachCount !== null)
+    )
+  }, [identities])
 
-    let isMounted = true
-    if (isMounted && hasStartedScan && !scanComplete) {
-      runScan()
-    }
-    return () => {
-      isMounted = false
-    }
-  }, [isOpen, runScan])
+  const hasStartedScan = localHasStartedScan || hasAnyScanned
+  const scanComplete = !isScanningExposed && hasAnyScanned
+  const loading = isScanningExposed
+  const scanProgress = exposedScanProgress
+  const totalScanCount = exposedScanTotal
 
-  if (!isOpen) return null
+  const runScan = () => {
+    setLocalHasStartedScan(true)
+    void runExposedPasswordsScan()
+  }
 
   const handleIgnoreSelected = async () => {
-    if (!onUpdatePlatform) return
     for (const key of selectedBreaches) {
       const [email, platformId] = key.split('-')
       const identity = identities.find(id => id.email === email)
-      const entry = breachedPasswords.find(b => b.platform.id === platformId)
-      if (identity && entry) {
-        await onUpdatePlatform(identity.id, entry.platform.id, { ...entry.platform, ignoreExposedPasswordWarning: true })
+      if (identity) {
+        const platform = identity.platforms.find(p => p.id === platformId)
+        if (platform) {
+          await updatePlatform(identity.id, platform.id, {
+            ...platform,
+            ignoreExposedPasswordWarning: true
+          })
+        }
       }
     }
-    setBreachedPasswords(prev => prev.filter(b => !selectedBreaches.includes(`${b.identityEmail}-${b.platform.id}`)))
     setSelectedBreaches([])
   }
+
+
+  if (!isOpen) return null
 
   return (
     <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-vault-morph">
@@ -157,7 +145,7 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
             <p className="max-w-[280px] text-sm text-text-tertiary mt-2">
               Comprobaremos tus contraseñas contra bases de datos públicas de filtraciones de forma segura.
             </p>
-            <button onClick={() => { setHasStartedScan(true); runScan(); }} className="mt-6 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700">
+            <button onClick={() => { setLocalHasStartedScan(true); runScan(); }} className="mt-6 rounded-xl bg-indigo-600 px-6 py-2.5 text-sm font-bold text-white transition-all hover:bg-indigo-700">
               Revisar
             </button>
           </div>
@@ -240,12 +228,12 @@ export function ExposedPasswordsModal({ isOpen, onClose, identities, onUpdatePla
                           <button
                             type="button"
                             onClick={async () => {
-                              if (onUpdatePlatform) {
-                                const identity = identities.find(id => id.email === entry.identityEmail)
-                                if (identity) {
-                                  await onUpdatePlatform(identity.id, entry.platform.id, { ...entry.platform, ignoreExposedPasswordWarning: true })
-                                  setBreachedPasswords(prev => prev.filter(b => b.platform.id !== entry.platform.id))
-                                }
+                              const identity = identities.find(id => id.email === entry.identityEmail)
+                              if (identity) {
+                                await updatePlatform(identity.id, entry.platform.id, {
+                                  ...entry.platform,
+                                  ignoreExposedPasswordWarning: true
+                                })
                               }
                             }}
                             className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-xs font-semibold text-red-800 shadow-sm transition-colors hover:bg-red-100"

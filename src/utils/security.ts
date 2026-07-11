@@ -178,9 +178,7 @@ export function isPasswordExposedInCache(password: string): boolean {
 
 export function hasExposedPassword(platform: any): boolean {
   if (platform.ignoreExposedPasswordWarning) return false
-  const pwMethod = platform.accessMethods?.find((m: any) => m?.type === 'PASSWORD')
-  if (!pwMethod || !pwMethod.password) return false
-  return isPasswordExposedInCache(pwMethod.password)
+  return platform.exposedBreachCount !== undefined && platform.exposedBreachCount !== null && platform.exposedBreachCount > 0
 }
 
 /** Returns the age of a password in days based on the most recent passwordHistory entry or updatedAt */

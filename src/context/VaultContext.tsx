@@ -125,6 +125,10 @@ interface VaultContextValue {
   disableHardwareKeyUnlock: () => Promise<void>
   masterKey: CryptoKey | null
   mutationCount: number
+  isScanningExposed: boolean
+  exposedScanProgress: number
+  exposedScanTotal: number
+  runExposedPasswordsScan: () => Promise<void>
 }
 
 export interface CloudSyncResult {
@@ -205,6 +209,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const [identities, setIdentities] = useState<Identity[]>([])
   const [localItems, setLocalItems] = useState<LocalVaultItem[]>([])
   const [localCategories, setLocalCategories] = useState<LocalCategory[]>([])
+
+  const [isScanningExposed, setIsScanningExposed] = useState(false)
+  const [exposedScanProgress, setExposedScanProgress] = useState(0)
+  const [exposedScanTotal, setExposedScanTotal] = useState(0)
+
+  const identitiesRef = useRef<Identity[]>([])
+  useEffect(() => {
+    identitiesRef.current = identities
+  }, [identities])
 
   const [isPromptingMasterPassword, setIsPromptingMasterPassword] = useState(false)
   const masterPasswordResolver = useRef<((success: boolean) => void) | null>(null)
@@ -1865,6 +1878,76 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await listProfiles()
   }, [currentProfileId, listProfiles, logoutProfile])
 
+  const runExposedPasswordsScan = useCallback(async () => {
+    if (isScanningExposed || !currentProfileId) return
+    setIsScanningExposed(true)
+    setExposedScanProgress(0)
+
+    try {
+      const { checkPasswordBreach } = await import('../utils/security')
+      
+      const currentIdentities = identitiesRef.current
+      
+      const allAccounts = currentIdentities.flatMap((identity) =>
+        (identity.platforms || []).map((platform) => ({
+          identityId: identity.id,
+          platform,
+          password: platform.accessMethods?.find((m) => m.type === 'PASSWORD')?.password ?? '',
+        }))
+      )
+      
+      const validAccounts = allAccounts.filter(acc => acc.password && !acc.platform.ignoreExposedPasswordWarning)
+      setExposedScanTotal(validAccounts.length)
+      setExposedScanProgress(0)
+
+      const identityUpdatesMap = new Map<string, Identity>()
+
+      for (let i = 0; i < validAccounts.length; i++) {
+        const acc = validAccounts[i]
+        try {
+          const count = await checkPasswordBreach(acc.password)
+          const targetId = acc.identityId
+          let identityToUpdate = identityUpdatesMap.get(targetId) || currentIdentities.find(id => id.id === targetId)
+          
+          if (identityToUpdate) {
+            const updatedPlatforms = identityToUpdate.platforms.map(p => 
+              p.id === acc.platform.id 
+                ? { ...p, exposedBreachCount: count, lastExposedCheckAt: new Date().toISOString() } 
+                : p
+            )
+            
+            identityUpdatesMap.set(targetId, {
+              ...identityToUpdate,
+              platforms: updatedPlatforms,
+              updatedAt: new Date().toISOString()
+            })
+          }
+        } catch (err) {
+          console.error('Error checking password leak in background scan:', err)
+        }
+        setExposedScanProgress(i + 1)
+      }
+
+      for (const [_, updatedIdentity] of identityUpdatesMap.entries()) {
+        await storeRef.current.saveIdentity(currentProfileId, updatedIdentity)
+      }
+
+      if (identityUpdatesMap.size > 0) {
+        await refreshVaultData()
+        setHasUnsyncedChanges(true)
+        triggerCloudSync()
+        showToast('Auditoría de filtraciones en segundo plano completada.', 'success')
+      } else {
+        showToast('No se encontraron cambios tras la auditoría.', 'info')
+      }
+    } catch (e) {
+      console.error('Exposed scan error:', e)
+      showToast('Error al ejecutar la auditoría de filtraciones.', 'error')
+    } finally {
+      setIsScanningExposed(false)
+    }
+  }, [currentProfileId, refreshVaultData, triggerCloudSync, showToast, isScanningExposed])
+
   const exportBackup = useCallback(
     async (masterPassword: string) => {
       if (!currentProfileId) throw new Error('No hay un perfil activo para exportar.')
@@ -1981,6 +2064,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       isPromptingMasterPassword,
       resolveMasterPasswordPrompt,
       masterKey: isUnlocked ? vaultRef.current.masterKey : null,
+      isScanningExposed,
+      exposedScanProgress,
+      exposedScanTotal,
+      runExposedPasswordsScan,
     }),
     [
       addIdentity,
@@ -2047,6 +2134,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       resolveMasterPasswordPrompt,
       hasUnsyncedChanges,
       mutationCount,
+      isScanningExposed,
+      exposedScanProgress,
+      exposedScanTotal,
+      runExposedPasswordsScan,
     ],
   )
 

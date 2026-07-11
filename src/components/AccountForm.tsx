@@ -8,7 +8,7 @@ import { FormField, FormTextarea } from './ui/FormField'
 import { PasswordField } from './ui/PasswordField'
 import { copyToClipboard } from '../utils/clipboard'
 import { getFriendlyErrorMessage } from '../utils/errors'
-import { hasWeakPassword } from '../utils/security'
+import { hasWeakPassword, evaluatePassword } from '../utils/security'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { Combobox } from './ui/Combobox'
 import { POPULAR_SERVICES } from '../data/popularServices'
@@ -436,6 +436,44 @@ export function AccountForm({
   const [platformQuery, setPlatformQuery] = useState(() => account.name)
   const accessTrackedRef = useRef(false)
 
+  const [exposedCheckCount, setExposedCheckCount] = useState<number | null>(
+    () => initialAccount?.exposedBreachCount ?? null
+  )
+  const [isCheckingExposed, setIsCheckingExposed] = useState(false)
+  const initialPasswordRef = useRef(initialAccount ? passwordValue(initialAccount) : '')
+
+  const passwordMethod = account.accessMethods.find((method) => method.type === 'PASSWORD')
+
+  useEffect(() => {
+    const password = passwordMethod?.password || ''
+    if (!password) {
+      setExposedCheckCount(null)
+      setIsCheckingExposed(false)
+      return
+    }
+
+    if (initialAccount && password === initialPasswordRef.current) {
+      setExposedCheckCount(initialAccount.exposedBreachCount ?? null)
+      setIsCheckingExposed(false)
+      return
+    }
+
+    setIsCheckingExposed(true)
+    const timer = setTimeout(async () => {
+      try {
+        const { checkPasswordBreach } = await import('../utils/security')
+        const count = await checkPasswordBreach(password)
+        setExposedCheckCount(count)
+      } catch (e) {
+        console.error('Error checking password leak dynamically:', e)
+      } finally {
+        setIsCheckingExposed(false)
+      }
+    }, 600)
+
+    return () => clearTimeout(timer)
+  }, [passwordMethod?.password, initialAccount])
+
   useEffect(() => {
     setPlatformQuery(account.name)
   }, [account.name])
@@ -681,7 +719,30 @@ export function AccountForm({
       : account
 
     const updatedWithName = { ...accountWithHistory, name: finalName }
-    const normalized = normalizeAccount(accountForPersistence(updatedWithName))
+
+    let finalBreachCount = exposedCheckCount
+    const currentPassword = passwordValue(updatedWithName)
+    if (currentPassword) {
+      if (finalBreachCount === null || currentPassword !== initialPasswordRef.current) {
+        try {
+          const { checkPasswordBreach } = await import('../utils/security')
+          finalBreachCount = await checkPasswordBreach(currentPassword)
+        } catch {
+          finalBreachCount = null
+        }
+      }
+    } else {
+      finalBreachCount = null
+    }
+
+    const updatedWithBreach = {
+      ...updatedWithName,
+      exposedBreachCount: finalBreachCount,
+      lastExposedCheckAt: finalBreachCount !== null ? new Date().toISOString() : undefined,
+      ignoreExposedPasswordWarning: currentPassword !== initialPasswordRef.current ? false : updatedWithName.ignoreExposedPasswordWarning
+    }
+
+    const normalized = normalizeAccount(accountForPersistence(updatedWithBreach))
     if (!normalized.name) {
       showToast('Indica el nombre de la plataforma.', 'error')
       return
@@ -729,7 +790,7 @@ export function AccountForm({
   }, [isDirty, account, baselineAccount])
 
   const apiKeys = account.apiKeys ?? []
-  const passwordMethod = account.accessMethods.find((method) => method.type === 'PASSWORD')
+
   const passkeyEnabled = account.accessMethods.some((method) => method.type === 'PASSKEY')
   const magicLinkMethod = account.accessMethods.find((method) => method.type === 'MAGIC_LINK')
   const ssoMethod = account.accessMethods.find((method) => method.type === 'SSO')
@@ -1199,12 +1260,71 @@ export function AccountForm({
                     forceVisible={isUnlocked}
                     onAccess={handleItemAccessed}
                   />
-                  {!account.ignoreWeakPasswordWarning && hasWeakPassword(account) && (
-                    <div className="mt-2 flex items-center gap-2 rounded-lg bg-amber-50 px-3 py-2 text-xs font-medium text-amber-800 border border-amber-100">
-                      <svg className="h-4 w-4 shrink-0 text-amber-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                      </svg>
-                      Contraseña débil o reutilizada. Considera generar una nueva.
+                  {/* Análisis de Seguridad Dinámico */}
+                  {passwordMethod.password && (
+                    <div className="mt-3 space-y-3 rounded-2xl border border-black/[0.05] bg-slate-50/50 p-3.5 dark:border-white/5 dark:bg-slate-900/30 animate-vault-slide-up">
+                      <h4 className="text-[10px] font-bold uppercase tracking-wider text-text-secondary dark:text-slate-400">
+                        Análisis de Seguridad
+                      </h4>
+
+                      {/* Fortaleza de la Contraseña */}
+                      {(() => {
+                        const evaluation = evaluatePassword(passwordMethod.password)
+                        return (
+                          <div className="space-y-1.5">
+                            <div className="flex items-center gap-1.5">
+                              <span className={`h-2 w-2 rounded-full ${evaluation.isWeak ? 'bg-amber-500 animate-pulse' : 'bg-emerald-500'}`} />
+                              <span className="text-xs font-bold text-text-primary dark:text-slate-200">
+                                {evaluation.isWeak ? 'Fortaleza débil' : 'Fortaleza segura'}
+                              </span>
+                            </div>
+                            {evaluation.isWeak && (
+                              <div className="rounded-xl bg-amber-50/80 dark:bg-amber-950/20 p-2.5 border border-amber-100/60 dark:border-amber-900/30 space-y-1">
+                                <ul className="list-disc pl-4 text-[11px] text-amber-900 dark:text-amber-300/80 leading-relaxed space-y-0.5">
+                                  {evaluation.reasons.map((r, idx) => <li key={idx}>{r}</li>)}
+                                </ul>
+                                {evaluation.recommendations.length > 0 && (
+                                  <div className="text-[11px] text-amber-800 dark:text-amber-200 font-semibold pt-0.5 pl-1">
+                                    Recomendación: {evaluation.recommendations.join(' ')}
+                                  </div>
+                                )}
+                              </div>
+                            )}
+                          </div>
+                        )
+                      })()}
+
+                      {/* Comprobación de Filtraciones (HIBP) */}
+                      <div className="border-t border-black/[0.04] dark:border-white/[0.04] pt-2.5 flex items-center justify-between text-xs">
+                        <span className="text-text-secondary dark:text-slate-400 font-medium">Buscador de filtraciones:</span>
+                        {isCheckingExposed ? (
+                          <span className="flex items-center gap-1.5 text-text-tertiary dark:text-slate-500 font-medium">
+                            <svg className="animate-spin h-3.5 w-3.5" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                              <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                              <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                            </svg>
+                            Comprobando...
+                          </span>
+                        ) : exposedCheckCount !== null ? (
+                          exposedCheckCount > 0 ? (
+                            <span className="flex items-center gap-1 text-red-600 dark:text-red-400 font-bold">
+                              <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                              </svg>
+                              Expuesta ({exposedCheckCount.toLocaleString()})
+                            </span>
+                          ) : (
+                            <span className="flex items-center gap-1 text-emerald-600 dark:text-emerald-400 font-bold">
+                              <svg className="h-3.5 w-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12c0 1.268-.63 2.39-1.593 3.068a3.745 3.745 0 01-1.043 3.296 3.745 3.745 0 01-3.296 1.043A3.745 3.745 0 0112 21c-1.268 0-2.39-.63-3.068-1.593a3.746 3.746 0 01-3.296-1.043 3.746 3.746 0 01-1.043-3.296A3.745 3.745 0 013 12c0-1.268.63-2.39 1.593-3.068a3.745 3.745 0 011.043-3.296 3.746 3.746 0 013.296-1.043A3.746 3.746 0 0112 3c1.268 0 2.39.63 3.068 1.593a3.746 3.746 0 013.296 1.043 3.746 3.746 0 011.043 3.296A3.745 3.745 0 0121 12z" />
+                              </svg>
+                              Sin filtraciones
+                            </span>
+                          )
+                        ) : (
+                          <span className="text-text-tertiary dark:text-slate-500 font-medium">Pendiente de auditar</span>
+                        )}
+                      </div>
                     </div>
                   )}
                   

@@ -1396,8 +1396,6 @@ export function SettingsModal({
       <ExposedPasswordsModal
         isOpen={exposedPasswordsModalOpen}
         onClose={() => setExposedPasswordsModalOpen(false)}
-        identities={identities}
-        onUpdatePlatform={onUpdatePlatform ? async (i, p, u) => { await onUpdatePlatform(i, p, u) } : undefined}
         onEditPlatform={onEditPlatform}
       />
       {securityModalOpen && (
