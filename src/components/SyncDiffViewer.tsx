@@ -166,6 +166,78 @@ function getTypeIcon(type: string): string {
   }
 }
 
+function getModifiedFieldsSummary(local: any, cloud: any, type: string): string[] {
+  if (!local || !cloud) return []
+  const diffs: string[] = []
+
+  if (type === 'ACCOUNT') {
+    const localPlats = local.platforms || []
+    const cloudPlats = cloud.platforms || []
+    
+    const localPlatMap = new Map<string, any>(localPlats.map((p: any) => [p.id || p.name, p]))
+    const cloudPlatMap = new Map<string, any>(cloudPlats.map((p: any) => [p.id || p.name, p]))
+    
+    for (const [id, lp] of localPlatMap.entries()) {
+      const cp = cloudPlatMap.get(id)
+      if (!cp) {
+        diffs.push(`Plataforma añadida localmente: ${lp.name}`)
+      } else {
+        const platDiffs: string[] = []
+        if ((lp.username || '') !== (cp.username || '')) platDiffs.push('Nombre de usuario')
+        
+        const lpPass = lp.accessMethods?.find((m: any) => m.type === 'PASSWORD')?.password || ''
+        const cpPass = cp.accessMethods?.find((m: any) => m.type === 'PASSWORD')?.password || ''
+        if (lpPass !== cpPass) platDiffs.push('Contraseña')
+        
+        if ((lp.notes || '') !== (cp.notes || '')) platDiffs.push('Notas')
+        if (lp.exposedBreachCount !== cp.exposedBreachCount) platDiffs.push('Auditoría de filtración')
+        if (
+          lp.ignoreWeakPasswordWarning !== cp.ignoreWeakPasswordWarning || 
+          lp.ignoreExposedPasswordWarning !== cp.ignoreExposedPasswordWarning
+        ) {
+          platDiffs.push('Avisos de seguridad ignorados')
+        }
+        
+        if (platDiffs.length > 0) {
+          diffs.push(`Plataforma "${lp.name}": Cambios en ${platDiffs.join(', ')}`)
+        }
+      }
+    }
+    
+    for (const [id, cp] of cloudPlatMap.entries()) {
+      if (!localPlatMap.has(id)) {
+        diffs.push(`Plataforma añadida en la nube: ${cp.name}`)
+      }
+    }
+  } else {
+    const fieldsToCompare = ['title', 'label', 'notes', 'password', 'ssid', 'softwareName', 'cardNumber', 'expiry', 'pin', 'username']
+    const fieldLabels: Record<string, string> = {
+      title: 'Título',
+      label: 'Nombre',
+      notes: 'Notas',
+      password: 'Contraseña',
+      ssid: 'Nombre de red (SSID)',
+      softwareName: 'Nombre de software',
+      cardNumber: 'Número de tarjeta',
+      expiry: 'Vencimiento',
+      pin: 'Código PIN',
+      username: 'Nombre de usuario'
+    }
+    
+    for (const field of fieldsToCompare) {
+      if ((local[field] || '') !== (cloud[field] || '')) {
+        diffs.push(fieldLabels[field] || field)
+      }
+    }
+  }
+  
+  if (diffs.length === 0) {
+    diffs.push('Metadatos de sincronización (fecha de actualización)')
+  }
+  
+  return diffs
+}
+
 function DiffItemRow({
   item,
   selectedResolution,
@@ -185,6 +257,7 @@ function DiffItemRow({
   const typeIcon = getTypeIcon(item.type)
   const localTime = item.localUpdatedAt ? Date.parse(item.localUpdatedAt) : 0
   const cloudTime = item.cloudUpdatedAt ? Date.parse(item.cloudUpdatedAt) : 0
+  const changes = (item.status === 'conflict' || item.status === 'modified') ? getModifiedFieldsSummary(item.localData, item.cloudData, item.type) : []
 
   return (
     <div className={`flex flex-col gap-3 rounded-2xl border bg-white p-4 transition-all hover:shadow-subtle min-w-0 w-full ${statusConfig.border}`}>
@@ -207,6 +280,17 @@ function DiffItemRow({
           {item.localUpdatedAt && <p>Local: {new Date(item.localUpdatedAt).toLocaleString()}</p>}
         </div>
       </div>
+
+      {changes.length > 0 && (
+        <div className="rounded-xl bg-slate-50 p-3 text-xs border border-slate-100 dark:bg-slate-900/50 dark:border-slate-800/50">
+          <p className="font-bold text-text-secondary dark:text-slate-300 mb-1">Diferencias detectadas:</p>
+          <ul className="list-disc list-inside space-y-1 text-text-tertiary dark:text-slate-400">
+            {changes.map((c, idx) => (
+              <li key={idx} className="list-item">{c}</li>
+            ))}
+          </ul>
+        </div>
+      )}
 
       {item.status === 'conflict' && onResolutionChange && selectedResolution && (
         <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 border border-black/[0.03]">

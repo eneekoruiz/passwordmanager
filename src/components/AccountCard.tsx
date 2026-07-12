@@ -36,11 +36,11 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
   }
 
   return (
-    <div className="rounded-xl border border-border-subtle bg-surface-elevated p-4 shadow-lg hover:shadow-xl transition-shadow">
+    <div className="vault-card overflow-hidden rounded-[24px] p-4">
       <div className="flex items-start gap-4">
-        <PlatformLogo name={account.name} className="h-10 w-10 rounded-lg" />
+        <PlatformLogo name={account.name} className="h-12 w-12 rounded-2xl border border-white/70 bg-white p-1 shadow-sm dark:border-white/10 dark:bg-white/10" />
         <button type="button" onClick={onEdit} className="flex-1 text-left">
-          <p className="text-sm font-medium text-text-primary">
+          <p className="text-[15px] font-black tracking-tight text-text-primary">
             {accountDisplayName(account)}
           </p>
           {(account?.accessMethods || [])
@@ -68,7 +68,7 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
           {account.tags && account.tags.length > 0 && (
             <div className="mt-1.5 flex flex-wrap gap-1">
               {account.tags.map((tag, idx) => (
-                <span key={idx} className="rounded border border-black/5 bg-black/[0.03] px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wider text-text-tertiary">
+                <span key={idx} className="rounded-full border border-teal-500/10 bg-teal-500/5 px-2 py-0.5 text-[9px] font-black uppercase tracking-wider text-teal-700 dark:text-teal-200">
                   {tag}
                 </span>
               ))}
@@ -80,7 +80,7 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
             <button
               type="button"
               onClick={(e) => { e.stopPropagation(); onShare(); }}
-              className="flex items-center gap-1.5 rounded-lg border border-black/[0.05] bg-surface-primary px-2.5 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover active:scale-95"
+              className="vault-control flex min-h-9 items-center gap-1.5 rounded-2xl px-3 py-1.5 text-xs font-bold text-text-primary transition-all hover:-translate-y-0.5 hover:text-teal-700 active:scale-95 dark:hover:text-teal-200"
               aria-label="Compartir contraseña"
               title="Compartir con otro usuario"
             >
@@ -93,7 +93,7 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
           <button
             type="button"
             onClick={handleCopyPassword}
-            className="flex items-center gap-1.5 rounded-lg border border-black/[0.05] bg-surface-primary px-2.5 py-1.5 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover active:scale-95"
+            className="vault-control flex min-h-9 items-center gap-1.5 rounded-2xl px-3 py-1.5 text-xs font-bold text-text-primary transition-all hover:-translate-y-0.5 hover:text-teal-700 active:scale-95 dark:hover:text-teal-200"
             aria-label="Copiar contraseña"
           >
             {copied ? (

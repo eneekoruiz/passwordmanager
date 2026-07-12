@@ -492,18 +492,22 @@ export function SettingsModal({
                 </div>
 
                 {/* Grid de Auditoría (Inside the same card) */}
-                <div className="grid grid-cols-3 divide-x divide-black/[0.05] bg-slate-50/50">
-                  <div className="p-4 text-center transition-colors hover:bg-white">
-                    <p className="text-2xl font-black text-red-600">{reusedPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800">Reutilizadas</p>
+                <div className="grid grid-cols-4 divide-x divide-black/[0.05] bg-slate-50/50 dark:bg-slate-900/50 dark:divide-white/10">
+                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
+                    <p className="text-2xl font-black text-red-600 dark:text-red-400">{reusedPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400">Reutilizadas</p>
                   </div>
-                  <div className="p-4 text-center transition-colors hover:bg-white">
-                    <p className="text-2xl font-black text-amber-500">{weakPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700">Débiles</p>
+                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
+                    <p className="text-2xl font-black text-amber-500 dark:text-amber-400">{weakPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Débiles</p>
                   </div>
-                  <div className="p-4 text-center transition-colors hover:bg-white">
-                    <p className="text-2xl font-black text-blue-500">{oldPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700">Antiguas</p>
+                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
+                    <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{exposedPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-400">Expuestas</p>
+                  </div>
+                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
+                    <p className="text-2xl font-black text-blue-500 dark:text-blue-400">{oldPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">Antiguas</p>
                   </div>
                 </div>
               </div>

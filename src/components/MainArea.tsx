@@ -351,7 +351,7 @@ export const MainArea = memo(function MainArea({
             <button
               type="button"
               onClick={onOpenSidebar}
-              className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover"
+              className="rounded-2xl p-2 text-text-secondary transition-all hover:bg-surface-hover hover:text-text-primary active:scale-95"
               aria-label="Abrir lista de identidades"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -361,13 +361,13 @@ export const MainArea = memo(function MainArea({
             <span className="text-sm font-medium text-text-secondary">Contras</span>
           </header>
         )}
-        <div className="flex-1 min-h-0 overflow-y-auto">
-          <div className="flex justify-center px-6 py-6 lg:py-12 min-h-full">
-            <div className="w-full max-w-5xl">
+        <div className="min-h-0 flex-1 overflow-y-auto">
+          <div className="flex min-h-full justify-center px-4 py-5 sm:px-6 lg:py-10">
+            <div className="w-full max-w-6xl">
             <div className="p-1">
               <div className="grid gap-6">
                 <section className="space-y-5">
-                  <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4 border-b border-border-subtle dark:border-white/10 pb-4">
+                  <div className="vault-panel flex flex-col gap-4 rounded-[28px] p-5 md:flex-row md:items-center md:justify-between">
                     <div>
                       <p className="text-[10px] font-bold uppercase tracking-[0.22em] text-text-tertiary">
                         {groupMode === 'platform' ? 'Vista por plataforma' : groupMode === 'local' ? 'Bóveda Local' : 'Tus Identidades'}
@@ -386,7 +386,7 @@ export const MainArea = memo(function MainArea({
                     <button
                       type="button"
                       onClick={() => onCreate()}
-                      className="inline-flex h-10 shrink-0 items-center justify-center gap-2 rounded-xl bg-black dark:bg-white dark:text-black px-4 text-xs font-bold text-white shadow-sm transition-transform hover:scale-[1.03] active:scale-95 self-start md:self-center"
+                      className="vault-button-primary inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl px-4 text-xs font-bold text-white transition-all hover:-translate-y-0.5 active:scale-95 self-start md:self-center"
                     >
                       <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                         <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -430,7 +430,7 @@ export const MainArea = memo(function MainArea({
                                   key={platform.name}
                                   type="button"
                                   onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
-                                  className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] bg-white/80 dark:border-white/10 dark:bg-[#1c1c1e]/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 hover:bg-white dark:hover:bg-[#2c2c2e]"
+                                  className="vault-card animate-vault-slide-up flex items-center gap-4 rounded-[24px] p-4 text-left"
                                   style={{ animationDelay: `${index * 40}ms` }}
                                 >
                                   <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
@@ -459,7 +459,7 @@ export const MainArea = memo(function MainArea({
                     ) : syncing ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
                         {Array.from({ length: 16 }, (_, i) => i).map(i => (
-                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 dark:bg-slate-800/50 dark:border-white/5 p-4">
+                          <div key={i} className="vault-panel flex min-h-[76px] items-center gap-4 rounded-[24px] p-4">
                             <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                             <div className="flex-1 space-y-2">
                               <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
@@ -480,7 +480,7 @@ export const MainArea = memo(function MainArea({
                     syncing ? (
                       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 animate-pulse">
                         {Array.from({ length: 16 }, (_, i) => i).map(i => (
-                          <div key={i} className="flex min-h-[76px] items-center gap-4 rounded-2xl border border-black/5 bg-white/50 dark:bg-slate-800/50 dark:border-white/5 p-4">
+                          <div key={i} className="vault-panel flex min-h-[76px] items-center gap-4 rounded-[24px] p-4">
                             <div className="h-11 w-11 rounded-2xl bg-black/10"></div>
                             <div className="flex-1 space-y-2">
                               <div className="h-3.5 w-1/2 rounded bg-black/10"></div>
@@ -491,7 +491,7 @@ export const MainArea = memo(function MainArea({
                         ))}
                       </div>
                     ) : (
-                      <div className="flex flex-col items-center justify-center rounded-3xl border border-dashed border-border bg-surface-subtle py-12 text-center">
+                      <div className="vault-panel flex flex-col items-center justify-center rounded-[28px] border-dashed py-12 text-center">
                         <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 dark:bg-slate-700 dark:ring-white/10 text-text-secondary dark:text-slate-300">
                           <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -508,7 +508,7 @@ export const MainArea = memo(function MainArea({
                           key={idItem.id}
                           type="button"
                           onClick={() => onRequestNavigation(() => onSelectIdentity(idItem.id))}
-                          className="animate-vault-slide-up flex items-center gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-[#1c1c1e]/80 p-4 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 hover:-translate-y-0.5 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:bg-white dark:hover:bg-[#2c2c2e]"
+                          className="vault-card animate-vault-slide-up flex items-center gap-4 rounded-[24px] p-4 text-left"
                           style={{ animationDelay: `${index * 40}ms` }}
                         >
                           <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-white dark:bg-[#2c2c2e] font-bold text-text-primary dark:text-white border border-black/[0.05] dark:border-white/5 shadow-sm">
@@ -559,9 +559,9 @@ export const MainArea = memo(function MainArea({
 
 
   return (
-    <div className="flex min-h-0 flex-1 flex-col dark:bg-slate-900">
+    <div className="flex min-h-0 flex-1 flex-col bg-transparent">
       {!isFormView && (
-      <header className="sticky top-0 z-20 flex items-center gap-3 border-b border-border-subtle bg-white/72 dark:bg-slate-900/72 px-4 py-3 shadow-sm backdrop-blur-xl lg:px-8 lg:py-5">
+      <header className="vault-panel sticky top-0 z-20 mx-3 mt-3 flex items-center gap-3 rounded-[26px] px-4 py-3 lg:mx-4 lg:px-6 lg:py-4">
         {isMobile ? (
           <button
             type="button"
@@ -570,7 +570,7 @@ export const MainArea = memo(function MainArea({
               else if (groupMode === 'platform') onSelectPlatformName(null)
               else onSelectIdentity(null)
             }}
-            className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover"
+            className="rounded-2xl p-2 text-text-secondary transition-all hover:bg-surface-hover hover:text-text-primary active:scale-95"
             aria-label="Volver a identidades"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -599,7 +599,7 @@ export const MainArea = memo(function MainArea({
               else if (groupMode === 'platform') onSelectPlatformName(null)
               else onSelectIdentity(null)
             }}
-            className="hidden rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover hover:text-text-primary lg:block"
+            className="hidden rounded-2xl p-2 text-text-secondary transition-all hover:bg-surface-hover hover:text-text-primary active:scale-95 lg:block"
             aria-label="Volver"
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
@@ -644,7 +644,7 @@ export const MainArea = memo(function MainArea({
                 })
               }
             }}
-            className="rounded-lg border border-border-subtle bg-surface-elevated dark:bg-slate-800 px-3 py-2 text-sm font-medium text-text-primary dark:text-white shadow-subtle transition-colors hover:bg-surface-hover dark:hover:bg-slate-700 flex items-center gap-1.5"
+            className="vault-control flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-bold text-text-primary transition-all hover:-translate-y-0.5 hover:bg-surface-hover active:scale-95 dark:text-white"
           >
             <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z" />

@@ -14,7 +14,7 @@ export function SearchBar({
   return (
     <div className={`relative ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
       <svg
-        className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary"
+        className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-text-tertiary"
         fill="none"
         viewBox="0 0 24 24"
         stroke="currentColor"
@@ -33,7 +33,7 @@ export function SearchBar({
         onChange={(e) => onChange(e.target.value)}
         placeholder={placeholder}
         disabled={disabled}
-        className="w-full rounded-lg border border-border-subtle bg-surface-elevated py-2.5 pl-9 pr-3 text-base text-text-primary placeholder:text-text-tertiary shadow-subtle outline-none transition-colors focus:border-border focus:ring-1 focus:ring-border/50 disabled:bg-surface/50 disabled:cursor-not-allowed"
+        className="vault-control vault-focus w-full rounded-2xl py-3 pl-10 pr-3 text-base font-semibold text-text-primary placeholder:text-text-tertiary outline-none transition-all disabled:cursor-not-allowed disabled:opacity-50"
         aria-label="Buscar plataformas"
       />
     </div>

@@ -1,4 +1,5 @@
 import { useState, useRef } from 'react'
+import { ConfirmModal } from './ConfirmModal'
 import { useVault } from '../../context/VaultContext'
 import { StorageService, type DocumentMetadata } from '../../services/StorageService'
 import { useToast } from './ToastProvider'
@@ -127,9 +128,16 @@ export function AttachmentsList({ attachments, onAttachmentsChange, onUploadingC
     }
   }
 
-  const handleDelete = async (attachment: DocumentMetadata) => {
-    if (!masterKey || !cloudUserId) return
-    if (!window.confirm('¿Seguro que quieres borrar este adjunto de forma permanente?')) return
+  const [pendingDeleteAttachment, setPendingDeleteAttachment] = useState<DocumentMetadata | null>(null)
+
+  const handleDelete = (attachment: DocumentMetadata) => {
+    setPendingDeleteAttachment(attachment)
+  }
+
+  const confirmDelete = async () => {
+    if (!pendingDeleteAttachment || !masterKey || !cloudUserId) return
+    const attachment = pendingDeleteAttachment
+    setPendingDeleteAttachment(null)
     try {
       await StorageService.deleteDocument(cloudUserId, attachment.id, attachment.chunks)
       onAttachmentsChange?.(attachments.filter(a => a.id !== attachment.id))
@@ -332,6 +340,17 @@ export function AttachmentsList({ attachments, onAttachmentsChange, onUploadingC
           )}
         </>
       )}
+
+      <ConfirmModal
+        isOpen={pendingDeleteAttachment !== null}
+        title="¿Eliminar archivo adjunto?"
+        message={`¿Estás seguro de que quieres borrar "${pendingDeleteAttachment?.name || 'este archivo'}" de forma permanente? Esta acción no se puede deshacer.`}
+        confirmLabel="Eliminar"
+        cancelLabel="Cancelar"
+        type="danger"
+        onConfirm={confirmDelete}
+        onCancel={() => setPendingDeleteAttachment(null)}
+      />
     </div>
   )
 }

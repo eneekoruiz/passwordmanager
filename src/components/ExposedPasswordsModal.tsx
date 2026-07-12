@@ -104,7 +104,7 @@ export function ExposedPasswordsModal({ isOpen, onClose, onEditPlatform }: Expos
               aria-label="Refrescar auditoría"
             >
               {loading && <div className="h-3 w-3 animate-spin rounded-full border-2 border-red-700 border-t-transparent dark:border-red-400"></div>}
-              Sincronizar
+              Escanear ahora
             </button>
             <button
               type="button"

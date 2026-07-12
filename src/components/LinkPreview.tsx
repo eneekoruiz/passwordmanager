@@ -5,6 +5,7 @@ import { importSymmetricLinkKey, decryptForLink } from '../crypto/symmetric'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import type { Platform } from '../types'
+import { useToast } from './ui/ToastProvider'
 
 interface LinkPreviewProps {
   linkId: string
@@ -27,6 +28,7 @@ function normalizeParsedPayload(raw: ParsedPayload): LinkPayload {
 }
 
 function PlatformCard({ platform, identityEmail, defaultOpen, isSingle, hidePassword }: { platform: Platform & { identityEmail?: string }; identityEmail?: string; defaultOpen?: boolean; isSingle?: boolean; hidePassword?: boolean }) {
+  const { showToast } = useToast()
   const [open, setOpen] = useState(!!defaultOpen)
   const [showPasswordMap, setShowPasswordMap] = useState<Record<string, boolean>>({})
   const [copiedField, setCopiedField] = useState<string | null>(null)
@@ -40,7 +42,7 @@ function PlatformCard({ platform, identityEmail, defaultOpen, isSingle, hidePass
       setCopiedField(field)
       setTimeout(() => setCopiedField(null), 2000)
     } catch {
-      alert(`No se pudo copiar ${field}.`)
+      showToast(`No se pudo copiar ${field}.`, 'error')
     }
   }
 

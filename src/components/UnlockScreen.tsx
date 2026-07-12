@@ -29,6 +29,7 @@ function NativeIdentityStep({
   onEmailAuth: (mode: 'login' | 'register', email: string, pass: string) => void
   onPasswordReset: (email: string) => Promise<void>
 }) {
+  const { showToast } = useToast()
   const [mode, setMode] = useState<'login' | 'register' | 'forgot_password'>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -47,7 +48,7 @@ function NativeIdentityStep({
       return
     }
     if (mode === 'register' && password !== confirmPassword) {
-      alert('Las contraseñas no coinciden')
+      showToast('Las contraseñas no coinciden', 'error')
       return
     }
     onEmailAuth(mode, email, password)
@@ -173,7 +174,7 @@ function NativeIdentityStep({
             <button
               type="submit"
               disabled={loading || !email || (mode !== 'forgot_password' && !password) || (mode === 'register' && password !== confirmPassword)}
-              className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+              className="vault-button-primary flex min-h-12 w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 active:scale-[0.98]"
             >
               {loading
                 ? mode === 'login'
@@ -643,10 +644,10 @@ export function UnlockScreen() {
   })
 
   return (
-    <div className="flex h-dvh max-h-dvh flex-col lg:flex-row overflow-hidden bg-surface select-none">
+    <div className="vault-shell vault-stage flex h-dvh max-h-dvh select-none flex-col overflow-hidden lg:flex-row">
 
-      <div className="flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden bg-surface-elevated m-2 lg:m-3 lg:ml-0 rounded-3xl border border-border-subtle shadow-sm relative px-4 py-8">
-        <div className="flex w-full max-w-md flex-col items-center rounded-3xl border border-black/5 bg-white/70 dark:bg-[#1c1c1e]/80 dark:border-white/10 dark:shadow-[0_15px_50px_rgba(0,0,0,0.2)] p-6 text-center shadow-[0_15px_50px_rgba(0,0,0,0.06)] backdrop-blur-xl animate-fade-in sm:p-8">
+      <div className="relative m-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[34px] px-4 py-8 lg:m-3">
+        <div className="vault-glass flex w-full max-w-md flex-col items-center rounded-[32px] p-6 text-center animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
           <NativeIdentityStep
             loading={loading || isCloudLoading}
@@ -670,7 +671,7 @@ export function UnlockScreen() {
                   value={recoveryInput}
                   onChange={(event) => setRecoveryInput(event.target.value)}
                   placeholder={`pega aqui tus ${RECOVERY_PHRASE_WORD_COUNT} palabras de recuperacion`}
-                  className="min-h-[92px] w-full rounded-xl border border-black/[0.06] dark:border-white/10 bg-white/80 dark:bg-[#0f0f10]/80 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 dark:focus:border-white/20 focus:ring-2 focus:ring-black/[0.035] dark:focus:ring-white/[0.035]"
+                  className="min-h-[92px] w-full rounded-2xl border border-border-subtle bg-white/72 dark:bg-white/5 px-3 py-2.5 text-sm text-text-primary outline-none transition-all focus:border-black/15 dark:focus:border-white/20 focus:ring-2 focus:ring-black/[0.035] dark:focus:ring-white/[0.035]"
                 />
                 <PasswordField
                   label="Nueva Contraseña Maestra"
@@ -691,7 +692,7 @@ export function UnlockScreen() {
                       <button
                   type="submit"
                   disabled={!canSubmitRecovery}
-                  className="flex min-h-11 w-full items-center justify-center rounded-xl bg-text-primary px-4 py-3 text-xs font-semibold text-white transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+                  className="vault-button-primary flex min-h-12 w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 active:scale-[0.98]"
                 >
                   {loading ? 'Recuperando y re-cifrando...' : 'Recuperar bóveda'}
                 </button>
@@ -890,7 +891,7 @@ export function UnlockScreen() {
                         (cloudVaultExists === false &&
                           !canCreateVault)
                       }
-                      className="flex min-h-11 w-full items-center justify-center rounded-xl bg-slate-900 dark:bg-white px-4 py-3 text-xs font-semibold text-white dark:text-black transition-all hover:opacity-90 disabled:opacity-40 active:scale-[0.98]"
+                      className="vault-button-primary flex min-h-12 w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 active:scale-[0.98]"
                     >
                       {loading
                         ? cloudVaultExists === false
@@ -966,8 +967,8 @@ export function UnlockScreen() {
       )}
 
       {/* Legal terms footer */}
-      <div className="absolute bottom-6 w-full text-center px-4">
-        <p className="text-[11px] text-text-tertiary">
+      <div className="pointer-events-auto absolute bottom-4 w-full px-4 text-center sm:bottom-6">
+        <p className="mx-auto max-w-xl rounded-full border border-white/50 bg-white/45 px-4 py-2 text-[11px] text-text-tertiary shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-black/20">
           Al usar Contras, aceptas nuestros <button type="button" onClick={() => setShowTerms(true)} className="underline hover:text-text-primary outline-none">Términos de Servicio</button> y <button type="button" onClick={() => setShowPrivacy(true)} className="underline hover:text-text-primary outline-none">Política de Privacidad</button>.
         </p>
       </div>

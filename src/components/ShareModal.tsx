@@ -5,6 +5,7 @@ import { doc, getDoc, setDoc } from 'firebase/firestore'
 import { hashEmailForDirectory } from '../utils/security'
 import { generateId } from '../utils/id'
 import { generateSymmetricLinkKey, encryptForLink } from '../crypto/symmetric'
+import { useToast } from './ui/ToastProvider'
 
 export type SharePayload =
   | { type: 'single'; platform: Platform; identityEmail?: string }
@@ -61,6 +62,7 @@ function buildPayloadString(
 }
 
 export function ShareModal({ payload, onClose }: ShareModalProps) {
+  const { showToast } = useToast()
   const [mode, setMode] = useState<ShareMode>('link')
   const [hidePassword, setHidePassword] = useState(false)
   
@@ -215,7 +217,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       setCopied(true)
       setTimeout(() => setCopied(false), 2500)
     } catch {
-      alert('No se pudo copiar. Selecciona el texto manualmente.')
+      showToast('No se pudo copiar. Selecciona el texto manualmente.', 'warning')
     }
   }
 

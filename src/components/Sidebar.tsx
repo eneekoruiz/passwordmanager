@@ -363,13 +363,13 @@ export const Sidebar = memo(function Sidebar({
         <button
           type="button"
           onClick={() => onSelectPlatform(platform.name)}
-          className={`group flex min-h-[86px] w-full items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
+          className={`vault-card group flex min-h-[86px] w-full items-center gap-3 rounded-[22px] p-3.5 text-left active:scale-[0.98] ${
             selected
-              ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:border-white/10 dark:bg-[#2c2c2e] dark:text-white'
-              : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:border-black/10 hover:bg-white dark:border-white/[0.06] dark:bg-[#1c1c1e]/90 dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
+              ? 'ring-2 ring-teal-500/25 text-text-primary dark:text-white'
+              : 'text-text-secondary dark:text-[#a0a0a5]'
           }`}
         >
-          <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
+          <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-[22px] border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
           <span className="min-w-0 flex-1 pr-5">
             <span className="flex items-center gap-1.5">
               <span className="block min-w-0 truncate text-sm font-bold text-text-primary dark:text-white">{canonicalName}</span>
@@ -410,11 +410,11 @@ export const Sidebar = memo(function Sidebar({
             type="button"
             onClick={() => onSelectLocalCategory(category)}
             style={{ animationDelay: `${index * 35}ms` }}
-            className={`group animate-vault-slide-up flex min-h-[86px] flex-1 items-center gap-3 rounded-2xl border p-3.5 text-left shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 active:scale-[0.98] ${
-              selected ? 'border-black/10 bg-white text-text-primary shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:bg-[#2c2c2e] dark:border-white/10 dark:text-white' : 'border-black/[0.06] bg-white/82 text-text-secondary hover:-translate-y-0.5 hover:scale-[1.01] hover:border-black/10 hover:bg-white hover:shadow-lg dark:bg-[#1c1c1e] dark:border-white/5 dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
+            className={`vault-card group animate-vault-slide-up flex min-h-[86px] flex-1 items-center gap-3 rounded-[22px] p-3.5 text-left active:scale-[0.98] ${
+              selected ? 'ring-2 ring-teal-500/25 text-text-primary dark:text-white' : 'text-text-secondary dark:text-[#a0a0a5]'
             }`}
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-black/[0.05] bg-white text-text-primary shadow-sm dark:bg-[#2c2c2e] dark:border-white/5 dark:text-white">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-black/[0.05] bg-white text-text-primary shadow-sm dark:bg-[#2c2c2e] dark:border-white/5 dark:text-white">
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
               </svg>
@@ -434,7 +434,7 @@ export const Sidebar = memo(function Sidebar({
                 e.stopPropagation();
                 setActiveMenuCategoryId(activeMenuCategoryId === category.id ? null : category.id);
               }} 
-              className="flex w-10 shrink-0 items-center justify-center rounded-xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
+              className="flex w-10 shrink-0 items-center justify-center rounded-2xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
               title="Opciones"
             >
               <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -448,7 +448,7 @@ export const Sidebar = memo(function Sidebar({
                   className="fixed inset-0 z-40"
                   onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
                 />
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-xl border border-border-subtle bg-surface shadow-lg overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
+                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-surface shadow-lg overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
                   <button
                     type="button"
                     onClick={(e) => {
@@ -480,12 +480,12 @@ export const Sidebar = memo(function Sidebar({
   }
 
   const renderEmptyNavigationState = (label: string, onCreate: () => void) => (
-    <div className="mx-3 mt-4 rounded-2xl border border-dashed border-border bg-white/70 dark:bg-slate-800/50 dark:border-white/10 px-4 py-8 text-center shadow-[0_12px_30px_rgba(15,23,42,0.04)] animate-vault-morph">
+    <div className="vault-panel mx-3 mt-4 rounded-[24px] border-dashed px-4 py-8 text-center animate-vault-morph">
       <p className="text-sm font-bold text-text-primary">Aún no tienes elementos aquí</p>
       <button
         type="button"
         onClick={onCreate}
-        className="mt-3 inline-flex items-center gap-2 rounded-xl bg-text-primary px-4 py-2 text-xs font-bold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-lg active:scale-[0.98]"
+        className="vault-button-primary mt-3 inline-flex items-center gap-2 rounded-2xl px-4 py-2 text-xs font-bold text-white transition-all hover:-translate-y-0.5 active:scale-[0.98]"
       >
         <span>{label}</span>
         <span aria-hidden="true">➔</span>
@@ -499,12 +499,12 @@ export const Sidebar = memo(function Sidebar({
     return (
       <li key={identity.id}>
         <div
-          className={`group relative rounded-2xl border p-3.5 shadow-[0_12px_30px_rgba(15,23,42,0.05)] transition-all duration-150 ${
-            selected ? 'border-black/10 bg-white shadow-[0_16px_40px_rgba(15,23,42,0.08)] dark:bg-[#2c2c2e] dark:border-white/10' : 'border-black/[0.06] bg-white/82 hover:-translate-y-0.5 hover:border-black/10 hover:bg-white dark:bg-[#1c1c1e]/90 dark:border-white/[0.06] dark:hover:bg-[#2c2c2e]'
+          className={`vault-card group relative rounded-[22px] p-3.5 ${
+            selected ? 'ring-2 ring-teal-500/25' : ''
           }`}
         >
           <button type="button" onClick={() => onSelect(identity.id)} className="flex min-h-[74px] w-full items-center gap-3 text-left active:scale-[0.99]">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
+            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
               {identity.email.charAt(0).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
@@ -531,7 +531,7 @@ export const Sidebar = memo(function Sidebar({
           <button
             type="button"
             onClick={() => setPendingDeleteIdentityId(pendingDeleteIdentityId === identity.id ? null : identity.id)}
-            className="absolute right-2 top-2 rounded-xl p-2 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
+            className="absolute right-2 top-2 rounded-2xl p-2 text-text-tertiary opacity-100 transition-colors hover:bg-red-50 hover:text-red-600 lg:opacity-0 lg:group-hover:opacity-100"
             aria-label="Eliminar identidad"
           >
             <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -540,7 +540,7 @@ export const Sidebar = memo(function Sidebar({
           </button>
         </div>
         {pendingDeleteIdentityId === identity.id && (
-          <div className="mx-3 mt-2 rounded-xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
+          <div className="mx-3 mt-2 rounded-2xl border border-red-100 bg-red-50/80 px-3 py-2 text-xs text-red-700">
             <p>Se eliminara la identidad y sus plataformas.</p>
             <button type="button" onClick={() => { void onDeleteIdentity(identity.id); setPendingDeleteIdentityId(null) }} className="mt-2 rounded-lg bg-red-600 px-3 py-1.5 font-semibold text-white">Confirmar eliminacion</button>
           </div>
@@ -563,7 +563,7 @@ export const Sidebar = memo(function Sidebar({
       <aside
         className={
           isMobile
-            ? 'flex h-full w-full flex-col bg-surface dark:bg-[#0f0f10]'
+            ? 'flex h-full w-full flex-col bg-transparent'
             : `
               fixed inset-y-0 left-0 z-30 flex h-screen w-full max-w-[320px] flex-col
               border-r border-border-subtle bg-surface transition-transform duration-300 ease-out
@@ -575,10 +575,10 @@ export const Sidebar = memo(function Sidebar({
         aria-label="Lista de identidades"
       >
         {!isMobile && (
-          <header className="flex items-start justify-between px-4 pb-3 pt-4 lg:px-5 lg:pt-5">
+          <header className="px-4 pb-4 pt-5 lg:px-5 lg:pt-6">
             <div className="min-w-0 text-left">
               <div className="flex items-center gap-2">
-                <h1 className="text-xl font-bold tracking-tight text-text-primary dark:text-white">Contras</h1>
+                <h1 className="text-2xl font-black tracking-tight text-text-primary dark:text-white">Contras</h1>
                 {activeSyncIndicator}
               </div>
               {profileName && (
@@ -607,7 +607,7 @@ export const Sidebar = memo(function Sidebar({
                 type="button"
                 onClick={handleAddIdentity}
                 disabled={adding}
-                className="rounded-lg bg-text-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
+                className="rounded-lg vault-button-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
               >
                 {adding ? '...' : 'OK'}
               </button>
@@ -617,11 +617,11 @@ export const Sidebar = memo(function Sidebar({
 
         <div className="px-4 pb-3 lg:px-5">
           {sidebarError && (
-            <div className="mb-3 rounded-xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
+            <div className="mb-3 rounded-2xl border border-red-100 bg-red-50 px-3 py-2 text-xs font-medium text-red-700">
               {sidebarError}
             </div>
           )}
-          <div className="mb-3 hidden md:grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e]">
+          <div className="vault-control mb-3 hidden grid-cols-3 rounded-[22px] p-1 md:grid">
             {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
               <button
                 key={mode}
@@ -629,7 +629,7 @@ export const Sidebar = memo(function Sidebar({
                 onClick={() => onGroupModeChange(mode)}
                 className={`min-h-10 rounded-lg px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
                   groupMode === mode
-                    ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)] dark:bg-slate-700'
+                    ? 'vault-button-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)]'
                     : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
                 }`}
               >
@@ -639,14 +639,14 @@ export const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
-        <nav ref={navRef} className="flex-1 overflow-y-auto scrollbar-thin px-2 pb-4 lg:px-3 relative">
+        <nav ref={navRef} className="relative flex-1 overflow-y-auto scrollbar-thin px-2 pb-5 lg:px-3">
           {(syncing || (cloudVaultExists === true && cloudSyncStatus === 'idle')) && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4">
               <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />
               <div className="space-y-3">
                 {[1, 2, 3, 4, 5].map((i) => (
                   <div key={i} className="flex items-center gap-3 py-2">
-                    <div className="h-10 w-10 shrink-0 rounded-xl bg-slate-200/50 shimmer" />
+                    <div className="h-10 w-10 shrink-0 rounded-2xl bg-slate-200/50 shimmer" />
                     <div className="flex-1 space-y-2">
                       <div className="h-3.5 w-3/4 rounded-full bg-slate-200/70 shimmer" />
                       <div className="h-2.5 w-1/2 rounded-full bg-slate-100/60 shimmer" />
@@ -678,14 +678,14 @@ export const Sidebar = memo(function Sidebar({
                     <button
                       type="button"
                       onClick={() => onSelectPlatform(null)}
-                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors dark:border-white/[0.04] ${
+                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-[22px] border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors dark:border-white/[0.04] ${
                         selectedPlatformName === null
                           ? 'bg-surface-active text-text-primary dark:bg-[#2c2c2e] dark:text-white'
                           : 'bg-surface-elevated text-text-secondary hover:bg-surface-hover dark:bg-[#1c1c1e] dark:text-[#a0a0a5] dark:hover:bg-[#2c2c2e]'
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary dark:bg-white/5 dark:text-white">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-black/5 text-text-primary dark:bg-white/5 dark:text-white">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z" />
                           </svg>
@@ -750,12 +750,12 @@ export const Sidebar = memo(function Sidebar({
                     <button
                       type="button"
                       onClick={() => onSelect(null)}
-                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-2xl border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors ${
+                      className={`mb-4 flex min-h-[76px] w-full items-center justify-between rounded-[22px] border border-black/[0.04] px-3.5 py-3 text-left shadow-sm transition-colors ${
                         selectedId === null ? 'bg-surface-active text-text-primary' : 'bg-surface-elevated text-text-secondary hover:bg-surface-hover'
                       }`}
                     >
                       <span className="flex min-w-0 items-center gap-3">
-                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-black/5 text-text-primary">
+                        <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-black/5 text-text-primary">
                           <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                             <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
                           </svg>
@@ -834,7 +834,7 @@ export const Sidebar = memo(function Sidebar({
                   type="button"
                   onClick={onSync}
                   disabled={cloudSyncStatus === 'syncing'}
-                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-xl border border-black/5 bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover disabled:opacity-60 dark:border-white/5 dark:bg-[#1c1c1e] dark:text-white"
+                  className="flex min-h-10 w-full items-center justify-center gap-2 rounded-2xl border border-black/5 bg-white px-3 text-xs font-bold text-text-primary shadow-sm transition-all hover:-translate-y-0.5 hover:bg-surface-hover disabled:opacity-60 dark:border-white/5 dark:bg-[#1c1c1e] dark:text-white"
                 >
                   <span className={`h-2 w-2 rounded-full ${cloudSyncStatus === 'syncing' ? 'animate-pulse bg-blue-500' : cloudSyncStatus === 'error' ? 'bg-red-500' : 'bg-emerald-500'}`} />
                   {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar / Refrescar'}
@@ -846,7 +846,7 @@ export const Sidebar = memo(function Sidebar({
               <button
                 type="button"
                 onClick={onInstall}
-                className="w-full rounded-xl bg-text-primary py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
+                className="w-full rounded-2xl vault-button-primary py-2 text-xs font-semibold text-white transition-opacity hover:opacity-90 dark:bg-white dark:text-black"
               >
                 Instalar Contras App
               </button>

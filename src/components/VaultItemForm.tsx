@@ -1,4 +1,5 @@
 import { useState, useEffect, type FormEvent } from 'react'
+import { ConfirmModal } from './ui/ConfirmModal'
 import type { LocalVaultItem, WifiSecurityType, CustomFieldEntry } from '../types'
 import { normalizeLocalVaultItem, WIFI_SECURITY_OPTIONS } from '../utils/vaultItem'
 import { getFriendlyErrorMessage } from '../utils/errors'
@@ -90,6 +91,7 @@ export function VaultItemForm({
   const [saving, setSaving] = useState(false)
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [confirmRenewModalOpen, setConfirmRenewModalOpen] = useState(false)
   const { trackItemAccess, localCategories } = useVault()
 
   const buildCategoryOptions = () => {
@@ -445,25 +447,7 @@ export function VaultItemForm({
                 </div>
                 <button
                   type="button"
-                  onClick={() => {
-                    const isPaperwork = draft.type === 'PAPERWORK';
-                    if (!window.confirm(`¿Quieres archivar las fotos actuales y ${isPaperwork ? 'el periodo' : 'la fecha de caducidad'} en el historial para subir las nuevas?`)) return;
-                    setDraft(prev => {
-                      const past = (prev as any).pastVersions || [];
-                      const newPast = [{
-                        id: `archived-${Date.now()}`,
-                        attachments: prev.attachments || [],
-                        ...(isPaperwork ? { period: (prev as any).period || '' } : { expiryDate: (prev as any).expiryDate || null }),
-                        replacedAt: new Date().toISOString()
-                      }, ...past];
-                      return {
-                        ...prev,
-                        attachments: [],
-                        ...(isPaperwork ? { period: '' } : { expiryDate: null }),
-                        pastVersions: newPast
-                      };
-                    });
-                  }}
+                  onClick={() => setConfirmRenewModalOpen(true)}
                   className="rounded-lg bg-indigo-50 px-3 py-1.5 text-xs font-bold text-indigo-600 transition-colors hover:bg-indigo-100"
                 >
                   Renovar {draft.type === 'PAPERWORK' ? 'Trámite' : 'Documento'}
@@ -711,6 +695,34 @@ export function VaultItemForm({
       )}
 
       </div>
+      <ConfirmModal
+        isOpen={confirmRenewModalOpen}
+        title={`¿Renovar ${draft.type === 'PAPERWORK' ? 'Trámite' : 'Documento'}?`}
+        message={`¿Quieres archivar las fotos actuales y ${draft.type === 'PAPERWORK' ? 'el periodo' : 'la fecha de caducidad'} en el historial para subir las nuevas?`}
+        confirmLabel="Renovar"
+        cancelLabel="Cancelar"
+        type="warning"
+        onConfirm={() => {
+          setConfirmRenewModalOpen(false);
+          const isPaperwork = draft.type === 'PAPERWORK';
+          setDraft(prev => {
+            const past = (prev as any).pastVersions || [];
+            const newPast = [{
+              id: `archived-${Date.now()}`,
+              attachments: prev.attachments || [],
+              ...(isPaperwork ? { period: (prev as any).period || '' } : { expiryDate: (prev as any).expiryDate || null }),
+              replacedAt: new Date().toISOString()
+            }, ...past];
+            return {
+              ...prev,
+              attachments: [],
+              ...(isPaperwork ? { period: '' } : { expiryDate: null }),
+              pastVersions: newPast
+            };
+          });
+        }}
+        onCancel={() => setConfirmRenewModalOpen(false)}
+      />
     </form>
   )
 }

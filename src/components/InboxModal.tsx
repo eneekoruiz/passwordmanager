@@ -3,6 +3,7 @@ import { db, auth } from '../services/firebase'
 import { collection, query, where, onSnapshot, deleteDoc, doc, updateDoc } from 'firebase/firestore'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
+import { ConfirmModal } from './ui/ConfirmModal'
 import { PlatformLogo } from './ui/PlatformLogo'
 
 interface ShareItem {
@@ -52,6 +53,7 @@ function SkeletonCard() {
 }
 
 function LinkEditModal({ link, onClose }: { link: LinkItem; onClose: () => void }) {
+  const { showToast } = useToast()
   const [loading, setLoading] = useState(false)
   const [expiration, setExpiration] = useState<'1h' | '24h' | '7d' | 'never' | 'burn' | 'custom'>(() => {
     if (link.burnAfterRead) return 'burn'
@@ -93,7 +95,7 @@ function LinkEditModal({ link, onClose }: { link: LinkItem; onClose: () => void 
       })
       onClose()
     } catch (e: any) {
-      alert('Error al guardar: ' + e.message)
+      showToast('Error al guardar: ' + e.message, 'error')
     } finally {
       setLoading(false)
     }
@@ -210,27 +212,30 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
     }
   }, [currentProfileId, isOpen])
 
-  const handleRevokeShare = async (shareId: string) => {
-    if (!confirm('¿Seguro que deseas revocar este acceso? El destinatario ya no podrá aceptar esta contraseña.')) return
-    try {
-      setProcessingId(shareId)
-      if (db) await deleteDoc(doc(db, 'shares', shareId))
-    } catch (err: any) {
-      console.error('Error revoking share:', err)
-      alert('Error al revocar: ' + err.message)
-    } finally {
-      setProcessingId(null)
-    }
+  const [pendingRevoke, setPendingRevoke] = useState<{ id: string; type: 'share' | 'link' } | null>(null)
+
+  const handleRevokeShare = (shareId: string) => {
+    setPendingRevoke({ id: shareId, type: 'share' })
   }
 
-  const handleRevokeLink = async (linkId: string) => {
-    if (!confirm('¿Seguro que deseas revocar este enlace? Se eliminará de forma permanente y nadie más podrá acceder.')) return
+  const handleRevokeLink = (linkId: string) => {
+    setPendingRevoke({ id: linkId, type: 'link' })
+  }
+
+  const executeRevoke = async () => {
+    if (!pendingRevoke) return
+    const { id, type } = pendingRevoke
+    setPendingRevoke(null)
+    
     try {
-      setProcessingId(linkId)
-      if (db) await deleteDoc(doc(db, 'links', linkId))
+      setProcessingId(id)
+      if (db) {
+        await deleteDoc(doc(db, type === 'share' ? 'shares' : 'links', id))
+        showToast(type === 'share' ? 'Acceso revocado con éxito' : 'Enlace mágico revocado con éxito', 'success')
+      }
     } catch (err: any) {
-      console.error('Error revoking link:', err)
-      alert('Error al revocar enlace: ' + err.message)
+      console.error(`Error revoking ${type}:`, err)
+      showToast(`Error al revocar: ${err.message}`, 'error')
     } finally {
       setProcessingId(null)
     }
@@ -505,6 +510,21 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
       {editingLink && (
         <LinkEditModal link={editingLink} onClose={() => setEditingLink(null)} />
       )}
+
+      <ConfirmModal
+        isOpen={pendingRevoke !== null}
+        title={pendingRevoke?.type === 'share' ? '¿Revocar acceso compartido?' : '¿Revocar enlace mágico?'}
+        message={
+          pendingRevoke?.type === 'share'
+            ? '¿Seguro que deseas revocar este acceso compartido? El destinatario ya no podrá aceptar ni ver esta contraseña.'
+            : '¿Seguro que deseas revocar este enlace mágico? Se eliminará permanentemente de internet y nadie podrá volver a acceder a él.'
+        }
+        confirmLabel="Revocar"
+        cancelLabel="Cancelar"
+        type="danger"
+        onConfirm={executeRevoke}
+        onCancel={() => setPendingRevoke(null)}
+      />
     </div>
       </div>
     </div>

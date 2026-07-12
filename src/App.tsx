@@ -841,7 +841,7 @@ function VaultApp() {
 
   if (!isUnlocked) {
     return (
-      <div className="flex min-h-dvh flex-col bg-surface">
+      <div className="vault-shell vault-stage flex min-h-dvh flex-col">
         {warningBanner}
         <div className="flex-1 flex items-center justify-center">
           <UnlockScreen />
@@ -1021,7 +1021,7 @@ function VaultApp() {
   const showExtraHeaderElements = true
 
   const mobileTopBar = isMobile ? (
-    <div className="relative shrink-0 z-50 flex flex-col bg-white/85 dark:bg-slate-900/85 backdrop-blur-xl border-b border-black/5 dark:border-white/5 px-4 py-3 shadow-[0_10px_30px_rgba(15,23,42,0.08)] gap-3">
+    <div className="vault-mobile-bar relative z-50 flex shrink-0 flex-col gap-3 px-4 pb-3">
       {/* Row 1: Title & Sync indicator */}
       <div className="flex items-center justify-between">
         <div className="min-w-0">
@@ -1481,7 +1481,7 @@ function VaultApp() {
   ) : null
 
   const desktopToolbar = (
-    <header className="sticky top-0 z-40 flex min-h-20 items-center gap-3 border-b border-border-subtle bg-white/82 px-5 py-3 shadow-[0_12px_40px_rgba(15,23,42,0.06)] backdrop-blur-xl lg:px-8 dark:border-white/5 dark:bg-slate-900/80">
+    <header className="vault-panel sticky top-0 z-40 mx-3 mt-3 flex min-h-20 items-center gap-3 rounded-[28px] px-5 py-3 lg:mx-4 lg:px-6">
       <GlobalSearch
         query={globalSearchTerm}
         onQueryChange={setGlobalSearchTerm}
@@ -1494,7 +1494,7 @@ function VaultApp() {
         <button
           type="button"
           onClick={() => setShowDesktopSortMenu(!showDesktopSortMenu)}
-          className="flex h-12 items-center gap-2 rounded-2xl border border-black/[0.06] bg-white px-4 text-xs font-bold text-text-secondary shadow-subtle outline-none transition-all hover:bg-surface-hover hover:text-text-primary dark:border-white/10 dark:bg-slate-800 dark:hover:bg-slate-700"
+          className="vault-control vault-focus flex h-12 items-center gap-2 rounded-2xl px-4 text-xs font-bold text-text-secondary outline-none transition-all hover:-translate-y-0.5 hover:text-text-primary active:scale-[0.98]"
           title={`Ordenar: ${SORT_LABELS[sortMode]}`}
         >
           <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.2}>
@@ -1545,7 +1545,7 @@ function VaultApp() {
         <button
           type="button"
           onClick={() => setShowUserMenu(!showUserMenu)}
-          className="relative flex h-10 w-10 sm:h-12 sm:w-12 items-center justify-center rounded-full border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-sm shadow-[0_4px_10px_rgba(0,0,0,0.03)] hover:bg-indigo-100 hover:shadow-md transition-all active:scale-95 ml-2"
+          className="relative ml-2 flex h-10 w-10 items-center justify-center rounded-2xl border border-teal-500/15 bg-teal-50/80 text-sm font-black text-teal-800 shadow-[0_12px_28px_rgba(13,148,136,0.14)] transition-all hover:-translate-y-0.5 hover:bg-teal-100 active:scale-95 dark:bg-teal-400/10 dark:text-teal-200 dark:border-teal-300/15 sm:h-12 sm:w-12"
           aria-label="Menú de usuario"
         >
           {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
@@ -1645,10 +1645,10 @@ function VaultApp() {
 
   if (isMobile) {
     return (
-      <div className="fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden bg-surface overscroll-none">
+      <div className="vault-shell vault-stage fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden overscroll-none">
         {mobileTopBar}
         {globalOverlays}
-        <div className={`flex min-h-0 flex-1 flex-col overflow-hidden pb-4`}>
+        <div className="flex min-h-0 flex-1 flex-col overflow-hidden px-2 pb-4">
           {selectedId === null && selectedLocalCategory === null && selectedPlatformName === null ? (
             <Sidebar
               identities={displayIdentities}
@@ -1858,9 +1858,9 @@ function VaultApp() {
   }
 
   return (
-    <div className="flex h-dvh flex-col bg-surface overscroll-none overflow-hidden">
+    <div className="vault-shell vault-stage flex h-dvh flex-col overflow-hidden overscroll-none p-0 lg:p-3">
       {warningBanner}
-      <div className="flex flex-1 min-h-0">
+      <div className="flex min-h-0 flex-1 gap-3">
         {globalOverlays}
         <Sidebar
           identities={displayIdentities}
@@ -1901,7 +1901,7 @@ function VaultApp() {
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <main className="flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden bg-surface-elevated dark:bg-slate-950 lg:rounded-l-2xl lg:border-l lg:border-border-subtle dark:lg:border-white/5">
+        <main className="vault-glass flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[30px]">
           {desktopToolbar}
           <MainArea
             identities={displayIdentities}
@@ -2147,14 +2147,14 @@ function GlobalSearch({
           type="search"
           value={query}
           onChange={(event) => onQueryChange(event.target.value)}
-          placeholder="Buscar en toda la bóveda... (Pulsa /)"
-          className="h-12 w-full rounded-2xl border border-black/[0.06] bg-white/90 pl-11 pr-12 text-[15px] font-medium text-text-primary shadow-subtle outline-none backdrop-blur-xl transition-all placeholder:text-text-tertiary focus:border-black/15 focus:bg-white focus:ring-4 focus:ring-black/[0.035] dark:border-white/10 dark:bg-slate-800/90 dark:text-white dark:focus:bg-slate-800"
+          placeholder="Buscar credenciales, identidades o secretos..."
+          className="vault-control vault-focus h-12 w-full rounded-2xl pl-11 pr-12 text-[15px] font-semibold text-text-primary outline-none transition-all placeholder:text-text-tertiary focus:bg-white/90 dark:text-white dark:focus:bg-white/10"
           aria-label="Búsqueda global de la bóveda"
         />
       </div>
 
       {visible && (
-        <div className="absolute left-0 right-0 top-full z-50 mt-2 max-h-[48vh] overflow-y-auto rounded-3xl border border-black/[0.06] bg-white/95 p-2 shadow-[0_28px_90px_rgba(15,23,42,0.18)] backdrop-blur-xl animate-vault-morph dark:border-white/10 dark:bg-slate-800/95">
+        <div className="vault-glass absolute left-0 right-0 top-full z-50 mt-3 max-h-[48vh] overflow-y-auto rounded-[26px] p-2 animate-vault-morph">
           {syncing ? (
             <div className="flex flex-col gap-1 p-1">
               {[...Array(4)].map((_, i) => (
@@ -2178,7 +2178,7 @@ function GlobalSearch({
                   result.action()
                   onQueryChange('')
                 }}
-                className="flex min-h-14 w-full flex-col justify-center rounded-2xl px-4 text-left transition-colors hover:bg-surface-hover"
+                className="flex min-h-14 w-full flex-col justify-center rounded-2xl px-4 text-left transition-all hover:bg-surface-hover hover:pl-5 active:scale-[0.99]"
               >
                 <span className="text-[15px] font-semibold text-text-primary">{result.title}</span>
                 <span className="mt-0.5 text-xs text-text-tertiary">{result.subtitle}</span>
