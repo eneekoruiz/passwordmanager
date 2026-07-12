@@ -414,7 +414,7 @@ export const Sidebar = memo(function Sidebar({
     const isSubcategory = depth > 0;
     
     return (
-      <li key={category.id} className="relative">
+      <li key={category.id} className={`relative ${activeMenuCategoryId === category.id ? 'z-50' : 'z-auto'}`}>
         {isSubcategory && (
           <div 
             className="absolute left-0 top-1/2 w-4 border-b-2 border-black/10 dark:border-white/10"
@@ -476,10 +476,10 @@ export const Sidebar = memo(function Sidebar({
               {activeMenuCategoryId === category.id && (
                 <>
                   <div 
-                    className="fixed inset-0 z-40"
+                    className="fixed inset-0 z-40 bg-black/5 backdrop-blur-[1px] dark:bg-white/5"
                     onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
                   />
-                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-surface shadow-lg overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
+                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-surface/95 backdrop-blur-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
                     <button
                       type="button"
                       onClick={(e) => {

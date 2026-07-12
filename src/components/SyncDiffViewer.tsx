@@ -66,9 +66,15 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
 
         <div className="flex gap-2 border-b border-border bg-surface px-6 pt-3 overflow-x-auto scrollbar-none flex-nowrap w-full">
           <TabButton active={activeTab === 'all'} onClick={() => setActiveTab('all')} label="Todos" count={diffResult.diffs.length} />
-          <TabButton active={activeTab === 'added'} onClick={() => setActiveTab('added')} label="Nuevos en Nube" count={addedCount} color="text-green-600" bg="bg-green-100" />
-          <TabButton active={activeTab === 'conflict'} onClick={() => setActiveTab('conflict')} label="Revisión Requerida" count={conflictCount} color="text-purple-600" bg="bg-purple-100" />
-          <TabButton active={activeTab === 'deleted'} onClick={() => setActiveTab('deleted')} label="Solo Locales" count={deletedCount} color="text-red-600" bg="bg-red-100" />
+          {addedCount > 0 && (
+            <TabButton active={activeTab === 'added'} onClick={() => setActiveTab('added')} label="Nuevos en Nube" count={addedCount} color="text-green-600" bg="bg-green-100" />
+          )}
+          {conflictCount > 0 && (
+            <TabButton active={activeTab === 'conflict'} onClick={() => setActiveTab('conflict')} label="Revisión Requerida" count={conflictCount} color="text-purple-600" bg="bg-purple-100" />
+          )}
+          {deletedCount > 0 && (
+            <TabButton active={activeTab === 'deleted'} onClick={() => setActiveTab('deleted')} label="Solo Locales" count={deletedCount} color="text-red-600" bg="bg-red-100" />
+          )}
         </div>
 
         <div className="flex-1 overflow-y-auto bg-surface-subtle p-6">
@@ -130,7 +136,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
                   <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                     <path strokeLinecap="round" strokeLinejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
                   </svg>
-                  {hasConflicts ? 'Aplicar Cambios y Guardar' : hasDeletedItems ? 'Reemplazar Bóveda Local' : 'Descargar y Combinar'}
+                  {hasConflicts ? 'Aplicar Cambios y Guardar' : 'Sincronizar'}
                 </>
               )}
             </button>
@@ -326,41 +332,38 @@ function DiffItemRow({
       )}
 
       {item.status === 'deleted' && onResolutionChange && selectedResolution && (
-        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 border border-black/[0.03]">
-          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mr-auto">Destino del elemento:</span>
-          <button
-            type="button"
-            onClick={() => onResolutionChange('local')}
-            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-              selectedResolution === 'local'
-                ? 'bg-blue-600 text-white shadow-sm'
-                : 'bg-white text-text-secondary hover:bg-slate-100 border border-black/5'
-            }`}
-          >
-            Subir a la Nube (Recomendado)
-          </button>
-          <button
-            type="button"
-            onClick={() => onResolutionChange('local_only')}
-            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
-              selectedResolution === 'local_only'
-                ? 'bg-slate-800 text-white shadow-sm'
-                : 'bg-white text-text-secondary hover:bg-slate-100 border border-black/5'
-            }`}
-          >
-            Mantener Solo en Local
-          </button>
+        <div className="flex items-center justify-between gap-4 rounded-xl bg-slate-50 p-3.5 border border-black/[0.03]">
+          <div className="flex items-center gap-3">
+            <label className="relative inline-flex cursor-pointer items-center shrink-0">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={selectedResolution === 'local'}
+                onChange={(e) => onResolutionChange(e.target.checked ? 'local' : 'local_only')}
+              />
+              <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-blue-600 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-blue-300 dark:bg-slate-700 dark:peer-focus:ring-blue-800"></div>
+            </label>
+            <div>
+              <span className="text-xs font-bold text-text-primary">Subir a la nube</span>
+              <p className="text-[10px] text-text-secondary mt-0.5 leading-tight">
+                {selectedResolution === 'local' ? 'El elemento será sincronizado.' : 'El elemento se mantendrá estrictamente local.'}
+              </p>
+            </div>
+          </div>
+          
           <button
             type="button"
             onClick={() => onResolutionChange('cloud')}
-            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+            className={`flex shrink-0 items-center justify-center h-8 w-8 rounded-lg transition-all ${
               selectedResolution === 'cloud'
-                ? 'bg-red-600 text-white shadow-sm'
-                : 'bg-white text-text-secondary hover:bg-red-50 border border-black/5'
+                ? 'bg-red-100 text-red-600 shadow-sm ring-1 ring-red-200'
+                : 'bg-white text-text-tertiary hover:bg-red-50 hover:text-red-600 border border-black/5'
             }`}
-            title="Esto borrará el elemento local porque no existe en la nube"
+            title="Descartar y Borrar este elemento"
           >
-            Descartar y Borrar
+            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+            </svg>
           </button>
         </div>
       )}

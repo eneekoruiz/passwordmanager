@@ -330,6 +330,24 @@ export function VaultItemForm({
             </div>
           </div>
 
+          <div className="pt-4 border-t border-border-subtle flex items-center justify-between">
+            <div>
+              <h4 className="text-sm font-bold text-text-primary">Mantener estrictamente solo en local</h4>
+              <p className="mt-1 text-xs text-text-secondary max-w-[80%]">
+                Evita que este elemento se suba a la nube, manteniéndolo seguro solo en este dispositivo.
+              </p>
+            </div>
+            <label className="relative inline-flex cursor-pointer items-center shrink-0">
+              <input
+                type="checkbox"
+                className="peer sr-only"
+                checked={draft.isLocalOnly || false}
+                onChange={(e) => setDraft((prev) => ({ ...prev, isLocalOnly: e.target.checked }))}
+              />
+              <div className="peer h-6 w-11 rounded-full bg-slate-200 after:absolute after:left-[2px] after:top-0.5 after:h-5 after:w-5 after:rounded-full after:border after:border-gray-300 after:bg-white after:transition-all after:content-[''] peer-checked:bg-indigo-500 peer-checked:after:translate-x-full peer-checked:after:border-white peer-focus:ring-4 peer-focus:ring-indigo-300 dark:bg-slate-700 dark:peer-focus:ring-indigo-800"></div>
+            </label>
+          </div>
+
           {draft.type === 'DOCUMENT' && (
             <div className="space-y-6 pt-4 border-t border-border-subtle">
               <div className="flex items-center justify-between">

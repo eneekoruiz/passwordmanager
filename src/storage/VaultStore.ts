@@ -650,11 +650,15 @@ export class VaultStore {
         if (payload) {
           try {
             if (key.includes(LOCAL_ITEM_KEY_SEGMENT) || key.includes(LOCAL_CATEGORY_KEY_SEGMENT)) {
-              const platformId = key.substring(prefix.length)
-              identitiesData.push({
-                id: platformId,
-                payload
-              })
+              const itemStr = await this.vault.decryptString(payload)
+              const item = JSON.parse(itemStr)
+              if (!item.isLocalOnly) {
+                const platformId = key.substring(prefix.length)
+                identitiesData.push({
+                  id: platformId,
+                  payload
+                })
+              }
               continue
             }
 
