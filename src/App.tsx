@@ -14,6 +14,7 @@ import { MasterPasswordPromptModal } from './components/MasterPasswordPromptModa
 import { ImportTextModal } from './components/ImportTextModal'
 import { IOSInstallPrompt } from './components/IOSInstallPrompt'
 import { LinkPreview } from './components/LinkPreview'
+import { VaultLoaderScreen } from './components/VaultLoaderScreen'
 import { getFriendlyErrorMessage, logUnexpectedError } from './utils/errors'
 import { LOCAL_ITEM_LABELS, vaultItemDisplayName } from './utils/vaultItem'
 import { isInMemoryFallbackActive } from './storage/vaultDb'
@@ -93,7 +94,9 @@ function VaultApp() {
 
   const { showToast } = useToast()
 
+  const [showLoader, setShowLoader] = useState(true)
   const [mounted, setMounted] = useState(false)
+  const [activeTab, setActiveTab] = useState<'all' | 'category' | 'platform'>('all')
   const [linkData, setLinkData] = useState<{ id: string; key: string } | null>(null)
   const [inboxCount, setInboxCount] = useState(0)
   const [inboxModalOpen, setInboxModalOpen] = useState(false)
@@ -815,18 +818,8 @@ function VaultApp() {
     return () => window.removeEventListener('keydown', handleKeyDown)
   }, [])
 
-  if (!mounted || !isReady) {
-    return (
-      <div className="vault-shell vault-stage flex min-h-dvh items-center justify-center bg-surface">
-        <div className="flex flex-col items-center gap-5 animate-vault-morph" role="status" aria-live="polite">
-          <div className="vault-loader" aria-hidden="true"><span /></div>
-          <div className="text-center">
-            <p className="text-sm font-bold tracking-tight text-text-primary">Abriendo tu bóveda</p>
-            <p className="mt-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-text-tertiary">Descifrado local seguro</p>
-          </div>
-        </div>
-      </div>
-    )
+  if (!mounted || showLoader) {
+    return <VaultLoaderScreen isReady={isReady} onAnimationComplete={() => setShowLoader(false)} />
   }
 
   // Must be after all hooks — fixes React Error #300

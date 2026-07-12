@@ -11,6 +11,7 @@ import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ExposedPasswordWarningPopover } from './ui/ExposedPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
+import { useVault } from '../context/VaultContext'
 type ViewMode = 'grid' | 'create' | 'edit'
 
 const getPlatformUrl = (name: string): string => {
@@ -112,6 +113,8 @@ export const MainArea = memo(function MainArea({
   const [quickTravelCopied, setQuickTravelCopied] = useState<string | null>(null)
   const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set())
   const [authVerifiedFor, setAuthVerifiedFor] = useState<Set<string>>(new Set())
+  const [collapsedSections, setCollapsedSections] = useState<Set<string>>(new Set())
+  const { localCategories } = useVault()
   
   const [securityModalOpen, setSecurityModalOpen] = useState(false)
   const [securityPassword, setSecurityPassword] = useState('')
@@ -138,6 +141,48 @@ export const MainArea = memo(function MainArea({
     window.addEventListener('contras:weak-passwords-toggled', handleToggle)
     return () => window.removeEventListener('contras:weak-passwords-toggled', handleToggle)
   }, [])
+
+  const renderLocalVaultItemCard = (item: LocalVaultItem, index: number) => {
+    const isDoc = item.type === 'DOCUMENT'
+    const isExpired = isDoc && item.hasExpiry && item.expiryDate && new Date(item.expiryDate) < new Date()
+    return (
+      <button
+        key={item.id}
+        type="button"
+        onClick={() => {
+          setEditingLocalItem(item)
+          setView('edit')
+        }}
+        style={{ animationDelay: `${index * 45}ms` }}
+        className={`animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border ${isExpired ? 'border-red-300 dark:border-red-500/50 bg-red-50/80 dark:bg-red-900/20' : 'border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90'} p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]`}
+      >
+        <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 dark:via-white/10 to-transparent" />
+        <div className="flex items-center justify-between">
+          <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
+            {LOCAL_ITEM_LABELS[item.type]}
+          </span>
+          {isExpired && (
+            <span className="text-red-500" title="Este documento ha caducado">
+              <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-1.998A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>
+            </span>
+          )}
+        </div>
+        <span className="mt-2 block truncate text-sm font-semibold text-text-primary dark:text-white">
+          {vaultItemDisplayName(item)}
+        </span>
+        <span className="mt-3 inline-flex gap-1.5 flex-wrap">
+          <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
+            Cifrado local
+          </span>
+          {isDoc && item.pastVersions && item.pastVersions.length > 0 && (
+            <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-semibold">
+              {item.pastVersions.length} {item.pastVersions.length === 1 ? 'versión ant.' : 'versiones ant.'}
+            </span>
+          )}
+        </span>
+      </button>
+    )
+  }
 
   const resetView = () => {
     setView('grid')
@@ -279,9 +324,16 @@ export const MainArea = memo(function MainArea({
 
   const isFormView = view === 'create' || view === 'edit'
   const itemQuery = searchQuery.trim().toLowerCase()
-  const selectedLocalItems = localCategory
-    ? localItems.filter((item) => (item.categoryId ?? item.type) === localCategory.id)
-    : []
+  const subCategories = useMemo(() => {
+    if (!localCategory) return []
+    return localCategories.filter(c => c.parentId === localCategory.id)
+  }, [localCategory, localCategories])
+
+  const selectedLocalItems = useMemo(() => {
+    if (!localCategory) return []
+    const categoryIds = new Set([localCategory.id, ...subCategories.map(c => c.id)])
+    return localItems.filter((item) => categoryIds.has(item.categoryId ?? item.type))
+  }, [localItems, localCategory, subCategories])
   const filteredLocalItems = selectedLocalItems.filter((item) => {
     if (!itemQuery) return true
     return [vaultItemDisplayName(item), item.title, ...(item.tags || [])]
@@ -687,7 +739,7 @@ export const MainArea = memo(function MainArea({
           <>
 
             {localCategory ? (
-              filteredLocalItems.length === 0 ? (
+              filteredLocalItems.length === 0 && subCategories.length === 0 ? (
                 renderProactiveEmptyState({
                   description: `Crea uno nuevo aquí para guardar el primer secreto de ${localCategory.label}.`,
                   actionLabel: 'Crea uno nuevo aquí',
@@ -699,16 +751,18 @@ export const MainArea = memo(function MainArea({
               ) : (
                 <div className="space-y-8">
                   {Array.from(
-                    filteredLocalItems.reduce((acc, item) => {
-                      const sec = item.section?.trim() || 'General'
-                      if (!acc.has(sec)) acc.set(sec, [])
-                      acc.get(sec)!.push(item)
-                      return acc
-                    }, new Map<string, LocalVaultItem[]>())
+                    filteredLocalItems
+                      .filter(item => (item.categoryId ?? item.type) === localCategory.id)
+                      .reduce((acc, item) => {
+                        const sec = item.section?.trim() || 'General'
+                        if (!acc.has(sec)) acc.set(sec, [])
+                        acc.get(sec)!.push(item)
+                        return acc
+                      }, new Map<string, LocalVaultItem[]>())
                   )
                   .sort(([a], [b]) => a === 'General' ? -1 : b === 'General' ? 1 : a.localeCompare(b))
                   .map(([sectionName, items]) => (
-                    <div key={sectionName}>
+                    <div key={`main-${sectionName}`}>
                       <h3 className="mb-3 flex items-center gap-1.5 text-xs font-bold uppercase tracking-wider text-text-tertiary dark:text-[#6b6b70]">
                         {sectionName.split('/').map((part, i, arr) => (
                           <span key={i} className="flex items-center gap-1.5">
@@ -718,49 +772,65 @@ export const MainArea = memo(function MainArea({
                         ))}
                       </h3>
                       <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
-                        {items.map((item, index) => {
-                          const isDoc = item.type === 'DOCUMENT'
-                          const isExpired = isDoc && item.hasExpiry && item.expiryDate && new Date(item.expiryDate) < new Date()
-                          return (
-                          <button
-                            key={item.id}
-                            type="button"
-                            onClick={() => {
-                              setEditingLocalItem(item)
-                              setView('edit')
-                            }}
-                            style={{ animationDelay: `${index * 45}ms` }}
-                            className={`animate-vault-slide-up relative min-h-[106px] overflow-hidden rounded-2xl border ${isExpired ? 'border-red-300 dark:border-red-500/50 bg-red-50/80 dark:bg-red-900/20' : 'border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90'} p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]`}
-                          >
-                            <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 dark:via-white/10 to-transparent" />
-                            <div className="flex items-center justify-between">
-                              <span className="block text-[10px] font-bold uppercase tracking-[0.18em] text-text-tertiary">
-                                {LOCAL_ITEM_LABELS[item.type]}
-                              </span>
-                              {isExpired && (
-                                <span className="text-red-500" title="Este documento ha caducado">
-                                  <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M10 1.944A11.954 11.954 0 012.166 5C2.056 5.649 2 6.319 2 7c0 5.225 3.34 9.67 8 11.317C14.66 16.67 18 12.225 18 7c0-.682-.057-1.35-.166-1.998A11.954 11.954 0 0110 1.944zM11 14a1 1 0 11-2 0 1 1 0 012 0zm0-7a1 1 0 10-2 0v3a1 1 0 102 0V7z" clipRule="evenodd" /></svg>
-                                </span>
-                              )}
-                            </div>
-                            <span className="mt-2 block truncate text-sm font-semibold text-text-primary dark:text-white">
-                              {vaultItemDisplayName(item)}
-                            </span>
-                            <span className="mt-3 inline-flex gap-1.5 flex-wrap">
-                              <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
-                                Cifrado local
-                              </span>
-                              {isDoc && item.pastVersions && item.pastVersions.length > 0 && (
-                                <span className="rounded-full bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400 px-2 py-0.5 text-[10px] font-semibold">
-                                  {item.pastVersions.length} {item.pastVersions.length === 1 ? 'versión ant.' : 'versiones ant.'}
-                                </span>
-                              )}
-                            </span>
-                          </button>
-                        )})}
+                        {items.map((item, index) => renderLocalVaultItemCard(item, index))}
                       </div>
                     </div>
                   ))}
+
+                  {subCategories.map(subCat => {
+                    const subItems = filteredLocalItems.filter(item => (item.categoryId ?? item.type) === subCat.id)
+                    const isCollapsed = collapsedSections.has(subCat.id)
+                    return (
+                      <div key={subCat.id} className="mt-8 border-t border-border-subtle dark:border-white/5 pt-6">
+                        <div className="flex items-center justify-between mb-4">
+                          <button
+                            type="button"
+                            onClick={() => setCollapsedSections(prev => {
+                              const next = new Set(prev)
+                              if (next.has(subCat.id)) next.delete(subCat.id)
+                              else next.add(subCat.id)
+                              return next
+                            })}
+                            className="flex items-center gap-2 group active:scale-[0.98] transition-transform"
+                          >
+                            <span className={`text-text-tertiary transition-transform ${isCollapsed ? '-rotate-90' : ''}`}>
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
+                              </svg>
+                            </span>
+                            <h3 className="text-sm font-black uppercase tracking-wider text-text-secondary dark:text-slate-400 group-hover:text-text-primary dark:group-hover:text-white transition-colors">
+                              {subCat.label}
+                            </h3>
+                            <span className="ml-2 rounded-full bg-surface-elevated dark:bg-[#2c2c2e] px-2 py-0.5 text-xs font-bold text-text-tertiary dark:text-slate-400">
+                              {subItems.length}
+                            </span>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setEditingLocalItem(createLocalVaultItem(subCat.type, subCat.id, subCat.label))
+                              setView('create')
+                            }}
+                            className="flex h-8 w-8 items-center justify-center rounded-full bg-surface dark:bg-[#1c1c1e] hover:bg-surface-hover dark:hover:bg-[#2c2c2e] text-text-secondary transition-colors"
+                            title={`Añadir a ${subCat.label}`}
+                          >
+                            <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M12 4v16m8-8H4" />
+                            </svg>
+                          </button>
+                        </div>
+                        {!isCollapsed && (
+                           subItems.length === 0 ? (
+                             <p className="text-sm text-text-tertiary italic">Aún no hay elementos en esta subcarpeta.</p>
+                           ) : (
+                             <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                               {subItems.map((item, index) => renderLocalVaultItemCard(item, index))}
+                             </div>
+                           )
+                        )}
+                      </div>
+                    )
+                  })}
                 </div>
               )
             ) : groupMode === 'platform' && selectedPlatformName ? (
