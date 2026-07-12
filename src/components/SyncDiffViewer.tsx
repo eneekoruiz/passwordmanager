@@ -3,7 +3,7 @@ import { useState } from 'react'
 
 interface SyncDiffViewerProps {
   diffResult: SyncDiffResult
-  onConfirm: (resolutions?: Record<string, 'local' | 'cloud'>) => void
+  onConfirm: (resolutions?: Record<string, 'local' | 'cloud' | 'local_only'>) => void
   onCancel: () => void
   isDownloading?: boolean
 }
@@ -11,15 +11,18 @@ interface SyncDiffViewerProps {
 export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading = false }: SyncDiffViewerProps) {
   const [activeTab, setActiveTab] = useState<'all' | 'added' | 'conflict' | 'deleted'>('all')
 
-  // Resolutions maps itemId -> 'local' or 'cloud'
-  const [resolutions, setResolutions] = useState<Record<string, 'local' | 'cloud'>>(() => {
-    const initial: Record<string, 'local' | 'cloud'> = {}
+  // Resolutions maps itemId -> 'local', 'cloud', or 'local_only'
+  const [resolutions, setResolutions] = useState<Record<string, 'local' | 'cloud' | 'local_only'>>(() => {
+    const initial: Record<string, 'local' | 'cloud' | 'local_only'> = {}
     for (const diff of diffResult.diffs) {
       if (diff.status === 'conflict') {
         const localTime = diff.localUpdatedAt ? Date.parse(diff.localUpdatedAt) : 0
         const cloudTime = diff.cloudUpdatedAt ? Date.parse(diff.cloudUpdatedAt) : 0
-        // Pre-select version with newer updatedAt
         initial[diff.id] = localTime >= cloudTime ? 'local' : 'cloud'
+      } else if (diff.status === 'deleted') {
+        // "deleted" status means it exists locally but not in cloud (Nuevo en local)
+        // Default should be to upload it ('local' resolution wins)
+        initial[diff.id] = 'local'
       }
     }
     return initial
@@ -50,7 +53,7 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
               {hasOnlyAdditions
                 ? `Tus demás datos están seguros. Se detectaron ${addedCount} elemento${addedCount !== 1 ? 's' : ''} nuevo${addedCount !== 1 ? 's' : ''} en la nube que se descargarán.`
                 : hasDeletedItems && !hasConflicts
-                  ? `Tus demás datos están seguros. Tienes ${deletedCount} elemento${deletedCount !== 1 ? 's' : ''} solo en local. Elige si quieres subirlo a la bóveda o descartarlo.`
+                  ? `Se detectaron ${deletedCount} elemento${deletedCount !== 1 ? 's' : ''} creado${deletedCount !== 1 ? 's' : ''} localmente. Elige si subirlos a la nube o mantenerlos estrictamente locales.`
                   : 'Tus demás datos están seguros y sincronizados. Revisa estos pocos cambios en conflicto antes de continuar.'}
             </p>
           </div>
@@ -246,13 +249,13 @@ function DiffItemRow({
   onResolutionChange
 }: {
   item: VaultDiffItem
-  selectedResolution?: 'local' | 'cloud'
-  onResolutionChange?: (res: 'local' | 'cloud') => void
+  selectedResolution?: 'local' | 'cloud' | 'local_only'
+  onResolutionChange?: (res: 'local' | 'cloud' | 'local_only') => void
 }) {
   const statusConfig = {
     added: { icon: '+', color: 'text-green-600', bg: 'bg-green-50', border: 'border-green-100', label: 'Nuevo en nube' },
     modified: { icon: '±', color: 'text-amber-600', bg: 'bg-amber-50', border: 'border-amber-100', label: 'Diferente' },
-    deleted: { icon: '-', color: 'text-red-600', bg: 'bg-red-50', border: 'border-red-100', label: 'Solo local' },
+    deleted: { icon: '+', color: 'text-blue-600', bg: 'bg-blue-50', border: 'border-blue-100', label: 'Nuevo en local' },
     conflict: { icon: '!', color: 'text-purple-600', bg: 'bg-purple-50', border: 'border-purple-100', label: 'Versión diferente' },
   }[item.status]
 
@@ -318,6 +321,46 @@ function DiffItemRow({
             }`}
           >
             Versión Nube {cloudTime > localTime && ' (Más reciente)'}
+          </button>
+        </div>
+      )}
+
+      {item.status === 'deleted' && onResolutionChange && selectedResolution && (
+        <div className="flex items-center gap-2 rounded-xl bg-slate-50 p-2.5 border border-black/[0.03]">
+          <span className="text-[10px] font-bold text-text-secondary uppercase tracking-wider mr-auto">Destino del elemento:</span>
+          <button
+            type="button"
+            onClick={() => onResolutionChange('local')}
+            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+              selectedResolution === 'local'
+                ? 'bg-blue-600 text-white shadow-sm'
+                : 'bg-white text-text-secondary hover:bg-slate-100 border border-black/5'
+            }`}
+          >
+            Subir a la Nube (Recomendado)
+          </button>
+          <button
+            type="button"
+            onClick={() => onResolutionChange('local_only')}
+            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+              selectedResolution === 'local_only'
+                ? 'bg-slate-800 text-white shadow-sm'
+                : 'bg-white text-text-secondary hover:bg-slate-100 border border-black/5'
+            }`}
+          >
+            Mantener Solo en Local
+          </button>
+          <button
+            type="button"
+            onClick={() => onResolutionChange('cloud')}
+            className={`rounded-lg px-2.5 py-1 text-xs font-bold transition-all ${
+              selectedResolution === 'cloud'
+                ? 'bg-red-600 text-white shadow-sm'
+                : 'bg-white text-text-secondary hover:bg-red-50 border border-black/5'
+            }`}
+            title="Esto borrará el elemento local porque no existe en la nube"
+          >
+            Descartar y Borrar
           </button>
         </div>
       )}

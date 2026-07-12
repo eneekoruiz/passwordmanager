@@ -40,6 +40,7 @@ export function normalizeLocalCategory(category: LocalCategory): LocalCategory {
     createdAt: category.createdAt ?? now,
     updatedAt: category.updatedAt ?? now,
     parentId: category.parentId || undefined,
+    isLocalOnly: Boolean(category.isLocalOnly),
   }
 }
 

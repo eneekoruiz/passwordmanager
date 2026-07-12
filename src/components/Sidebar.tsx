@@ -80,13 +80,14 @@ export const Sidebar = memo(function Sidebar({
   onAddClick,
   sortMode,
 }: SidebarProps) {
-  const { cloudUserEmail, cloudSyncStatus, cloudVaultExists, localCategories, saveLocalCategory } = useVault()
+  const { cloudUserEmail, cloudSyncStatus, cloudVaultExists, localCategories, saveLocalCategory, deleteLocalCategory } = useVault()
   const { showToast } = useToast()
   const [newIdentityEmail, setNewIdentityEmail] = useState('')
   const [adding, setAdding] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
+  const [pendingDeleteCategoryId, setPendingDeleteCategoryId] = useState<string | null>(null)
   const [sidebarError, setSidebarError] = useState<string | null>(null)
   const [activeMenuCategoryId, setActiveMenuCategoryId] = useState<string | null>(null)
   const [promptModalConfig, setPromptModalConfig] = useState<{ isOpen: boolean, parentId?: string }>({ isOpen: false })
@@ -410,13 +411,23 @@ export const Sidebar = memo(function Sidebar({
     const selected = selectedLocalCategory?.id === category.id
     const count = localCategoryCounts.get(category.id) ?? 0
     const children = sidebarLocalCategories.filter(c => c.parentId === category.id)
+    const isSubcategory = depth > 0;
     
     return (
-      <li key={category.id}>
+      <li key={category.id} className="relative">
+        {isSubcategory && (
+          <div 
+            className="absolute left-0 top-1/2 w-4 border-b-2 border-black/10 dark:border-white/10"
+            style={{ marginLeft: `${(depth - 1) * 1.5 + 1.25}rem` }}
+          />
+        )}
+        
         <div className="flex w-full" style={{ paddingLeft: `${depth * 1.5}rem` }}>
           <div
             style={{ animationDelay: `${index * 35}ms` }}
-            className={`vault-card group animate-vault-slide-up flex min-h-[86px] flex-1 items-center gap-1 rounded-[22px] p-2 pr-3 text-left transition-all ${
+            className={`vault-card group animate-vault-slide-up flex flex-1 items-center gap-1 rounded-[22px] text-left transition-all ${
+              isSubcategory ? 'min-h-[56px] p-1.5' : 'min-h-[86px] p-2 pr-3'
+            } ${
               selected ? 'ring-2 ring-teal-500/25 bg-surface-active' : ''
             }`}
           >
@@ -425,14 +436,23 @@ export const Sidebar = memo(function Sidebar({
               onClick={() => onSelectLocalCategory(category)}
               className="flex min-w-0 flex-1 items-center gap-3 active:scale-[0.98] px-1.5 py-1"
             >
-              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-black/[0.05] shadow-sm dark:border-white/5 ${selected ? 'bg-black/5 text-text-primary dark:bg-white/10 dark:text-white' : 'bg-white text-text-primary dark:bg-[#2c2c2e] dark:text-white'}`}>
-                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
-                </svg>
-              </span>
+              {!isSubcategory && (
+                <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-black/[0.05] shadow-sm dark:border-white/5 ${selected ? 'bg-black/5 text-text-primary dark:bg-white/10 dark:text-white' : 'bg-white text-text-primary dark:bg-[#2c2c2e] dark:text-white'}`}>
+                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
+                  </svg>
+                </span>
+              )}
+              {isSubcategory && (
+                 <span className={`flex h-6 w-6 shrink-0 items-center justify-center rounded-lg border border-black/[0.05] dark:border-white/5 ${selected ? 'bg-black/5 text-text-primary' : 'bg-white text-text-secondary dark:bg-[#2c2c2e]'}`}>
+                   <svg className="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                     <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 9h16.5m-16.5 6.75h16.5" />
+                   </svg>
+                 </span>
+              )}
               <span className="min-w-0 flex-1">
-                <span className={`block break-words line-clamp-2 leading-tight text-sm font-bold ${selected ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-[#a0a0a5]'}`} title={category.label}>{category.label}</span>
-                <span className="mt-1 block text-xs font-medium text-text-tertiary dark:text-[#6b6b70]">
+                <span className={`block break-words line-clamp-2 leading-tight font-bold ${selected ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-[#a0a0a5]'} ${isSubcategory ? 'text-xs' : 'text-sm'}`} title={category.label}>{category.label}</span>
+                <span className={`mt-0.5 block font-medium text-text-tertiary dark:text-[#6b6b70] ${isSubcategory ? 'text-[10px]' : 'text-xs'}`}>
                   {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
                 </span>
               </span>
@@ -445,7 +465,7 @@ export const Sidebar = memo(function Sidebar({
                   e.stopPropagation();
                   setActiveMenuCategoryId(activeMenuCategoryId === category.id ? null : category.id);
                 }} 
-                className="flex h-9 w-9 items-center justify-center rounded-2xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
+                className={`flex items-center justify-center rounded-2xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white ${isSubcategory ? 'h-7 w-7' : 'h-9 w-9'}`}
                 title="Opciones"
               >
                 <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
@@ -474,6 +494,20 @@ export const Sidebar = memo(function Sidebar({
                       </svg>
                       Añadir subcarpeta
                     </button>
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuCategoryId(null);
+                        setPendingDeleteCategoryId(category.id);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-red-600 hover:bg-red-50 dark:hover:bg-red-950/30 transition-colors"
+                    >
+                      <svg className="h-4 w-4 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                      </svg>
+                      Eliminar
+                    </button>
                   </div>
                 </>
               )}
@@ -482,8 +516,8 @@ export const Sidebar = memo(function Sidebar({
         </div>
 
         {children.length > 0 && (
-          <ul className="mt-3 space-y-3 relative">
-            <div className="absolute left-6 top-[-10px] bottom-0 w-px bg-black/[0.05] dark:bg-white/[0.05]" style={{ marginLeft: `${depth * 1.5}rem` }} />
+          <ul className="mt-2 space-y-1 relative">
+            <div className="absolute left-6 top-[-10px] bottom-6 w-[2px] bg-black/10 dark:bg-white/10" style={{ marginLeft: `${depth * 1.5}rem` }} />
             {children.map((child, childIdx) => renderLocalCategoryItem(child, childIdx, depth + 1))}
           </ul>
         )}
@@ -826,7 +860,7 @@ export const Sidebar = memo(function Sidebar({
                   {sidebarLocalCategories.length === 0 ? (
                     renderEmptyNavigationState('Crea una categoría aquí', () => void handleAddLocalCategory())
                   ) : (
-                    <ul className="space-y-3">
+                    <ul className="space-y-0.5">
                       {sidebarLocalCategories.filter(c => !c.parentId).map((c, i) => renderLocalCategoryItem(c, i, 0))}
                     </ul>
                   )}
@@ -867,6 +901,41 @@ export const Sidebar = memo(function Sidebar({
         )}
       </aside>
       
+      {pendingDeleteCategoryId && (
+        <div className="fixed inset-0 z-[200] flex items-center justify-center bg-black/40 backdrop-blur-sm p-4 animate-in fade-in duration-200">
+          <div className="w-full max-w-sm rounded-3xl bg-surface p-6 shadow-premium overflow-hidden animate-in zoom-in-95 duration-200 text-center">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-red-100 text-red-600 dark:bg-red-950/30">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold text-text-primary dark:text-white mb-2">Eliminar Sección</h3>
+            <p className="text-sm text-text-secondary dark:text-[#a0a0a5] mb-6">
+              ¿Seguro que deseas eliminar esta categoría? Los elementos dentro de ella se conservarán en tu bóveda pero perderán su carpeta asignada.
+            </p>
+            <div className="flex gap-3 justify-center">
+              <button
+                type="button"
+                onClick={() => setPendingDeleteCategoryId(null)}
+                className="rounded-xl px-5 py-2.5 text-sm font-bold text-text-secondary hover:bg-slate-100 transition-colors dark:text-[#a0a0a5] dark:hover:bg-slate-800"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  deleteLocalCategory(pendingDeleteCategoryId).catch(() => {});
+                  setPendingDeleteCategoryId(null);
+                }}
+                className="rounded-xl px-5 py-2.5 text-sm font-bold text-white bg-red-600 hover:bg-red-700 shadow-sm transition-transform active:scale-95"
+              >
+                Sí, eliminar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <InputModal
         isOpen={promptModalConfig.isOpen}
         title={promptModalConfig.parentId ? 'Nueva Subcategoría' : 'Nueva Categoría Local'}

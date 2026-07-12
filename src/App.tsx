@@ -950,7 +950,7 @@ function VaultApp() {
     }
   }
 
-  const handleConfirmCloudDownload = async (resolutions?: Record<string, 'local' | 'cloud'>) => {
+  const handleConfirmCloudDownload = async (resolutions?: Record<string, 'local' | 'cloud' | 'local_only'>) => {
     setDownloadingCloud(true)
     try {
       const result = await downloadLatestCloudVault(resolutions)

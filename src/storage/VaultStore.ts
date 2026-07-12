@@ -454,6 +454,11 @@ export class VaultStore {
     await db.put('platforms', encrypted, `${profileId}${LOCAL_CATEGORY_KEY_SEGMENT}${normalized.id}`)
   }
 
+  async deleteLocalCategory(profileId: string, categoryId: string): Promise<void> {
+    const db = await getVaultDb()
+    await db.delete('platforms', `${profileId}${LOCAL_CATEGORY_KEY_SEGMENT}${categoryId}`)
+  }
+
   /**
    * Elimina una plataforma del perfil activo.
    *

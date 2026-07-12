@@ -82,6 +82,7 @@ interface VaultContextValue {
   saveLocalItem: (item: LocalVaultItem) => Promise<void>
   deleteLocalItem: (itemId: string) => Promise<void>
   saveLocalCategory: (category: LocalCategory) => Promise<void>
+  deleteLocalCategory: (categoryId: string) => Promise<void>
   trackItemAccess: (itemId: string, identityId?: string) => Promise<void>
   exportBackup: (masterPassword: string) => Promise<string>
   getAsymmetricPrivateKey: () => Promise<string | undefined>
@@ -101,7 +102,7 @@ interface VaultContextValue {
   sendCloudPasswordResetEmail: (email: string) => Promise<void>
   logoutCloud: () => Promise<void>
   syncActiveProfileToCloud: (silent?: boolean) => Promise<CloudSyncResult>
-  downloadLatestCloudVault: (resolutions?: Record<string, 'local' | 'cloud'>) => Promise<CloudSyncResult>
+  downloadLatestCloudVault: (resolutions?: Record<string, 'local' | 'cloud' | 'local_only'>) => Promise<CloudSyncResult>
   restoreProfileFromCloud: (email: string, password: string, masterPassword: string) => Promise<void>
   restoreProfileFromGoogleCloud: (masterPassword: string) => Promise<void>
   initializeNewVault: (masterPassword: string, recoveryPhrase: string) => Promise<void>
@@ -498,7 +499,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
 
 
-  const downloadLatestCloudVault = useCallback(async (resolutions?: Record<string, 'local' | 'cloud'>): Promise<CloudSyncResult> => {
+  const downloadLatestCloudVault = useCallback(async (resolutions?: Record<string, 'local' | 'cloud' | 'local_only'>): Promise<CloudSyncResult> => {
     if (syncInProgressRef.current) {
       return { action: 'idle', message: 'Sincronización en curso. Espera un momento.' }
     }
@@ -570,6 +571,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             if (resolution === 'local') {
               mergedLocalItems[index] = localItem
               localWinsExist = true
+            } else if (resolution === 'local_only') {
+              // Si eligió 'local_only', forzamos a que tenga `isLocalOnly: true`
+              // Lo guardamos en store, pero NO lo metemos en merged (porque no queremos subirlo a la nube)
+              await storeRef.current.saveLocalItem(currentProfileId, { ...localItem, isLocalOnly: true })
             } else if (resolution !== 'cloud') {
               const localDate = new Date(localItem.updatedAt || 0).getTime()
               const cloudDate = new Date(mergedLocalItems[index].updatedAt || 0).getTime()
@@ -579,8 +584,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               }
             }
           } else {
-            mergedLocalItems.push(localItem)
-            localWinsExist = true
+            const resolution = resolutions?.[localItem.id]
+            if (resolution === 'local_only') {
+              await storeRef.current.saveLocalItem(currentProfileId, { ...localItem, isLocalOnly: true })
+            } else if (resolution !== 'cloud') {
+              mergedLocalItems.push(localItem)
+              localWinsExist = true
+            }
           }
         }
 
@@ -592,6 +602,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             if (resolution === 'local') {
               mergedCats[index] = localCat
               localWinsExist = true
+            } else if (resolution === 'local_only') {
+              await storeRef.current.saveLocalCategory(currentProfileId, { ...localCat, isLocalOnly: true })
             } else if (resolution !== 'cloud') {
               const localDate = new Date(localCat.updatedAt || 0).getTime()
               const cloudDate = new Date(mergedCats[index].updatedAt || 0).getTime()
@@ -601,8 +613,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               }
             }
           } else {
-            mergedCats.push(localCat)
-            localWinsExist = true
+            const resolution = resolutions?.[localCat.id]
+            if (resolution === 'local_only') {
+              await storeRef.current.saveLocalCategory(currentProfileId, { ...localCat, isLocalOnly: true })
+            } else if (resolution !== 'cloud') {
+              mergedCats.push(localCat)
+              localWinsExist = true
+            }
           }
         }
 
@@ -1150,6 +1167,21 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         triggerCloudSync()
       } catch (error) {
         reportAppError(error, 'No se pudo guardar la sección local.')
+        throw error
+      }
+    },
+    [currentProfileId, refreshVaultData, reportAppError, triggerCloudSync],
+  )
+
+  const deleteLocalCategory = useCallback(
+    async (categoryId: string) => {
+      if (!currentProfileId) return
+      try {
+        await storeRef.current.deleteLocalCategory(currentProfileId, categoryId)
+        await refreshVaultData()
+        triggerCloudSync()
+      } catch (error) {
+        reportAppError(error, 'No se pudo eliminar la sección local.')
         throw error
       }
     },
@@ -2024,6 +2056,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       saveLocalItem,
       deleteLocalItem,
       saveLocalCategory,
+      deleteLocalCategory,
       trackItemAccess,
       exportBackup,
       getAsymmetricPrivateKey,
@@ -2114,6 +2147,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       saveIdentity,
       saveLocalItem,
       saveLocalCategory,
+      deleteLocalCategory,
       trackItemAccess,
       selectProfile,
       syncActiveProfileToCloud,

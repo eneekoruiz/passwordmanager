@@ -125,6 +125,7 @@ export interface LocalCategory {
   createdAt?: string
   updatedAt?: string
   parentId?: string | null
+  isLocalOnly?: boolean
 }
 
 export interface AccountVaultItem extends BaseVaultItem {
