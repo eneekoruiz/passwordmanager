@@ -35,6 +35,12 @@ export default {
       },
       boxShadow: {
         subtle: '0 1px 2px rgba(0, 0, 0, 0.04)',
+        'glass-sm': '0 4px 14px 0 rgba(0, 0, 0, 0.05), inset 0 1px 0 0 rgba(255, 255, 255, 0.6)',
+        'glass': '0 12px 32px 0 rgba(0, 0, 0, 0.08), inset 0 1px 0 0 rgba(255, 255, 255, 0.6)',
+        'glass-lg': '0 24px 64px 0 rgba(0, 0, 0, 0.12), inset 0 1px 0 0 rgba(255, 255, 255, 0.6)',
+        'glass-dark': '0 12px 32px 0 rgba(0, 0, 0, 0.4), inset 0 1px 0 0 rgba(255, 255, 255, 0.05)',
+        'premium': '0 30px 60px -10px rgba(0, 0, 0, 0.15), 0 18px 36px -18px rgba(0, 0, 0, 0.10)',
+        'premium-dark': '0 30px 60px -10px rgba(0, 0, 0, 0.5), 0 18px 36px -18px rgba(0, 0, 0, 0.35)',
       },
       keyframes: {
         'fade-in': {

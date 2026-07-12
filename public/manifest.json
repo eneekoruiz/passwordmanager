@@ -4,8 +4,8 @@
   "description": "Gestor de contraseñas minimalista, seguro y offline",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#f9f9f9",
-  "theme_color": "#f9f9f9",
+  "background_color": "#07110d",
+  "theme_color": "#0b1713",
   "icons": [
     {
       "src": "/icon-192.png",

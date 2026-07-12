@@ -6,6 +6,7 @@ import { hashEmailForDirectory } from '../utils/security'
 import { generateId } from '../utils/id'
 import { generateSymmetricLinkKey, encryptForLink } from '../crypto/symmetric'
 import { useToast } from './ui/ToastProvider'
+import { BottomSheet } from './ui/BottomSheet'
 
 export type SharePayload =
   | { type: 'single'; platform: Platform; identityEmail?: string }
@@ -225,26 +226,14 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
   const isBundle = payload.type === 'bundle'
 
   return (
-    <div className="fixed inset-0 z-[150] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="w-full max-w-md bg-surface rounded-3xl shadow-2xl overflow-hidden animate-in zoom-in-95 duration-200">
-        <header className="px-6 py-4 border-b border-border-subtle flex justify-between items-center bg-white/50">
-          <div>
-            <h3 className="text-lg font-bold text-text-primary">
-              {isBundle ? 'Compartir Identidad' : 'Compartir Plataforma'}
-            </h3>
-            <p className="text-xs text-text-tertiary truncate max-w-[260px]">
-              {isBundle
-                ? <><span className="font-semibold text-text-secondary">{label}</span></>
-                : <>Envía <b>{label}</b> de forma encriptada.</>
-              }
-            </p>
-          </div>
-          <button onClick={onClose} className="p-2 bg-surface-hover rounded-full text-text-tertiary hover:text-text-primary transition-colors">
-            <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M6 18L18 6M6 6l12 12" />
-            </svg>
-          </button>
-        </header>
+    <BottomSheet isOpen={true} onClose={onClose} title={isBundle ? 'Compartir Identidad' : 'Compartir Plataforma'} className="max-w-md mx-auto sm:mb-8 sm:rounded-3xl h-[85vh]">
+      <div className="flex flex-col h-full">
+        <p className="text-xs text-text-tertiary truncate max-w-[260px] px-6 pb-2 -mt-2">
+          {isBundle
+            ? <><span className="font-semibold text-text-secondary">{label}</span></>
+            : <>Envía <b>{label}</b> de forma encriptada.</>
+          }
+        </p>
 
         {/* Tabs */}
         <div className="flex border-b border-black/5 bg-slate-50/50">
@@ -507,6 +496,6 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
           </form>
         )}
       </div>
-    </div>
+    </BottomSheet>
   )
 }

@@ -2,6 +2,7 @@ import { useEffect, useRef, useState, type FormEvent } from 'react'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 import { PasswordField } from './ui/PasswordField'
+import { Button } from './ui/Button'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { RECOVERY_PHRASE_WORD_COUNT, generateRecoveryPhrase, normalizeRecoveryPhrase } from '../utils/recovery'
 import { secureRandomInt } from '../utils/random'
@@ -170,11 +171,13 @@ function NativeIdentityStep({
           )}
 
 
-          <div className="space-y-2">
-            <button
+          <div className="space-y-3 mt-6">
+            <Button
               type="submit"
+              variant="primary"
+              size="lg"
+              className="w-full"
               disabled={loading || !email || (mode !== 'forgot_password' && !password) || (mode === 'register' && password !== confirmPassword)}
-              className="vault-button-primary flex min-h-12 w-full items-center justify-center rounded-2xl px-4 py-3 text-sm font-bold text-white transition-all hover:-translate-y-0.5 disabled:opacity-40 active:scale-[0.98]"
             >
               {loading
                 ? mode === 'login'
@@ -187,16 +190,18 @@ function NativeIdentityStep({
                   : mode === 'register'
                     ? 'Registrarse'
                     : 'Enviar enlace de recuperación'}
-            </button>
+            </Button>
 
             {mode === 'forgot_password' && (
-              <button
+              <Button
                 type="button"
+                variant="secondary"
+                size="md"
+                className="w-full"
                 onClick={() => handleModeChange('login')}
-                className="flex min-h-11 w-full items-center justify-center rounded-xl border border-black/10 bg-white px-4 py-3 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover active:scale-[0.98]"
               >
                 Volver a Iniciar Sesión
-              </button>
+              </Button>
             )}
           </div>
         </form>
@@ -645,6 +650,46 @@ export function UnlockScreen() {
 
   return (
     <div className="vault-shell vault-stage flex h-dvh max-h-dvh select-none flex-col overflow-hidden lg:flex-row">
+      <section className="unlock-story relative m-3 mr-0 hidden w-[46%] overflow-hidden rounded-[34px] border border-white/10 bg-[#0b1713] p-10 text-white shadow-[0_34px_100px_rgba(5,35,27,.28)] lg:flex lg:flex-col lg:justify-between">
+        <div className="unlock-aurora" aria-hidden="true" />
+        <div className="relative z-10 flex items-center gap-3">
+          <div className="brand-glyph"><span /></div>
+          <div>
+            <p className="text-lg font-black tracking-[-0.04em]">Contras</p>
+            <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-emerald-100/45">Private intelligence</p>
+          </div>
+        </div>
+
+        <div className="relative z-10 max-w-xl">
+          <div className="security-orbit mb-10" aria-hidden="true">
+            <div className="security-orbit-ring security-orbit-ring-two" />
+            <div className="security-orbit-core"><div className="brand-glyph"><span /></div></div>
+            <span className="orbit-node orbit-node-one" />
+            <span className="orbit-node orbit-node-two" />
+            <span className="orbit-node orbit-node-three" />
+          </div>
+          <p className="mb-4 text-[11px] font-bold uppercase tracking-[0.24em] text-emerald-300/70">Tu vida digital. Solo tuya.</p>
+          <h2 className="max-w-lg text-[clamp(2.5rem,4.6vw,4.8rem)] font-black leading-[0.94] tracking-[-0.065em] text-white">
+            Seguridad que se siente invisible.
+          </h2>
+          <p className="mt-6 max-w-md text-[15px] leading-7 text-emerald-50/55">
+            Tus credenciales se descifran en este dispositivo. Sin puertas traseras, sin concesiones y sin ruido.
+          </p>
+        </div>
+
+        <div className="relative z-10 grid grid-cols-3 gap-3">
+          {[
+            ['Zero-knowledge', 'Cifrado local'],
+            ['Passkeys', 'Acceso biométrico'],
+            ['Offline-first', 'Siempre disponible'],
+          ].map(([title, detail]) => (
+            <div key={title} className="rounded-2xl border border-white/[0.08] bg-white/[0.045] p-3.5 backdrop-blur-sm">
+              <p className="text-[11px] font-bold text-white/90">{title}</p>
+              <p className="mt-1 text-[9px] font-semibold uppercase tracking-[0.1em] text-white/35">{detail}</p>
+            </div>
+          ))}
+        </div>
+      </section>
 
       <div className="relative m-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[34px] px-4 py-8 lg:m-3">
         <div className="vault-glass flex w-full max-w-md flex-col items-center rounded-[32px] p-6 text-center animate-fade-in sm:p-8">
@@ -967,7 +1012,7 @@ export function UnlockScreen() {
       )}
 
       {/* Legal terms footer */}
-      <div className="pointer-events-auto absolute bottom-4 w-full px-4 text-center sm:bottom-6">
+      <div className="pointer-events-auto absolute bottom-4 w-full px-4 text-center sm:bottom-6 lg:bottom-2 lg:left-[46%] lg:w-[54%]">
         <p className="mx-auto max-w-xl rounded-full border border-white/50 bg-white/45 px-4 py-2 text-[11px] text-text-tertiary shadow-sm backdrop-blur-xl dark:border-white/10 dark:bg-black/20">
           Al usar Contras, aceptas nuestros <button type="button" onClick={() => setShowTerms(true)} className="underline hover:text-text-primary outline-none">Términos de Servicio</button> y <button type="button" onClick={() => setShowPrivacy(true)} className="underline hover:text-text-primary outline-none">Política de Privacidad</button>.
         </p>
