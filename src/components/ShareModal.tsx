@@ -71,6 +71,7 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
   const [includeTotp, setIncludeTotp] = useState(true)
   const [includeNotes, setIncludeNotes] = useState(true)
   const [includeCustomFields, setIncludeCustomFields] = useState(true)
+  const [excludedPlatformIds, setExcludedPlatformIds] = useState<Set<string>>(new Set())
 
   // P2P State
   const [email, setEmail] = useState('')
@@ -156,7 +157,15 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
       if (!db) throw new Error('Firebase no está inicializado.')
 
       const { key, base64Key } = await generateSymmetricLinkKey()
-      const payloadString = buildPayloadString(payload, hidePassword, { includeTotp, includeNotes, includeCustomFields })
+      const filteredPayload = payload.type === 'bundle'
+        ? { ...payload, platforms: payload.platforms.filter(p => !excludedPlatformIds.has(p.id)) }
+        : payload
+
+      if (filteredPayload.type === 'bundle' && filteredPayload.platforms.length === 0) {
+        throw new Error('Debes seleccionar al menos una plataforma para compartir.')
+      }
+
+      const payloadString = buildPayloadString(filteredPayload, hidePassword, { includeTotp, includeNotes, includeCustomFields })
       const { iv, ciphertext } = await encryptForLink(key, payloadString)
 
       const burnAfterRead = expiration === 'burn'
@@ -254,16 +263,39 @@ export function ShareModal({ payload, onClose }: ShareModalProps) {
         </div>
 
         {/* Bundle badge */}
-        {isBundle && (
-          <div className="mx-6 mt-4 p-3 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-2.5">
-            <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 shrink-0">
-              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
-              </svg>
+        {isBundle && payload.type === 'bundle' && (
+          <div className="mx-6 mt-4 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex flex-col gap-3">
+            <div className="flex items-center gap-2.5">
+              <div className="w-7 h-7 bg-indigo-100 rounded-lg flex items-center justify-center text-indigo-600 shrink-0">
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                </svg>
+              </div>
+              <p className="text-xs text-indigo-800 font-medium leading-snug">
+                Compartirás <strong>{payload.platforms.length - excludedPlatformIds.size} plataformas</strong> de <strong>{payload.bundleName}</strong>.
+              </p>
             </div>
-            <p className="text-xs text-indigo-800 font-medium leading-snug">
-              Compartirás <strong>{payload.platforms.length} plataformas</strong> de <strong>{payload.bundleName}</strong> como un paquete cifrado.
-            </p>
+            
+            <div className="mt-2 max-h-32 overflow-y-auto pr-2 space-y-1 custom-scrollbar">
+              {payload.platforms.map(p => (
+                <label key={p.id} className="flex items-center justify-between p-2 rounded-lg hover:bg-white/50 cursor-pointer transition-colors group">
+                  <span className={`text-[11px] font-semibold truncate flex-1 ${excludedPlatformIds.has(p.id) ? 'text-indigo-400 line-through' : 'text-indigo-900'}`}>{p.name}</span>
+                  <input 
+                    type="checkbox"
+                    checked={!excludedPlatformIds.has(p.id)}
+                    onChange={(e) => {
+                      setExcludedPlatformIds(prev => {
+                        const next = new Set(prev)
+                        if (e.target.checked) next.delete(p.id)
+                        else next.add(p.id)
+                        return next
+                      })
+                    }}
+                    className="rounded text-indigo-600 focus:ring-indigo-600 ml-2"
+                  />
+                </label>
+              ))}
+            </div>
           </div>
         )}
 

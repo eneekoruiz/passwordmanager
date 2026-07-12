@@ -260,9 +260,9 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
-          <h2 className="text-2xl font-bold text-text-primary mb-2">Enlace expirado</h2>
+          <h2 className="text-2xl font-bold text-text-primary mb-2">Enlace no disponible</h2>
           <p className="text-sm text-text-secondary mb-8">
-            Este enlace ya no está disponible por motivos de seguridad. Si alguien te lo compartió, pídele que genere uno nuevo.
+            Este enlace ha caducado o ya ha sido consumido. Si era de un solo uso, lo acabas de expirar al abrirlo.
           </p>
           <button onClick={onClose} className="py-3 px-6 bg-text-primary text-white rounded-xl font-bold">
             Volver a la app

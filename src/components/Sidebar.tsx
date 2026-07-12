@@ -504,7 +504,7 @@ export const Sidebar = memo(function Sidebar({
                     className="fixed inset-0 z-40 bg-black/5 backdrop-blur-[1px] dark:bg-white/5"
                     onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
                   />
-                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-surface/95 backdrop-blur-md shadow-xl overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
+                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-white dark:bg-slate-800 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
                     <button
                       type="button"
                       onClick={(e) => {

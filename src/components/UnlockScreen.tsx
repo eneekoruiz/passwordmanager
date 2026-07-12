@@ -691,7 +691,7 @@ export function UnlockScreen() {
         </div>
       </section>
 
-      <div className="relative m-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-hidden rounded-[34px] px-4 py-8 lg:m-3">
+      <div className="relative m-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto pb-24 rounded-[34px] px-4 py-8 lg:m-3 lg:pb-8">
         <div className="vault-glass flex w-full max-w-md flex-col items-center rounded-[32px] p-6 text-center animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
           <NativeIdentityStep
