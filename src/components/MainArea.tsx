@@ -807,7 +807,7 @@ export const MainArea = memo(function MainArea({
                                 {pwMethod.password}
                               </span>
                             ) : (
-                              <span className="block truncate">{identityEmail}</span>
+                              <span className="block break-all">{identityEmail}</span>
                             )}
                           </span>
                           <span className="mt-3 flex flex-wrap gap-1.5">

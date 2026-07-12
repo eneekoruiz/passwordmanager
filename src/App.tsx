@@ -1372,7 +1372,7 @@ function VaultApp() {
                       ? 'Subiendo cambios a la nube...' 
                       : cloudSyncStatus === 'error' 
                         ? 'Error al sincronizar con Google Cloud.' 
-                        : 'Bóveda completamente al día.'
+                        : 'Tienes cambios locales sin guardar en la nube.'
                     : 'Tus datos se guardaron localmente en el dispositivo.'}
                 </p>
               </div>

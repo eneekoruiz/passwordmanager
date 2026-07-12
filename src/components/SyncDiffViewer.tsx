@@ -48,8 +48,10 @@ export function SyncDiffViewer({ diffResult, onConfirm, onCancel, isDownloading 
             <h2 className="text-xl font-bold tracking-tight text-text-primary truncate">Revisión de Cambios Detectados</h2>
             <p className="mt-1 text-sm text-text-secondary truncate">
               {hasOnlyAdditions
-                ? `Se encontraron ${addedCount} elemento${addedCount !== 1 ? 's' : ''} nuevo${addedCount !== 1 ? 's' : ''} en la nube. Se combinarán con tus datos locales.`
-                : 'La nube y el dispositivo contienen diferencias. Revisa las versiones antes de sincronizar.'}
+                ? `Tus demás datos están seguros. Se detectaron ${addedCount} elemento${addedCount !== 1 ? 's' : ''} nuevo${addedCount !== 1 ? 's' : ''} en la nube que se descargarán.`
+                : hasDeletedItems && !hasConflicts
+                  ? `Tus demás datos están seguros. Tienes ${deletedCount} elemento${deletedCount !== 1 ? 's' : ''} solo en local. Elige si quieres subirlo a la bóveda o descartarlo.`
+                  : 'Tus demás datos están seguros y sincronizados. Revisa estos pocos cambios en conflicto antes de continuar.'}
             </p>
           </div>
           <div className="flex h-12 w-12 shrink-0 items-center justify-center rounded-2xl bg-blue-50 text-blue-600 ring-1 ring-blue-100">

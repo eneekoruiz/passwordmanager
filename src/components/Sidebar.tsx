@@ -10,6 +10,7 @@ import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
 import { hasWeakPassword, hasExposedPassword } from '../utils/security'
 import { AlphaScrollBar } from './ui/AlphaScrollBar'
+import { InputModal } from './ui/InputModal'
 
 interface SidebarProps {
   identities: Identity[]
@@ -88,6 +89,7 @@ export const Sidebar = memo(function Sidebar({
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
   const [sidebarError, setSidebarError] = useState<string | null>(null)
   const [activeMenuCategoryId, setActiveMenuCategoryId] = useState<string | null>(null)
+  const [promptModalConfig, setPromptModalConfig] = useState<{ isOpen: boolean, parentId?: string }>({ isOpen: false })
   const [activeLetter, setActiveLetter] = useState<string>('')
   const navRef = useRef<HTMLElement>(null)
   const query = searchQuery.trim().toLowerCase()
@@ -292,10 +294,16 @@ export const Sidebar = memo(function Sidebar({
       .sort((a, b) => recentTime(b.updatedAt, b.createdAt) - recentTime(a.updatedAt, a.createdAt))
   }, [isMobile, visibleLocalCategories])
 
-  const handleAddLocalCategory = async (parentId?: string) => {
-    const label = window.prompt(parentId ? 'Nombre de la nueva subcategoría' : 'Nombre de la nueva categoría local')
-    const cleanLabel = label?.trim()
+  const handleAddLocalCategory = (parentId?: string) => {
+    setPromptModalConfig({ isOpen: true, parentId })
+  }
+
+  const confirmAddLocalCategory = async (label: string) => {
+    const cleanLabel = label.trim()
     if (!cleanLabel) return
+    
+    const parentId = promptModalConfig.parentId
+    setPromptModalConfig({ isOpen: false })
 
     try {
       const category = normalizeLocalCategory({
@@ -405,67 +413,71 @@ export const Sidebar = memo(function Sidebar({
     
     return (
       <li key={category.id}>
-        <div className="flex items-stretch gap-1.5 w-full" style={{ paddingLeft: `${depth * 1.5}rem` }}>
-          <button
-            type="button"
-            onClick={() => onSelectLocalCategory(category)}
+        <div className="flex w-full" style={{ paddingLeft: `${depth * 1.5}rem` }}>
+          <div
             style={{ animationDelay: `${index * 35}ms` }}
-            className={`vault-card group animate-vault-slide-up flex min-h-[86px] flex-1 items-center gap-3 rounded-[22px] p-3.5 text-left active:scale-[0.98] ${
-              selected ? 'ring-2 ring-teal-500/25 text-text-primary dark:text-white' : 'text-text-secondary dark:text-[#a0a0a5]'
+            className={`vault-card group animate-vault-slide-up flex min-h-[86px] flex-1 items-center gap-1 rounded-[22px] p-2 pr-3 text-left transition-all ${
+              selected ? 'ring-2 ring-teal-500/25 bg-surface-active' : ''
             }`}
           >
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-black/[0.05] bg-white text-text-primary shadow-sm dark:bg-[#2c2c2e] dark:border-white/5 dark:text-white">
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
-              </svg>
-            </span>
-            <span className="min-w-0 flex-1">
-              <span className="block break-words line-clamp-2 leading-tight text-sm font-bold text-text-primary dark:text-white" title={category.label}>{category.label}</span>
-              <span className="mt-1 block text-xs font-medium text-text-secondary dark:text-[#6b6b70]">
-                {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
-              </span>
-            </span>
-          </button>
-          
-          <div className="relative flex">
-            <button 
+            <button
               type="button"
-              onClick={(e) => {
-                e.stopPropagation();
-                setActiveMenuCategoryId(activeMenuCategoryId === category.id ? null : category.id);
-              }} 
-              className="flex w-10 shrink-0 items-center justify-center rounded-2xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
-              title="Opciones"
+              onClick={() => onSelectLocalCategory(category)}
+              className="flex min-w-0 flex-1 items-center gap-3 active:scale-[0.98] px-1.5 py-1"
             >
-              <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
-              </svg>
+              <span className={`flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] border border-black/[0.05] shadow-sm dark:border-white/5 ${selected ? 'bg-black/5 text-text-primary dark:bg-white/10 dark:text-white' : 'bg-white text-text-primary dark:bg-[#2c2c2e] dark:text-white'}`}>
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-6a2.25 2.25 0 00-2.25-2.25h-4.879a2.25 2.25 0 01-1.59-.659L9.659 4.22A2.25 2.25 0 008.069 3.56H6.75A2.25 2.25 0 004.5 5.81v12.44A2.25 2.25 0 006.75 20.5h10.5a2.25 2.25 0 002.25-2.25v-4z" />
+                </svg>
+              </span>
+              <span className="min-w-0 flex-1">
+                <span className={`block break-words line-clamp-2 leading-tight text-sm font-bold ${selected ? 'text-text-primary dark:text-white' : 'text-text-secondary dark:text-[#a0a0a5]'}`} title={category.label}>{category.label}</span>
+                <span className="mt-1 block text-xs font-medium text-text-tertiary dark:text-[#6b6b70]">
+                  {count} elemento{count !== 1 ? 's' : ''} local{count !== 1 ? 'es' : ''}
+                </span>
+              </span>
             </button>
+            
+            <div className="relative flex shrink-0">
+              <button 
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setActiveMenuCategoryId(activeMenuCategoryId === category.id ? null : category.id);
+                }} 
+                className="flex h-9 w-9 items-center justify-center rounded-2xl border border-transparent text-text-tertiary transition-all hover:bg-black/5 hover:text-text-primary dark:hover:bg-white/5 dark:hover:text-white" 
+                title="Opciones"
+              >
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z" />
+                </svg>
+              </button>
 
-            {activeMenuCategoryId === category.id && (
-              <>
-                <div 
-                  className="fixed inset-0 z-40"
-                  onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
-                />
-                <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-surface shadow-lg overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
-                  <button
-                    type="button"
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      setActiveMenuCategoryId(null);
-                      void handleAddLocalCategory(category.id);
-                    }}
-                    className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
-                  >
-                    <svg className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
-                    </svg>
-                    Añadir subcarpeta
-                  </button>
-                </div>
-              </>
-            )}
+              {activeMenuCategoryId === category.id && (
+                <>
+                  <div 
+                    className="fixed inset-0 z-40"
+                    onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
+                  />
+                  <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-surface shadow-lg overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        setActiveMenuCategoryId(null);
+                        handleAddLocalCategory(category.id);
+                      }}
+                      className="flex w-full items-center gap-2 px-3 py-2.5 text-sm font-medium text-text-primary hover:bg-surface-hover transition-colors"
+                    >
+                      <svg className="h-4 w-4 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                      </svg>
+                      Añadir subcarpeta
+                    </button>
+                  </div>
+                </>
+              )}
+            </div>
           </div>
         </div>
 
@@ -508,7 +520,7 @@ export const Sidebar = memo(function Sidebar({
               {identity.email.charAt(0).toUpperCase()}
             </span>
             <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-bold text-text-primary">{identity.email}</span>
+              <span className="block break-all text-sm font-bold text-text-primary">{identity.email}</span>
               <span className="mt-1 block text-xs font-medium text-text-secondary">
                 {platformCount} plataforma{platformCount !== 1 ? 's' : ''} vinculada{platformCount !== 1 ? 's' : ''}
               </span>
@@ -627,7 +639,7 @@ export const Sidebar = memo(function Sidebar({
                 key={mode}
                 type="button"
                 onClick={() => onGroupModeChange(mode)}
-                className={`min-h-10 rounded-lg px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
+                className={`min-h-10 rounded-[18px] px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
                   groupMode === mode
                     ? 'vault-button-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)]'
                     : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
@@ -854,6 +866,14 @@ export const Sidebar = memo(function Sidebar({
           </footer>
         )}
       </aside>
+      
+      <InputModal
+        isOpen={promptModalConfig.isOpen}
+        title={promptModalConfig.parentId ? 'Nueva Subcategoría' : 'Nueva Categoría Local'}
+        placeholder="Nombre de la categoría"
+        onConfirm={confirmAddLocalCategory}
+        onCancel={() => setPromptModalConfig({ isOpen: false })}
+      />
     </>
   )
 })
