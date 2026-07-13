@@ -7,6 +7,8 @@ import { passwordStrengthIssue, evaluatePassword, hasExposedPassword } from '../
 import { useToast } from './ui/ToastProvider'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { ExposedPasswordsModal } from './ExposedPasswordsModal'
+import { ReusedPasswordsModal } from './ReusedPasswordsModal'
+import { OldPasswordsModal } from './OldPasswordsModal'
 
 type PlaintextExportFormat = 'csv' | 'json' | 'zip'
 
@@ -116,6 +118,8 @@ export function SettingsModal({
   const [selectedWeakPasswords, setSelectedWeakPasswords] = useState<string[]>([])
   
   const [exposedPasswordsModalOpen, setExposedPasswordsModalOpen] = useState(false)
+  const [reusedPasswordsModalOpen, setReusedPasswordsModalOpen] = useState(false)
+  const [oldPasswordsModalOpen, setOldPasswordsModalOpen] = useState(false)
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
       
@@ -493,56 +497,50 @@ export function SettingsModal({
 
                 {/* Grid de Auditoría (Inside the same card) */}
                 <div className="grid grid-cols-4 divide-x divide-black/[0.05] bg-slate-50/50 dark:bg-slate-900/50 dark:divide-white/10">
-                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
-                    <p className="text-2xl font-black text-red-600 dark:text-red-400">{reusedPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400">Reutilizadas</p>
-                  </div>
-                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
-                    <p className="text-2xl font-black text-amber-500 dark:text-amber-400">{weakPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Débiles</p>
-                  </div>
-                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
+                  <button
+                    type="button"
+                    onClick={() => setExposedPasswordsModalOpen(true)}
+                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
+                  >
                     <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{exposedPasswords.length}</p>
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-400">Expuestas</p>
-                  </div>
-                  <div className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50">
+                    {exposedPasswords.length > 0 && <p className="text-[9px] text-rose-500 mt-0.5">Ver →</p>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setReusedPasswordsModalOpen(true)}
+                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
+                  >
+                    <p className="text-2xl font-black text-red-600 dark:text-red-400">{reusedPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400">Reutilizadas</p>
+                    {reusedPasswords.length > 0 && <p className="text-[9px] text-red-500 mt-0.5">Ver →</p>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setWeakPasswordsModalOpen(true)}
+                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
+                  >
+                    <p className="text-2xl font-black text-amber-500 dark:text-amber-400">{weakPasswords.length}</p>
+                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Débiles</p>
+                    {weakPasswords.length > 0 && <p className="text-[9px] text-amber-500 mt-0.5">Ver →</p>}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setOldPasswordsModalOpen(true)}
+                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
+                  >
                     <p className="text-2xl font-black text-blue-500 dark:text-blue-400">{oldPasswords.length}</p>
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">Antiguas</p>
-                  </div>
+                    {oldPasswords.length > 0 && <p className="text-[9px] text-blue-500 mt-0.5">Ver →</p>}
+                  </button>
                 </div>
               </div>
 
-              {weakPasswords.length > 0 ? (
-                <button
-                  type="button"
-                  onClick={() => setWeakPasswordsModalOpen(true)}
-                  className="flex w-full items-center justify-between gap-3 rounded-2xl border border-amber-100 bg-amber-50 p-3 text-left transition-all hover:bg-amber-100 active:scale-[0.99]"
-                >
-                  <span>
-                    <span className="block text-sm font-black text-amber-900">{weakPasswords.length} Contraseñas Débiles Detectadas</span>
-                    <span className="mt-0.5 block text-[11px] font-medium text-amber-800">Revisar algoritmicamente longitud y complejidad.</span>
-                  </span>
-                  <span className="shrink-0 rounded-xl bg-white/80 px-3 py-1.5 text-[11px] font-bold text-amber-900 shadow-sm">Revisar</span>
-                </button>
-              ) : null}
-
-              <button
-                type="button"
-                onClick={() => setExposedPasswordsModalOpen(true)}
-                className="flex w-full items-center justify-between gap-3 rounded-2xl border border-red-100 bg-red-50 p-3 text-left transition-all hover:bg-red-100 active:scale-[0.99] dark:border-red-900/30 dark:bg-red-900/10 dark:hover:bg-red-900/20"
-              >
-                <span>
-                  <span className="block text-sm font-black text-red-900 dark:text-red-400">
-                    {exposedPasswords.length} Contraseñas Expuestas
-                  </span>
-                  <span className="mt-0.5 block text-[11px] font-medium text-red-800 dark:text-red-500">
-                    Revisar apariciones en filtraciones conocidas.
-                  </span>
-                </span>
-                <span className="shrink-0 rounded-xl bg-white/80 px-3 py-1.5 text-[11px] font-bold text-red-900 shadow-sm dark:bg-red-950 dark:text-red-300">
-                  Revisar
-                </span>
-              </button>
+              {(weakPasswords.length > 0 || reusedPasswords.length > 0 || oldPasswords.length > 0 || exposedPasswords.length > 0) && (
+                <p className="text-center text-[11px] text-text-tertiary">
+                  Toca cada categoría del panel para ver el detalle y actuar.
+                </p>
+              )}
               {/* Ajustes de Configuración */}
               {/* Navegación por pestañas */}
               <div className="flex w-full items-center justify-center gap-1 rounded-xl bg-slate-100/80 p-1">
@@ -1401,6 +1399,37 @@ export function SettingsModal({
         isOpen={exposedPasswordsModalOpen}
         onClose={() => setExposedPasswordsModalOpen(false)}
         onEditPlatform={onEditPlatform}
+      />
+      <ReusedPasswordsModal
+        isOpen={reusedPasswordsModalOpen}
+        onClose={() => setReusedPasswordsModalOpen(false)}
+        entries={reusedPasswords.map(r => ({
+          identityEmail: r.identityEmail,
+          platform: r.platform!,
+          password: r.password
+        }))}
+        onEditPlatform={onEditPlatform}
+      />
+      <OldPasswordsModal
+        isOpen={oldPasswordsModalOpen}
+        onClose={() => setOldPasswordsModalOpen(false)}
+        entries={oldPasswords.map(o => {
+          const platform = o.platform!
+          const history: Array<{ changedAt: string }> = platform.passwordHistory ?? []
+          const mostRecent = history.length > 0
+            ? history.reduce((latest: { changedAt: string }, e: { changedAt: string }) => (e.changedAt > latest.changedAt ? e : latest))
+            : null
+          const ref = mostRecent?.changedAt ?? platform.updatedAt ?? platform.createdAt ?? ''
+          const days = ref ? (Date.now() - new Date(ref).getTime()) / (1000 * 60 * 60 * 24) : 0
+          return {
+            identityEmail: o.identityEmail,
+            platform,
+            daysSinceChange: days
+          }
+        })}
+        identities={identities}
+        onEditPlatform={onEditPlatform}
+        onUpdatePlatform={onUpdatePlatform}
       />
       {securityModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-950/25 p-4 backdrop-blur-md animate-vault-morph">

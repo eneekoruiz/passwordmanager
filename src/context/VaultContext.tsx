@@ -648,7 +648,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
         for (const cat of mergedCats) {
           const encrypted = await vaultRef.current.encryptJson(cat)
-          await platformsStore.put(encrypted, `${currentProfileId}_cat_${cat.id}`)
+          await platformsStore.put(encrypted, `${currentProfileId}_category_${cat.id}`)
         }
         await tx.done
 

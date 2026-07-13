@@ -96,7 +96,6 @@ function VaultApp() {
 
   const [showLoader, setShowLoader] = useState(true)
   const [mounted, setMounted] = useState(false)
-  const [activeTab, setActiveTab] = useState<'all' | 'category' | 'platform'>('all')
   const [linkData, setLinkData] = useState<{ id: string; key: string } | null>(null)
   const [inboxCount, setInboxCount] = useState(0)
   const [inboxModalOpen, setInboxModalOpen] = useState(false)
@@ -1049,7 +1048,7 @@ function VaultApp() {
             </svg>
           </button>
           
-          <div className="relative shrink-0 flex items-center">
+          <div className="relative shrink-0 hidden md:flex items-center">
             <button
               type="button"
               onClick={() => setShowUserMenu(!showUserMenu)}
@@ -1177,7 +1176,7 @@ function VaultApp() {
 
       {/* Row 3: Group Mode Toggle */}
       {showExtraHeaderElements && !isInsideView && (
-        <div className="grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e] shrink-0">
+        <div className="hidden md:grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e] shrink-0">
           {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
             <button
               key={mode}
