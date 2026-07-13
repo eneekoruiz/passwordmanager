@@ -9,6 +9,7 @@ import { ThemeToggle } from './ui/ThemeToggle'
 import { ExposedPasswordsModal } from './ExposedPasswordsModal'
 import { ReusedPasswordsModal } from './ReusedPasswordsModal'
 import { OldPasswordsModal } from './OldPasswordsModal'
+import { SecurityReviewHub } from './SecurityReviewHub'
 
 type PlaintextExportFormat = 'csv' | 'json' | 'zip'
 
@@ -120,6 +121,7 @@ export function SettingsModal({
   const [exposedPasswordsModalOpen, setExposedPasswordsModalOpen] = useState(false)
   const [reusedPasswordsModalOpen, setReusedPasswordsModalOpen] = useState(false)
   const [oldPasswordsModalOpen, setOldPasswordsModalOpen] = useState(false)
+  const [securityReviewHubOpen, setSecurityReviewHubOpen] = useState(false)
   const [highlightCsvExport, setHighlightCsvExport] = useState(false)
   const csvExportRef = useRef<HTMLDivElement>(null)
       
@@ -495,52 +497,45 @@ export function SettingsModal({
                   </div>
                 </div>
 
-                {/* Grid de Auditoría (Inside the same card) */}
+                {/* Grid de Auditoría - panel solo lectura */}
                 <div className="grid grid-cols-4 divide-x divide-black/[0.05] bg-slate-50/50 dark:bg-slate-900/50 dark:divide-white/10">
-                  <button
-                    type="button"
-                    onClick={() => setExposedPasswordsModalOpen(true)}
-                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
-                  >
+                  <div className="p-4 text-center">
                     <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{exposedPasswords.length}</p>
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-400">Expuestas</p>
-                    {exposedPasswords.length > 0 && <p className="text-[9px] text-rose-500 mt-0.5">Ver →</p>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setReusedPasswordsModalOpen(true)}
-                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
-                  >
+                  </div>
+                  <div className="p-4 text-center">
                     <p className="text-2xl font-black text-red-600 dark:text-red-400">{reusedPasswords.length}</p>
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400">Reutilizadas</p>
-                    {reusedPasswords.length > 0 && <p className="text-[9px] text-red-500 mt-0.5">Ver →</p>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setWeakPasswordsModalOpen(true)}
-                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
-                  >
+                  </div>
+                  <div className="p-4 text-center">
                     <p className="text-2xl font-black text-amber-500 dark:text-amber-400">{weakPasswords.length}</p>
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Débiles</p>
-                    {weakPasswords.length > 0 && <p className="text-[9px] text-amber-500 mt-0.5">Ver →</p>}
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => setOldPasswordsModalOpen(true)}
-                    className="p-4 text-center transition-colors hover:bg-white dark:hover:bg-slate-800/50 cursor-pointer"
-                  >
+                  </div>
+                  <div className="p-4 text-center">
                     <p className="text-2xl font-black text-blue-500 dark:text-blue-400">{oldPasswords.length}</p>
                     <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">Antiguas</p>
-                    {oldPasswords.length > 0 && <p className="text-[9px] text-blue-500 mt-0.5">Ver →</p>}
-                  </button>
+                  </div>
                 </div>
+
+                {/* CTA - Revisar Seguridad */}
+                <button
+                  type="button"
+                  onClick={() => setSecurityReviewHubOpen(true)}
+                  className="flex w-full items-center justify-between gap-3 border-t border-black/[0.05] bg-slate-50/80 px-5 py-3.5 text-left transition-colors hover:bg-slate-100/80 dark:border-white/10 dark:bg-slate-900/30 dark:hover:bg-slate-900/60"
+                >
+                  <div className="flex items-center gap-2">
+                    <svg className="h-4 w-4 text-indigo-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75m-3-7.036A11.959 11.959 0 013.598 6 11.99 11.99 0 003 9.749c0 5.592 3.824 10.29 9 11.623 5.176-1.332 9-6.03 9-11.622 0-1.31-.21-2.571-.598-3.751h-.152c-3.196 0-6.1-1.248-8.25-3.285z" />
+                    </svg>
+                    <span className="text-[12px] font-bold text-indigo-700 dark:text-indigo-400">Revisar Seguridad</span>
+                  </div>
+                  <svg className="h-4 w-4 text-indigo-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+                  </svg>
+                </button>
               </div>
 
-              {(weakPasswords.length > 0 || reusedPasswords.length > 0 || oldPasswords.length > 0 || exposedPasswords.length > 0) && (
-                <p className="text-center text-[11px] text-text-tertiary">
-                  Toca cada categoría del panel para ver el detalle y actuar.
-                </p>
-              )}
+              {/* hint removed - CTA button replaces it */}
               {/* Ajustes de Configuración */}
               {/* Navegación por pestañas */}
               <div className="flex w-full items-center justify-center gap-1 rounded-xl bg-slate-100/80 p-1">
@@ -1430,6 +1425,19 @@ export function SettingsModal({
         identities={identities}
         onEditPlatform={onEditPlatform}
         onUpdatePlatform={onUpdatePlatform}
+      />
+      <SecurityReviewHub
+        isOpen={securityReviewHubOpen}
+        onClose={() => setSecurityReviewHubOpen(false)}
+        exposedCount={exposedPasswords.length}
+        reusedCount={reusedPasswords.length}
+        weakCount={weakPasswords.length}
+        oldCount={oldPasswords.length}
+        healthScore={healthScore}
+        onOpenExposed={() => setExposedPasswordsModalOpen(true)}
+        onOpenReused={() => setReusedPasswordsModalOpen(true)}
+        onOpenWeak={() => setWeakPasswordsModalOpen(true)}
+        onOpenOld={() => setOldPasswordsModalOpen(true)}
       />
       {securityModalOpen && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center bg-amber-950/25 p-4 backdrop-blur-md animate-vault-morph">
