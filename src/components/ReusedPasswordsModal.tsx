@@ -1,9 +1,5 @@
 import type { Identity } from '../types'
 
-function passwordForPlatform(platform: Identity['platforms'][number] | undefined): string {
-  return platform?.accessMethods?.find((method) => method?.type === 'PASSWORD')?.password ?? ''
-}
-
 interface ReusedPasswordEntry {
   identityEmail: string
   platform: Identity['platforms'][number]
@@ -74,7 +70,7 @@ export function ReusedPasswordsModal({ isOpen, onClose, entries, onEditPlatform 
               </p>
             </div>
 
-            {groupList.map(([password, group], groupIdx) => (
+            {groupList.map(([_password, group], groupIdx) => (
               <div key={groupIdx} className="rounded-2xl border border-red-100 bg-red-50/40 dark:border-red-900/20 dark:bg-red-900/5 overflow-hidden">
                 {/* Group header */}
                 <div className="flex items-center justify-between gap-2 px-4 py-2.5 bg-red-100/60 dark:bg-red-900/20 border-b border-red-100 dark:border-red-900/20">

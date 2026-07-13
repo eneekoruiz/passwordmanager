@@ -11,8 +11,6 @@ interface OldPasswordsModalProps {
   onClose: () => void
   entries: OldPasswordEntry[]
   onEditPlatform?: (platformId: string) => void
-  onUpdatePlatform?: (identityId: string, platformId: string, updates: any) => void | Promise<void>
-  identities: Identity[]
 }
 
 function getDaysLabel(days: number): { label: string; color: string } {
@@ -26,8 +24,6 @@ export function OldPasswordsModal({
   onClose,
   entries,
   onEditPlatform,
-  onUpdatePlatform,
-  identities,
 }: OldPasswordsModalProps) {
   if (!isOpen) return null
 

@@ -1422,9 +1422,7 @@ export function SettingsModal({
             daysSinceChange: days
           }
         })}
-        identities={identities}
         onEditPlatform={onEditPlatform}
-        onUpdatePlatform={onUpdatePlatform}
       />
       <SecurityReviewHub
         isOpen={securityReviewHubOpen}

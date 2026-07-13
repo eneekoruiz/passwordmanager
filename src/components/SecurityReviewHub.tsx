@@ -19,11 +19,10 @@ interface AuditRowProps {
   count: number
   countColor: string
   badgeBg: string
-  badgeText: string
   onClick: () => void
 }
 
-function AuditRow({ icon, label, description, count, countColor, badgeBg, badgeText, onClick }: AuditRowProps) {
+function AuditRow({ icon, label, description, count, countColor, badgeBg, onClick }: AuditRowProps) {
   return (
     <button
       type="button"
@@ -152,7 +151,6 @@ export function SecurityReviewHub({
             count={exposedCount}
             countColor="text-rose-600 dark:text-rose-400"
             badgeBg="bg-rose-50 dark:bg-rose-900/30"
-            badgeText="text-rose-600"
             onClick={() => { onClose(); onOpenExposed() }}
           />
 
@@ -167,7 +165,6 @@ export function SecurityReviewHub({
             count={reusedCount}
             countColor="text-red-600 dark:text-red-400"
             badgeBg="bg-red-50 dark:bg-red-900/30"
-            badgeText="text-red-600"
             onClick={() => { onClose(); onOpenReused() }}
           />
 
@@ -182,7 +179,6 @@ export function SecurityReviewHub({
             count={weakCount}
             countColor="text-amber-500 dark:text-amber-400"
             badgeBg="bg-amber-50 dark:bg-amber-900/30"
-            badgeText="text-amber-600"
             onClick={() => { onClose(); onOpenWeak() }}
           />
 
@@ -197,7 +193,6 @@ export function SecurityReviewHub({
             count={oldCount}
             countColor="text-blue-600 dark:text-blue-400"
             badgeBg="bg-blue-50 dark:bg-blue-900/30"
-            badgeText="text-blue-600"
             onClick={() => { onClose(); onOpenOld() }}
           />
         </div>
