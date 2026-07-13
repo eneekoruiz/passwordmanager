@@ -66,7 +66,7 @@ export function isMissingBiometricCredentialError(error: unknown): boolean {
 
   return (
     name === 'NotAllowedError' &&
-    /no (?:credentials|passkeys)|not found|not registered|not allowed by the user agent or the platform|no .*matching/i.test(message)
+    /no (?:credentials|passkeys)|credential.+not found|not registered|no .*matching|does not have any matching|unknown credential/i.test(message)
   )
 }
 
@@ -209,15 +209,15 @@ export async function unlockWithBiometrics(bundle: BiometricBundle, signal?: Abo
 
   const rpId = bundle.rpId || getRpId()
   const credentialIdBytes = new Uint8Array(base64ToBytes(bundle.credentialId))
-  const allowCredentials = bundle.discoverable
-    ? undefined
-    : [
-        {
-          type: 'public-key' as const,
-          id: bytesToArrayBuffer(credentialIdBytes),
-          transports: ['internal'] as AuthenticatorTransport[],
-        },
-      ]
+  // Pedimos la credencial exacta. Safari puede conservar el indicador local aunque
+  // la passkey real haya desaparecido; acotar la petición permite caer al fallback.
+  const allowCredentials = [
+    {
+      type: 'public-key' as const,
+      id: bytesToArrayBuffer(credentialIdBytes),
+      transports: ['internal'] as AuthenticatorTransport[],
+    },
+  ]
 
   const getOptions: PublicKeyCredentialRequestOptions = {
     rpId,

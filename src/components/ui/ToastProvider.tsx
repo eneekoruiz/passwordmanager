@@ -7,10 +7,17 @@ interface Toast {
   id: string
   type: ToastType
   message: string
+  durationMs: number | null
+}
+
+export interface ToastOptions {
+  id?: string
+  durationMs?: number | null
 }
 
 interface ToastContextValue {
-  showToast: (message: string, type?: ToastType) => void
+  showToast: (message: string, type?: ToastType, options?: ToastOptions) => string
+  dismissToast: (id: string) => void
 }
 
 const MAX_VISIBLE_TOASTS = 3
@@ -61,13 +68,21 @@ export function useToast() {
 export function ToastProvider({ children }: { children: ReactNode }) {
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const showToast = useCallback((message: string, type: ToastType = 'info') => {
+  const showToast = useCallback((message: string, type: ToastType = 'info', options: ToastOptions = {}) => {
     const cleanMessage = message.trim()
-    if (!normalizeToastMessage(cleanMessage)) return
+    if (!normalizeToastMessage(cleanMessage)) return ''
 
-    const id = `toast_${Date.now()}_${toastSequence += 1}`
+    const id = options.id ?? `toast_${Date.now()}_${toastSequence += 1}`
+    const durationMs = options.durationMs === undefined ? TOAST_DURATION_MS : options.durationMs
 
     setToasts((prev) => {
+      const keyedIndex = options.id ? prev.findIndex((toast) => toast.id === id) : -1
+      if (keyedIndex !== -1) {
+        return prev.map((toast, index) => index === keyedIndex
+          ? { ...toast, type, message: cleanMessage, durationMs }
+          : toast)
+      }
+
       const duplicateIndex = prev.findIndex((toast) => areSimilarToastMessages(toast.message, cleanMessage))
       if (duplicateIndex !== -1) {
         const duplicate = prev[duplicateIndex]
@@ -78,12 +93,15 @@ export function ToastProvider({ children }: { children: ReactNode }) {
             ...duplicate,
             type: strongestToastType(duplicate.type, type),
             message: duplicate.message.length >= cleanMessage.length ? duplicate.message : cleanMessage,
+            durationMs,
           },
         ].slice(-MAX_VISIBLE_TOASTS)
       }
 
-      return [...prev, { id, type, message: cleanMessage }].slice(-MAX_VISIBLE_TOASTS)
+      return [...prev, { id, type, message: cleanMessage, durationMs }].slice(-MAX_VISIBLE_TOASTS)
     })
+
+    return id
   }, [])
 
   const removeToast = useCallback((id: string) => {
@@ -91,7 +109,7 @@ export function ToastProvider({ children }: { children: ReactNode }) {
   }, [])
 
   return (
-    <ToastContext.Provider value={{ showToast }}>
+    <ToastContext.Provider value={{ showToast, dismissToast: removeToast }}>
       {children}
       {typeof document !== 'undefined' &&
         createPortal(
@@ -121,9 +139,10 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
   }, [isExiting, onRemove])
 
   useEffect(() => {
-    timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)
+    if (toast.durationMs === null) return
+    timerRef.current = window.setTimeout(dismiss, toast.durationMs)
     return () => window.clearTimeout(timerRef.current)
-  }, [dismiss])
+  }, [dismiss, toast.durationMs, toast.message, toast.type])
 
   const typeStyles: Record<ToastType, string> = {
     success: 'border-emerald-200 text-emerald-950 shadow-emerald-900/10 before:bg-emerald-500',
@@ -197,14 +216,14 @@ function ToastItem({ toast, onRemove }: { toast: Toast; onRemove: () => void }) 
         }
         setDragX(0)
         setDragY(0)
-        timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)
+        if (toast.durationMs !== null) timerRef.current = window.setTimeout(dismiss, toast.durationMs)
       }}
       onPointerCancel={() => {
         setDragging(false)
         startRef.current = null
         setDragX(0)
         setDragY(0)
-        timerRef.current = window.setTimeout(dismiss, TOAST_DURATION_MS)
+        if (toast.durationMs !== null) timerRef.current = window.setTimeout(dismiss, toast.durationMs)
       }}
     >
       <span className={`mt-0.5 flex h-7 w-7 shrink-0 items-center justify-center rounded-xl ${iconStyles[toast.type]}`}>

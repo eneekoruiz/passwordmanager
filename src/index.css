@@ -546,7 +546,7 @@
     right: .75rem;
     bottom: max(.7rem, env(safe-area-inset-bottom));
     display: grid;
-    grid-template-columns: repeat(4, 1fr);
+    grid-template-columns: repeat(5, minmax(0, 1fr));
     gap: .25rem;
     min-height: 4.25rem;
     padding: .4rem;
@@ -573,7 +573,7 @@
     color: var(--text-tertiary);
     font-size: .61rem;
     font-weight: 750;
-    letter-spacing: -.01em;
+    letter-spacing: 0;
     transition: color 180ms ease, background 240ms var(--ease-vault), transform 180ms ease;
   }
   .vault-dock-item:active { transform: scale(.93); }

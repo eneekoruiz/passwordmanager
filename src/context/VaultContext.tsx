@@ -267,7 +267,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // Biometric fallback abort controller
   const [biometricFallbackAbort, setBiometricFallbackAbort] = useState<(() => void) | null>(null)
 
-  const { showToast } = useToast()
+  const { showToast, dismissToast } = useToast()
 
   // Check biometric & hardware key availability on mount
   useEffect(() => {
@@ -732,10 +732,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (snapshot.exists() && cloudBlob) {
         const cloudSummary = await storeRef.current.inspectCloudPayloadWithActiveSession(cloudBlob)
 
-        // En modo in-memory (iOS/Safari degradado), el perfil local puede no existir
-        // en la base de datos volátil. En ese caso tratamos local como vacío.
-        let localPayload: any = null
         let localPayloadAvailable = true
+        let localPayload: any = null
         try {
           localPayload = await storeRef.current.getUnencryptedCloudPayload(currentProfileId)
         } catch (payloadError) {
@@ -751,13 +749,19 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCloudVaultExists(true)
           setHasUnsyncedChanges(false)
           setCloudSyncStatus('synced')
-          return { action: 'synced', message: 'Bóveda al día. No hay cambios pendientes.' }
+          const msg = 'Bóveda al día. No hay cambios pendientes.'
+          return { action: 'synced', message: msg }
         }
 
+        const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
+        const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
+        const localIdnsDb = await storeRef.current.loadAllIdentities(currentProfileId)
+        const localDbPlatformCount = localIdnsDb.reduce((total, idn) => total + (idn.platforms?.length || 0), 0)
+
         const localHasVaultData =
-          localCounts.platformCount > 0 ||
-          localCounts.localItemCount > 0 ||
-          localCounts.localCategoryCount > 0
+          localDbPlatformCount > 0 ||
+          localItemsDb.length > 0 ||
+          localCatsDb.length > 0
         const cloudHasVaultData =
           cloudSummary.platformCount > 0 ||
           cloudSummary.localItemCount > 0 ||
@@ -765,9 +769,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const cloudLooksNewer = cloudUpdatedAt > localUpdatedAt + 1000
         const localLooksEmpty = !localHasVaultData && cloudHasVaultData
         const cloudHasMoreData =
-          cloudSummary.platformCount > localCounts.platformCount ||
-          cloudSummary.localItemCount > localCounts.localItemCount ||
-          cloudSummary.localCategoryCount > localCounts.localCategoryCount
+          cloudSummary.platformCount > localDbPlatformCount ||
+          cloudSummary.localItemCount > localItemsDb.length ||
+          cloudSummary.localCategoryCount > localCatsDb.length
 
         if (localLooksEmpty) {
           // Descarga silenciosa automática si el local está vacío y hay datos en la nube
@@ -775,9 +779,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           await refreshVaultData()
           setCloudVaultExists(true)
           setCloudSyncStatus('synced')
+          const msg = `Sincronización completada. Se descargaron ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} de forma automática.`
           return {
             action: 'downloaded',
-            message: `Sincronización completada. Se descargaron ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} de forma automática.`,
+            message: msg,
             cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
             localUpdatedAt: new Date().toISOString(),
             cloudIdentityCount: cloudSummary.identityCount,
@@ -907,9 +912,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
         setCloudVaultExists(true)
         setCloudSyncStatus('synced')
+        const msg = `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''}.`
         return {
           action: 'uploaded',
-          message: `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''}, ${localCounts.localItemCount} secreto${localCounts.localItemCount !== 1 ? 's' : ''} local${localCounts.localItemCount !== 1 ? 'es' : ''} y ${localCounts.localCategoryCount} sección${localCounts.localCategoryCount !== 1 ? 'es' : ''} protegidos.`,
+          message: msg,
           localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
           localIdentityCount: localCounts.identityCount,
           localPlatformCount: localCounts.platformCount,
@@ -934,54 +940,98 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } finally {
       syncInProgressRef.current = false
     }
-  }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, reportCloudError])
+  }, [currentProfileId, getLocalVaultCounts, getLocalVaultUpdatedAt, isVaultLoaded, refreshVaultData, reportCloudError])
 
-  // Boot and Sincronización State Machine
+  // Sincronización inicial con reintentos visibles y backoff limitado.
   useEffect(() => {
-    if (!isReady || !isAuthReady) return
+    if (!isReady || !isAuthReady || !isVaultLoaded) return
 
-    // Storage and Auth are ready!
     if (isInMemoryFallbackActive()) {
       setIsInMemory(true)
     }
 
     const user = firebaseUserRef.current
     if (user && currentProfileId) {
-      // Both user logged in and profile unlocked.
-      // Trigger auto-sync with retries!
-      setCloudSyncStatus('syncing')
-      
-      const bootSyncWithRetries = async (attempt = 1) => {
+      let cancelled = false
+      let retryTimer: number | undefined
+      let resolveWait: (() => void) | null = null
+      const syncToastId = `cloud-sync-${currentProfileId}`
+
+      const waitForRetry = (delayMs: number) => new Promise<void>((resolve) => {
+        resolveWait = resolve
+        retryTimer = window.setTimeout(() => {
+          resolveWait = null
+          resolve()
+        }, delayMs)
+      })
+
+      const runBootSync = async () => {
+        let attempt = 1
+        setCloudSyncStatus('syncing')
+        showToast('Estamos sincronizando tu bóveda con la nube…', 'info', { id: syncToastId, durationMs: null })
+
+        const slowTimer = window.setTimeout(() => {
+          if (!cancelled) {
+            showToast('Está tardando un poco más de lo normal. Seguimos sincronizando…', 'warning', { id: syncToastId, durationMs: null })
+          }
+        }, 4500)
+
         try {
-          const result = await syncActiveProfileToCloud(true) // silent=true
-          if (result.action === 'downloaded' || result.action === 'uploaded' || result.action === 'synced') {
-            setCloudSyncStatus('synced')
-          } else if (result.action === 'download_available') {
-            // There are pending changes (either from cloud or local).
-            // We now auto-merge them using Last-Write-Wins and pull the data silently.
-            await downloadLatestCloudVault()
-            // After downloading/merging, trigger a silent push to upload the merged result back to cloud
-            void syncActiveProfileToCloud(true)
-          } else if (result.action === 'idle') {
-            setCloudSyncStatus('idle')
+          while (!cancelled) {
+            try {
+              let result = await syncActiveProfileToCloud(true)
+              if (cancelled) return
+
+              if (result.action === 'download_available') {
+                result = await downloadLatestCloudVault()
+                if (cancelled) return
+                const followUp = await syncActiveProfileToCloud(true)
+                if (followUp.action !== 'idle' && followUp.action !== 'download_available') result = followUp
+              }
+
+              if (result.action === 'downloaded' || result.action === 'uploaded' || result.action === 'synced') {
+                setCloudSyncStatus('synced')
+                setHasUnsyncedChanges(false)
+                showToast('Bóveda al día.', 'success', { id: syncToastId, durationMs: 4200 })
+                return
+              }
+
+              // Otra operación puede tener el bloqueo de sincronización. Esperamos y comprobamos de nuevo.
+              await waitForRetry(1500)
+            } catch (error) {
+              if (cancelled) return
+              const delaySeconds = Math.min(30, Math.max(2, 2 ** Math.min(attempt, 5)))
+              logUnexpectedError(`Fallo de sincronización automática (intento ${attempt})`, error)
+              setCloudSyncStatus('syncing')
+              showToast(
+                `No hemos podido completar la sincronización. Volveremos a intentarlo en ${delaySeconds} s.`,
+                'warning',
+                { id: syncToastId, durationMs: null },
+              )
+              await waitForRetry(delaySeconds * 1000)
+              attempt += 1
+              if (!cancelled) {
+                setCloudSyncStatus('syncing')
+                showToast(`Reintentando la sincronización (intento ${attempt})…`, 'info', { id: syncToastId, durationMs: null })
+              }
+            }
           }
-        } catch (err) {
-          if (attempt <= 3) {
-            console.warn(`Boot sync failed (attempt ${attempt}/3). Retrying in ${attempt * 2}s...`, err)
-            setTimeout(() => bootSyncWithRetries(attempt + 1), attempt * 2000)
-          } else {
-            logUnexpectedError('Auto sync failed completely after retries at boot', err)
-            setCloudSyncStatus('error')
-          }
+        } finally {
+          window.clearTimeout(slowTimer)
         }
       }
-      
-      void bootSyncWithRetries()
+
+      void runBootSync()
+      return () => {
+        cancelled = true
+        if (retryTimer !== undefined) window.clearTimeout(retryTimer)
+        resolveWait?.()
+        dismissToast(syncToastId)
+      }
     } else {
-      // Not logged in or profile not unlocked yet
       setCloudSyncStatus('idle')
     }
-  }, [isReady, isAuthReady, currentProfileId, cloudUserEmail, syncActiveProfileToCloud, downloadLatestCloudVault])
+  }, [isReady, isAuthReady, isVaultLoaded, currentProfileId, cloudUserEmail, syncActiveProfileToCloud, downloadLatestCloudVault, dismissToast, showToast])
 
   const triggerCloudSync = useCallback(() => {
     setHasUnsyncedChanges(true)
@@ -991,7 +1041,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       // no sobreescribimos y en su lugar notificamos de conflicto en la UI mediante un return
       if (result.action === 'download_available') {
         setHasUnsyncedChanges(true)
-      } else if (result.action === 'uploaded' || result.action === 'idle') {
+      } else if (result.action === 'uploaded' || result.action === 'downloaded' || result.action === 'synced') {
         setHasUnsyncedChanges(false)
       }
     }).catch((error) => {
@@ -1698,6 +1748,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const authorizeSensitiveAction = useCallback(async (_actionName: string = 'Acción protegida') => {
     if (!currentProfileId || !isUnlocked) return false
 
+    const requireAuth = typeof window !== 'undefined' && window.localStorage.getItem('contras.requireSecretAuth') !== 'false'
+    if (!requireAuth) return true
+
     const now = Date.now()
     if (now - lastAuthorizedTimeRef.current < 30000) {
       return true
@@ -1729,7 +1782,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       } else {
         try {
           // Race: si la biometría no responde en 7s, caemos al fallback de contraseña
-          const timeoutMs = 7000
+          const timeoutMs = 5000
           let timeoutId: any
           
           const abortController = new AbortController()
@@ -1776,6 +1829,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           const msg = err instanceof Error ? err.message : ''
           if (msg === 'biometric_timeout') {
             console.warn('Biometría no respondió a tiempo, usando fallback.')
+            await storeRef.current.deleteBiometricBundle(currentProfileId)
+            localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
+            localStorage.removeItem(`contras.biometricBundleBackup.${currentProfileId}`)
+            localStorage.removeItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`)
+            setBiometricRegistered(false)
           } else if (msg === 'manual_fallback') {
             console.warn('Usuario saltó la biometría manualmente.')
           } else {
@@ -1823,7 +1881,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
     lastAuthorizedTimeRef.current = Date.now()
     return true
-  }, [biometricAvailable, biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword, resolveMasterPasswordPrompt, showToast])
+  }, [biometricRegistered, hardwareKeyAvailable, hardwareKeyRegistered, currentProfileId, isUnlocked, promptMasterPassword, resolveMasterPasswordPrompt, showToast])
 
   const disableBiometricUnlock = useCallback(async () => {
     if (!currentProfileId) return

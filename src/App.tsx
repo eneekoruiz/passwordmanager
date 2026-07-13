@@ -80,6 +80,7 @@ function VaultApp() {
     hasUnsyncedChanges,
     biometricAvailable,
     biometricRegistered,
+    isPromptingMasterPassword,
     registerBiometricUnlock,
     disableBiometricUnlock,
     hardwareKeyAvailable,
@@ -703,14 +704,14 @@ function VaultApp() {
   }, [unsavedDirty, hasUnsyncedChanges])
 
   useEffect(() => {
-    if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered) return
+    if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered || isPromptingMasterPassword) return
     if (typeof window === 'undefined') return
     if (window.localStorage.getItem('contras.biometricPromptEnabled') === 'false') return
     if (window.localStorage.getItem(`contras.biometricPromptDismissed.v3.${currentProfileId}`) === 'true') return
 
     const timer = window.setTimeout(() => setBiometricPromptOpen(true), 1500)
     return () => window.clearTimeout(timer)
-  }, [biometricAvailable, biometricRegistered, currentProfileId, isUnlocked])
+  }, [biometricAvailable, biometricRegistered, currentProfileId, isPromptingMasterPassword, isUnlocked])
 
   const prevMutationCount = useRef(mutationCount)
   useEffect(() => {
@@ -929,16 +930,42 @@ function VaultApp() {
   }
 
   const handleManualSync = async () => {
-    showToast('Sincronizando con Google Cloud...', 'info')
+    const toastId = 'cloud-sync-manual'
+    showToast('Estamos sincronizando tu bóveda con la nube…', 'info', { id: toastId, durationMs: null })
+    const slowTimer = window.setTimeout(() => {
+      showToast('Está tardando un poco más de lo normal. Seguimos sincronizando…', 'warning', { id: toastId, durationMs: null })
+    }, 4500)
+
     try {
-      const result = await syncActiveProfileToCloud()
-      if (result.action === 'download_available') {
-        setPendingCloudDownload(result)
-        return
+      for (let attempt = 1; attempt <= 3; attempt += 1) {
+        try {
+          const result = await syncActiveProfileToCloud(true)
+          if (result.action === 'download_available') {
+            setShowSyncReminder(false)
+            setPendingCloudDownload(result)
+            showToast('Hay cambios en la nube que necesitan tu revisión.', 'info', { id: toastId, durationMs: 5200 })
+            return
+          }
+          if (result.action === 'idle') {
+            showToast(result.message, 'info', { id: toastId, durationMs: 4200 })
+            return
+          }
+          setShowSyncReminder(false)
+          showToast('Bóveda al día.', 'success', { id: toastId, durationMs: 4200 })
+          return
+        } catch (error) {
+          if (attempt === 3) throw error
+          const delaySeconds = attempt * 2
+          showToast(`No hemos podido completar la sincronización. Reintentando en ${delaySeconds} s…`, 'warning', { id: toastId, durationMs: null })
+          await new Promise((resolve) => window.setTimeout(resolve, delaySeconds * 1000))
+          showToast(`Reintentando la sincronización (intento ${attempt + 1} de 3)…`, 'info', { id: toastId, durationMs: null })
+        }
       }
-      showToast(result.message, result.action === 'idle' ? 'info' : 'success')
     } catch (error) {
-      reportUiError(error, 'No se pudo sincronizar la bóveda.')
+      const message = getFriendlyErrorMessage(error, 'No se pudo sincronizar la bóveda.')
+      showToast(`${message} Conservaremos los cambios locales para volver a intentarlo.`, 'error', { id: toastId, durationMs: 8000 })
+    } finally {
+      window.clearTimeout(slowTimer)
     }
   }
 
@@ -1734,19 +1761,26 @@ function VaultApp() {
         </div>
 
         <nav className="vault-mobile-dock" aria-label="Navegación principal">
-          <button type="button" className={`vault-dock-item ${groupMode === 'platform' ? 'is-active' : ''}`} onClick={() => handleGroupModeChange('platform')} aria-current={groupMode === 'platform' ? 'page' : undefined}>
+          <button type="button" className={`vault-dock-item ${groupMode === 'platform' && !settingsOpen && !inboxModalOpen ? 'is-active' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('platform'); }} aria-current={groupMode === 'platform' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l9-9 9 9M4.5 9.75V21h5.25v-6h4.5v6h5.25V9.75" /></svg></span>
             <span>Inicio</span>
           </button>
-          <button type="button" className={`vault-dock-item ${groupMode === 'identity' ? 'is-active' : ''}`} onClick={() => handleGroupModeChange('identity')} aria-current={groupMode === 'identity' ? 'page' : undefined}>
+          <button type="button" className={`vault-dock-item ${groupMode === 'identity' && !settingsOpen && !inboxModalOpen ? 'is-active' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('identity'); }} aria-current={groupMode === 'identity' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.1a7.5 7.5 0 0115 0A18 18 0 0112 21.75a18 18 0 01-7.5-1.65z" /></svg></span>
             <span>Identidades</span>
           </button>
-          <button type="button" className={`vault-dock-item ${groupMode === 'local' ? 'is-active' : ''}`} onClick={() => handleGroupModeChange('local')} aria-current={groupMode === 'local' ? 'page' : undefined}>
+          <button type="button" className={`vault-dock-item ${groupMode === 'local' && !settingsOpen && !inboxModalOpen ? 'is-active' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('local'); }} aria-current={groupMode === 'local' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5v-6.75a2.25 2.25 0 012.25-2.25z" /></svg></span>
-            <span>Privado</span>
+            <span>Locales</span>
           </button>
-          <button type="button" className={`vault-dock-item ${settingsOpen ? 'is-active' : ''}`} onClick={() => setSettingsOpen(true)}>
+          <button type="button" className={`vault-dock-item ${inboxModalOpen ? 'is-active' : ''} relative`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(true) }} aria-current={inboxModalOpen ? 'page' : undefined}>
+            <span className="vault-dock-icon">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+              {inboxCount > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm">{inboxCount}</span>}
+            </span>
+            <span>Buzón</span>
+          </button>
+          <button type="button" className={`vault-dock-item ${settingsOpen ? 'is-active' : ''}`} onClick={() => { setInboxModalOpen(false); setSettingsInitialView('health'); setSettingsOpen(true) }} aria-current={settingsOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15.25A3.25 3.25 0 1012 8.75a3.25 3.25 0 000 6.5zM19.4 15a1.7 1.7 0 00.34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 00-1.88-.34 1.7 1.7 0 00-1.03 1.56V21h-4v-.09a1.7 1.7 0 00-1.04-1.56 1.7 1.7 0 00-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.56-1.03H3v-4h.09A1.7 1.7 0 004.65 8.9a1.7 1.7 0 00-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001.03-1.56V3h4v.09A1.7 1.7 0 0015.1 4.65a1.7 1.7 0 001.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.56 1.03H21v4h-.09A1.7 1.7 0 0019.4 15z" /></svg></span>
             <span>Ajustes</span>
           </button>

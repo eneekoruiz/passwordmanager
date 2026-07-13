@@ -498,22 +498,22 @@ export function SettingsModal({
                 </div>
 
                 {/* Grid de Auditoría - panel solo lectura */}
-                <div className="grid grid-cols-4 divide-x divide-black/[0.05] bg-slate-50/50 dark:bg-slate-900/50 dark:divide-white/10">
-                  <div className="p-4 text-center">
+                <div className="grid grid-cols-2 bg-slate-50/50 dark:bg-slate-900/50 sm:grid-cols-4">
+                  <div className="border-b border-r border-black/[0.05] p-3 text-center dark:border-white/10 sm:border-b-0">
                     <p className="text-2xl font-black text-rose-600 dark:text-rose-400">{exposedPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-rose-800 dark:text-rose-400">Expuestas</p>
+                    <p className="mt-1 text-[10px] font-bold leading-tight text-rose-800 dark:text-rose-400">Expuestas</p>
                   </div>
-                  <div className="p-4 text-center">
+                  <div className="border-b border-black/[0.05] p-3 text-center dark:border-white/10 sm:border-b-0 sm:border-r">
                     <p className="text-2xl font-black text-red-600 dark:text-red-400">{reusedPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-red-800 dark:text-red-400">Reutilizadas</p>
+                    <p className="mt-1 text-[10px] font-bold leading-tight text-red-800 dark:text-red-400">Reutilizadas</p>
                   </div>
-                  <div className="p-4 text-center">
+                  <div className="border-r border-black/[0.05] p-3 text-center dark:border-white/10">
                     <p className="text-2xl font-black text-amber-500 dark:text-amber-400">{weakPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400">Débiles</p>
+                    <p className="mt-1 text-[10px] font-bold leading-tight text-amber-700 dark:text-amber-400">Débiles</p>
                   </div>
-                  <div className="p-4 text-center">
+                  <div className="p-3 text-center">
                     <p className="text-2xl font-black text-blue-500 dark:text-blue-400">{oldPasswords.length}</p>
-                    <p className="mt-0.5 text-[10px] font-bold uppercase tracking-wider text-blue-700 dark:text-blue-400">Antiguas</p>
+                    <p className="mt-1 text-[10px] font-bold leading-tight text-blue-700 dark:text-blue-400">Antiguas</p>
                   </div>
                 </div>
 
@@ -1247,7 +1247,10 @@ export function SettingsModal({
                 </button>
                 <button
                   type="button"
-                  onClick={() => setWeakPasswordsModalOpen(false)}
+                  onClick={() => {
+                    setWeakPasswordsModalOpen(false)
+                    setSecurityReviewHubOpen(true)
+                  }}
                   className="rounded-xl p-2 text-text-secondary transition-colors hover:bg-surface-hover"
                   aria-label="Cerrar análisis de contraseñas débiles"
                 >
@@ -1392,12 +1395,18 @@ export function SettingsModal({
       )}
       <ExposedPasswordsModal
         isOpen={exposedPasswordsModalOpen}
-        onClose={() => setExposedPasswordsModalOpen(false)}
+        onClose={() => {
+          setExposedPasswordsModalOpen(false)
+          setSecurityReviewHubOpen(true)
+        }}
         onEditPlatform={onEditPlatform}
       />
       <ReusedPasswordsModal
         isOpen={reusedPasswordsModalOpen}
-        onClose={() => setReusedPasswordsModalOpen(false)}
+        onClose={() => {
+          setReusedPasswordsModalOpen(false)
+          setSecurityReviewHubOpen(true)
+        }}
         entries={reusedPasswords.map(r => ({
           identityEmail: r.identityEmail,
           platform: r.platform!,
@@ -1407,7 +1416,10 @@ export function SettingsModal({
       />
       <OldPasswordsModal
         isOpen={oldPasswordsModalOpen}
-        onClose={() => setOldPasswordsModalOpen(false)}
+        onClose={() => {
+          setOldPasswordsModalOpen(false)
+          setSecurityReviewHubOpen(true)
+        }}
         entries={oldPasswords.map(o => {
           const platform = o.platform!
           const history: Array<{ changedAt: string }> = platform.passwordHistory ?? []

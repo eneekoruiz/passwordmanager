@@ -57,20 +57,9 @@ export function VaultLoaderScreen({ isReady, onAnimationComplete }: VaultLoaderS
 
   return (
     <div 
-      className={`vault-shell vault-stage z-[9999] flex flex-col items-center justify-center bg-surface transition-opacity duration-700 ${phase === 'zooming' ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+      className={`vault-shell vault-stage fixed inset-0 z-[9999] flex h-full min-h-screen w-full flex-col items-center justify-center bg-surface transition-opacity duration-700 ${phase === 'zooming' ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
       style={{ 
         perspective: '1200px',
-        position: 'fixed',
-        top: 0,
-        left: 0,
-        right: 0,
-        bottom: 0,
-        width: '100vw',
-        height: '100dvh',
-        display: 'flex',
-        flexDirection: 'column',
-        alignItems: 'center',
-        justifyContent: 'center'
       }}
     >
       <div 
@@ -79,20 +68,14 @@ export function VaultLoaderScreen({ isReady, onAnimationComplete }: VaultLoaderS
         aria-live="polite"
         style={{ transformStyle: 'preserve-3d' }}
       >
-        {/* Restauramos el preloader original (candado animado con orbita) */}
+        {/* Preloader original con el contador integrado dentro de la órbita */}
         <div 
           className={`vault-loader mb-6 transition-all duration-500 ${phase === 'waiting' ? 'scale-115 shadow-[0_0_40px_rgba(23,213,163,0.35)]' : 'scale-100'}`} 
           aria-hidden="true"
         >
-          <span />
-        </div>
-
-        {/* Contador de progreso perfectamente centrado y responsivo */}
-        <div className="relative flex items-baseline justify-center mb-3 select-none">
-           <span className="text-4xl sm:text-5xl font-black tracking-tight tabular-nums text-text-primary dark:text-white transition-transform duration-300">
-             {progress}
-           </span>
-           <span className="text-lg sm:text-xl font-bold text-text-tertiary dark:text-slate-500 ml-1">%</span>
+          <div className="text-xl font-black tabular-nums tracking-tight text-white transition-transform duration-300">
+            {progress}
+          </div>
         </div>
 
         {/* Textos descriptivos de la carga */}

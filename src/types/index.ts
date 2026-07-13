@@ -253,5 +253,6 @@ export interface Identity {
 export interface VaultData {
   identities: Identity[]
   localItems: LocalVaultItem[]
+  localCategories?: LocalCategory[]
 }
 

@@ -36,8 +36,8 @@ function AuditRow({ icon, label, description, count, countColor, badgeBg, onClic
 
       {/* Text */}
       <div className="min-w-0 flex-1">
-        <p className="text-sm font-bold text-text-primary dark:text-slate-100">{label}</p>
-        <p className="text-[11px] text-text-tertiary dark:text-slate-400 leading-snug mt-0.5">{description}</p>
+        <p className="text-sm font-bold leading-snug text-text-primary dark:text-slate-100">{label}</p>
+        <p className="text-[11px] text-text-tertiary dark:text-slate-400 leading-snug mt-0.5 line-clamp-2">{description}</p>
       </div>
 
       {/* Count + arrow */}
