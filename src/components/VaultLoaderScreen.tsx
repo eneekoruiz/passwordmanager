@@ -66,17 +66,29 @@ export function VaultLoaderScreen({ isReady, onAnimationComplete }: VaultLoaderS
         aria-live="polite"
         style={{ transformStyle: 'preserve-3d' }}
       >
-        <div className="relative flex items-center justify-center mb-6">
-           <div className={`text-[120px] sm:text-[160px] md:text-[200px] font-black tracking-tighter tabular-nums leading-none text-transparent bg-clip-text bg-gradient-to-b from-text-primary to-text-tertiary dark:from-white dark:to-slate-600 transition-transform duration-300 ${phase === 'waiting' ? 'scale-110 drop-shadow-[0_0_30px_rgba(20,184,166,0.3)]' : 'scale-100'}`}>
-             {progress}
-           </div>
-           <span className="absolute -right-8 top-8 text-4xl sm:text-5xl font-bold text-text-tertiary dark:text-slate-500">%</span>
+        {/* Restauramos el preloader original (candado animado con orbita) */}
+        <div 
+          className={`vault-loader mb-6 transition-all duration-500 ${phase === 'waiting' ? 'scale-115 shadow-[0_0_40px_rgba(23,213,163,0.35)]' : 'scale-100'}`} 
+          aria-hidden="true"
+        >
+          <span />
         </div>
+
+        {/* Contador de progreso perfectamente centrado y responsivo */}
+        <div className="relative flex items-baseline justify-center mb-3 select-none">
+           <span className="text-4xl sm:text-5xl font-black tracking-tight tabular-nums text-text-primary dark:text-white transition-transform duration-300">
+             {progress}
+           </span>
+           <span className="text-lg sm:text-xl font-bold text-text-tertiary dark:text-slate-500 ml-1">%</span>
+        </div>
+
+        {/* Textos descriptivos de la carga */}
         <div className="text-center transition-opacity duration-300" style={{ opacity: phase === 'zooming' ? 0 : 1 }}>
-          <p className="text-xl font-bold tracking-tight text-text-primary">Abriendo tu bóveda</p>
-          <p className="mt-2 text-xs font-semibold uppercase tracking-[0.2em] text-text-tertiary text-teal-600 dark:text-teal-400">Descifrado local seguro</p>
+          <p className="text-sm font-bold tracking-tight text-text-primary">Abriendo tu bóveda</p>
+          <p className="mt-1.5 text-[10px] font-semibold uppercase tracking-[0.2em] text-teal-600 dark:text-teal-400">Descifrado local seguro</p>
         </div>
       </div>
     </div>
   )
 }
+

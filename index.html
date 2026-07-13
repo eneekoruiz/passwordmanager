@@ -3,6 +3,32 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=0, viewport-fit=cover" />
+    <script>
+      // Fallback para errores de carga de recursos (ej: net::ERR_FAILED por mismatch de hashes PWA tras nuevos deployments)
+      window.addEventListener('error', function(e) {
+        if (e.target && (e.target.tagName === 'SCRIPT' || e.target.tagName === 'LINK')) {
+          console.error('Recurso crítico falló al cargar:', e.target.src || e.target.href);
+          if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+              if (registrations.length > 0) {
+                console.warn('Limpiando Service Worker y caché para forzar recarga limpia...');
+                for (var i = 0; i < registrations.length; i++) {
+                  registrations[i].unregister();
+                }
+                if (window.caches) {
+                  caches.keys().then(function(keys) {
+                    keys.forEach(function(key) { caches.delete(key); });
+                  });
+                }
+                setTimeout(function() {
+                  window.location.reload(true);
+                }, 150);
+              }
+            });
+          }
+        }
+      }, true);
+    </script>
     <meta name="theme-color" content="#0b1713" />
     <meta name="description" content="Contras: tu bóveda privada, cifrada localmente y disponible incluso sin conexión." />
     <meta property="og:title" content="Contras — Private Intelligence" />
