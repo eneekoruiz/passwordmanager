@@ -92,7 +92,6 @@ function VaultApp() {
     localCategories,
     isVaultLoaded,
     mutationCount,
-    addIdentity,
   } = useVault()
 
   const { showToast } = useToast()
@@ -1798,9 +1797,9 @@ function VaultApp() {
           isOpen={importTextOpen}
           onClose={() => setImportTextOpen(false)}
           onImport={async (rows) => {
-            const identity = await importMassiveAccounts(rows)
-            if (identity) {
-              setSelectedId(identity.id)
+            const identityId = await importMassiveAccounts(rows)
+            if (identityId) {
+              setSelectedId(identityId)
               setSelectedPlatformName(null)
               setSelectedLocalCategory(null)
             }
