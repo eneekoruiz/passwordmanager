@@ -719,15 +719,6 @@ function VaultApp() {
     return () => window.clearTimeout(timer)
   }, [biometricAvailable, biometricRegistered, currentProfileId, isPromptingMasterPassword, isUnlocked])
 
-  const prevMutationCount = useRef(mutationCount)
-  useEffect(() => {
-    if (mutationCount > prevMutationCount.current) {
-      setSyncPopoverOpen(true)
-      setTimeout(() => setSyncPopoverOpen(false), 5000)
-    }
-    prevMutationCount.current = mutationCount
-  }, [mutationCount])
-
 
   const requestNavigation = (action: () => void) => {
     if (unsavedDirty && unsavedActions) {
@@ -1211,7 +1202,7 @@ function VaultApp() {
 
 
 
-  const globalOverlays = null
+
 
   const biometricOnboardingModal = biometricPromptOpen ? (
     <div className="fixed bottom-4 left-1/2 z-[100] w-full max-w-sm -translate-x-1/2 px-4 sm:bottom-6 sm:right-6 sm:left-auto sm:translate-x-0">
@@ -1495,6 +1486,166 @@ function VaultApp() {
     </header>
   )
 
+  const globalOverlays = (
+    <>
+      <SettingsModal
+        initialView={settingsInitialView}
+        onEditPlatform={(platformId) => {
+          const identity = identities.find(id => id.platforms.some(p => p.id === platformId))
+          if (identity) {
+            setSelectedId(identity.id)
+            setSelectedPlatformName(identity.platforms.find(p => p.id === platformId)?.name || null)
+            setEditPlatformTrigger(platformId)
+            setSettingsOpen(false)
+          }
+        }}
+        isOpen={settingsOpen}
+        onClose={() => setSettingsOpen(false)}
+        onExport={handleExportBackup}
+        identities={identities}
+        localItems={localItems}
+        onVerifyMasterPassword={verifyCurrentMasterPassword}
+        onChangeMasterPassword={changeCurrentMasterPassword}
+        travelModeEnabled={travelModeEnabled}
+        onEnableTravelMode={enableTravelMode}
+        onDisableTravelMode={disableTravelMode}
+        onImport={handleImportBackup}
+        onOpenImportText={() => setImportTextOpen(true)}
+        biometricAvailable={biometricAvailable}
+        biometricRegistered={biometricRegistered}
+        onRegisterBiometric={handleRegisterBiometric}
+        onDisableBiometric={disableBiometricUnlock}
+        hardwareKeyAvailable={hardwareKeyAvailable}
+        hardwareKeyRegistered={hardwareKeyRegistered}
+        onRegisterHardwareKey={handleRegisterHardwareKey}
+        onDisableHardwareKey={disableHardwareKeyUnlock}
+        onUpdatePlatform={updatePlatform}
+      />
+
+      <ImportTextModal
+        isOpen={importTextOpen}
+        onClose={() => setImportTextOpen(false)}
+        onImport={async (rows) => {
+          const identityId = await importMassiveAccounts(rows)
+          if (identityId) {
+            setSelectedId(identityId)
+            setSelectedPlatformName(null)
+            setSelectedLocalCategory(null)
+          }
+        }}
+      />
+
+      {createModalOpen && (
+        <CreateAccountModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          identities={displayIdentities}
+          initialIdentityId={selectedId || (displayIdentities.length > 0 ? displayIdentities[0].id : null)}
+          initialPlatformName={selectedPlatformName}
+          onProceed={handleProceedCreateModal}
+        />
+      )}
+
+      <InboxModal 
+        isOpen={inboxModalOpen} 
+        onClose={() => setInboxModalOpen(false)} 
+      />
+
+      <IOSInstallPrompt />
+      {biometricOnboardingModal}
+      {cloudDownloadModal}
+
+      {unsavedModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-md rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
+              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM10.29 3.86L1.82 18a2.25 2.25 0 001.93 3.375h16.5A2.25 2.25 0 0022.18 18L13.71 3.86a2 2 0 00-3.42 0z" />
+              </svg>
+            </div>
+            <h3 className="text-xl font-bold tracking-tight text-text-primary">Tienes cambios sin guardar</h3>
+            <p className="mt-2 text-sm leading-6 text-text-secondary">
+              Si sales ahora, los cambios de esta cuenta se perderán. Puedes guardarlos antes de cambiar de vista.
+            </p>
+            <div className="mt-6 grid gap-2 sm:grid-cols-3">
+              <button
+                type="button"
+                onClick={handleUnsavedDiscard}
+                className="min-h-11 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
+              >
+                Descartar cambios
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setUnsavedModalOpen(false)
+                  setPendingNavigation(null)
+                }}
+                className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
+              >
+                Cancelar
+              </button>
+              <button
+                type="button"
+                onClick={() => void handleUnsavedSave()}
+                disabled={savingBeforeNavigation}
+                className="min-h-11 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 disabled:opacity-60"
+              >
+                {savingBeforeNavigation ? 'Guardando…' : 'Guardar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {lockModalOpen && (
+        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
+          <div className="w-full max-w-lg rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
+            {hasUnsyncedChanges ? (
+              <>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold tracking-tight text-red-600">Alerta Crítica de Sincronización</h3>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">Tienes cambios recientes que no se han podido subir a la nube. Si sales ahora, perderás estos datos en tus otros dispositivos.</p>
+              </>
+            ) : (
+              <>
+                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-text-primary ring-1 ring-black/5">
+                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
+                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
+                  </svg>
+                </div>
+                <h3 className="text-xl font-bold tracking-tight text-text-primary">Vas a bloquear tu bóveda</h3>
+                <p className="mt-2 text-sm leading-6 text-text-secondary">Necesitarás tu Contraseña Maestra para volver a entrar. Confirma que la recuerdas antes de cerrar la sesión segura.</p>
+              </>
+            )}
+            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
+              {hasUnsyncedChanges ? (
+                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 transition-colors hover:bg-red-100">
+                  Descargar copia local (Cifrada/CSV) para no perder datos
+                </button>
+              ) : (
+                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100">
+                  Descargar copia de seguridad (CSV) por si acaso
+                </button>
+              )}
+              <button type="button" onClick={() => setLockModalOpen(false)} className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover">
+                Cancelar
+              </button>
+              <button type="button" onClick={confirmLock} className={`min-h-11 rounded-xl px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 ${hasUnsyncedChanges ? 'bg-red-600 hover:bg-red-700' : 'bg-text-primary'}`}>
+                Sí, bloquear
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      <MasterPasswordPromptModal />
+    </>
+  )
+
   if (isMobile) {
     return (
       <div className="vault-shell vault-stage fixed inset-0 flex h-dvh max-h-dvh flex-col overflow-hidden overscroll-none">
@@ -1602,61 +1753,7 @@ function VaultApp() {
           </button>
         </nav>
 
-        <SettingsModal
-          initialView={settingsInitialView}
-          onEditPlatform={(platformId) => {
-            const identity = identities.find(id => id.platforms.some(p => p.id === platformId))
-            if (identity) {
-              setSelectedId(identity.id)
-              setSelectedPlatformName(identity.platforms.find(p => p.id === platformId)?.name || null)
-              setEditPlatformTrigger(platformId)
-              setSettingsOpen(false)
-            }
-          }}
-          isOpen={settingsOpen}
-          onClose={() => setSettingsOpen(false)}
-          onExport={handleExportBackup}
-          identities={identities}
-          localItems={localItems}
-          onVerifyMasterPassword={verifyCurrentMasterPassword}
-          onChangeMasterPassword={changeCurrentMasterPassword}
-          travelModeEnabled={travelModeEnabled}
-          onEnableTravelMode={enableTravelMode}
-          onDisableTravelMode={disableTravelMode}
-          onImport={handleImportBackup}
-          onOpenImportText={() => setImportTextOpen(true)}
-          biometricAvailable={biometricAvailable}
-          biometricRegistered={biometricRegistered}
-          onRegisterBiometric={handleRegisterBiometric}
-          onDisableBiometric={disableBiometricUnlock}
-          hardwareKeyAvailable={hardwareKeyAvailable}
-          hardwareKeyRegistered={hardwareKeyRegistered}
-          onRegisterHardwareKey={handleRegisterHardwareKey}
-          onDisableHardwareKey={disableHardwareKeyUnlock}
-          onUpdatePlatform={updatePlatform}
-        />
 
-        <ImportTextModal
-          isOpen={importTextOpen}
-          onClose={() => setImportTextOpen(false)}
-          onImport={async (rows) => {
-            const identityId = await importMassiveAccounts(rows)
-            if (identityId) {
-              setSelectedId(identityId)
-              setSelectedPlatformName(null)
-              setSelectedLocalCategory(null)
-            }
-          }}
-        />
-
-        <InboxModal 
-          isOpen={inboxModalOpen} 
-          onClose={() => setInboxModalOpen(false)} 
-        />
-
-        <IOSInstallPrompt />
-        {biometricOnboardingModal}
-        {cloudDownloadModal}
 
         {showUpdateBanner && (
           <div className="fixed bottom-4 left-1/2 z-[200] w-full max-w-sm -translate-x-1/2 animate-fade-in px-4">
@@ -1888,94 +1985,7 @@ function VaultApp() {
       <IOSInstallPrompt />
       {biometricOnboardingModal}
       {cloudDownloadModal}
-
-      {unsavedModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-md rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-amber-50 text-amber-700 ring-1 ring-amber-100">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m0 3.75h.008v.008H12v-.008zM10.29 3.86L1.82 18a2.25 2.25 0 001.93 3.375h16.5A2.25 2.25 0 0022.18 18L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
-            </div>
-            <h3 className="text-xl font-bold tracking-tight text-text-primary">Tienes cambios sin guardar</h3>
-            <p className="mt-2 text-sm leading-6 text-text-secondary">
-              Si sales ahora, los cambios de esta cuenta se perderán. Puedes guardarlos antes de cambiar de vista.
-            </p>
-            <div className="mt-6 grid gap-2 sm:grid-cols-3">
-              <button
-                type="button"
-                onClick={handleUnsavedDiscard}
-                className="min-h-11 rounded-xl border border-red-100 bg-red-50 px-4 text-sm font-semibold text-red-700 transition-colors hover:bg-red-100"
-              >
-                Descartar cambios
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setUnsavedModalOpen(false)
-                  setPendingNavigation(null)
-                }}
-                className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover"
-              >
-                Cancelar
-              </button>
-              <button
-                type="button"
-                onClick={() => void handleUnsavedSave()}
-                disabled={savingBeforeNavigation}
-                className="min-h-11 rounded-xl bg-text-primary px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 disabled:opacity-60"
-              >
-                {savingBeforeNavigation ? 'Guardando…' : 'Guardar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {lockModalOpen && (
-        <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
-          <div className="w-full max-w-lg rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-            {hasUnsyncedChanges ? (
-              <>
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-red-50 text-red-700 ring-1 ring-red-100">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold tracking-tight text-red-600">Alerta Crítica de Sincronización</h3>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">Tienes cambios recientes que no se han podido subir a la nube. Si sales ahora, perderás estos datos en tus otros dispositivos.</p>
-              </>
-            ) : (
-              <>
-                <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-2xl bg-slate-100 text-text-primary ring-1 ring-black/5">
-                  <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.25}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" />
-                  </svg>
-                </div>
-                <h3 className="text-xl font-bold tracking-tight text-text-primary">Vas a bloquear tu bóveda</h3>
-                <p className="mt-2 text-sm leading-6 text-text-secondary">Necesitarás tu Contraseña Maestra para volver a entrar. Confirma que la recuerdas antes de cerrar la sesión segura.</p>
-              </>
-            )}
-            <div className="mt-6 flex flex-col gap-2 sm:flex-row sm:justify-end">
-              {hasUnsyncedChanges ? (
-                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-11 rounded-xl border border-red-200 bg-red-50 px-4 text-sm font-semibold text-red-800 transition-colors hover:bg-red-100">
-                  Descargar copia local (Cifrada/CSV) para no perder datos
-                </button>
-              ) : (
-                <button type="button" onClick={() => { setLockModalOpen(false); setSettingsOpen(true) }} className="min-h-11 rounded-xl border border-amber-200 bg-amber-50 px-4 text-sm font-semibold text-amber-800 transition-colors hover:bg-amber-100">
-                  Descargar copia de seguridad (CSV) por si acaso
-                </button>
-              )}
-              <button type="button" onClick={() => setLockModalOpen(false)} className="min-h-11 rounded-xl border border-black/5 bg-surface px-4 text-sm font-semibold text-text-secondary transition-colors hover:bg-surface-hover">
-                Cancelar
-              </button>
-              <button type="button" onClick={confirmLock} className={`min-h-11 rounded-xl px-4 text-sm font-semibold text-white shadow-[0_12px_30px_rgba(15,23,42,0.16)] transition-all hover:-translate-y-0.5 ${hasUnsyncedChanges ? 'bg-red-600 hover:bg-red-700' : 'bg-text-primary'}`}>
-                Sí, bloquear
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {globalOverlays}
       <MasterPasswordPromptModal />
 
       </div>

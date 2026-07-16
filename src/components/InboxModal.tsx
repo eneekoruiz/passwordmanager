@@ -184,7 +184,9 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
 
     const uid = currentUser.uid
 
-    setLoading(false)
+    setLoading(true)
+    let sharesLoaded = false
+    let linksLoaded = false
 
     // 2. Listen to Sent Shares (Outbox P2P)
     const qSent = query(collection(db, 'shares'), where('senderUid', '==', uid))
@@ -192,8 +194,12 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
       const items: ShareItem[] = []
       snapshot.forEach(d => items.push(d.data() as ShareItem))
       setSentShares(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+      sharesLoaded = true
+      if (linksLoaded) setLoading(false)
     }, (err) => {
       console.error('Error fetching sent shares:', err)
+      sharesLoaded = true
+      if (linksLoaded) setLoading(false)
     })
 
     // 3. Listen to Sent Links (Magic Links)
@@ -202,8 +208,12 @@ export function InboxModal({ isOpen, onClose }: InboxModalProps) {
       const items: LinkItem[] = []
       snapshot.forEach(d => items.push(d.data() as LinkItem))
       setMagicLinks(items.sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()))
+      linksLoaded = true
+      if (sharesLoaded) setLoading(false)
     }, (err) => {
       console.error('Error fetching magic links:', err)
+      linksLoaded = true
+      if (sharesLoaded) setLoading(false)
     })
 
     return () => {

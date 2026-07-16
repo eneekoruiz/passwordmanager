@@ -92,8 +92,8 @@ export function computeSyncDiff(
         })
         hasChanges = true
       } else {
-        const localStr = deterministicStringify(localItem)
-        const cloudStr = deterministicStringify(cloudItem)
+        const localStr = deterministicStringify({ ...localItem, updatedAt: undefined, createdAt: undefined })
+        const cloudStr = deterministicStringify({ ...cloudItem, updatedAt: undefined, createdAt: undefined })
         if (localStr !== cloudStr) {
           diffs.push({
             id,
