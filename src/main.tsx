@@ -63,7 +63,8 @@ if (typeof window !== 'undefined' && 'serviceWorker' in navigator) {
           if (!nextWorker) return
           nextWorker.addEventListener('statechange', () => {
             if (nextWorker.state === 'installed' && navigator.serviceWorker.controller) {
-              window.location.reload()
+              // Don't auto-reload — let the app show a friendly update banner instead
+              window.dispatchEvent(new CustomEvent('contras:sw-update-ready'))
             }
           })
         })

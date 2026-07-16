@@ -278,6 +278,7 @@ function VaultApp() {
   const syncButtonRef = useRef<HTMLButtonElement>(null)
   const [showSyncReminder, setShowSyncReminder] = useState(false)
   const [showSyncCloseWarning, setShowSyncCloseWarning] = useState(false)
+  const [showUpdateBanner, setShowUpdateBanner] = useState(false)
 
   useEffect(() => {
     if (typeof window === 'undefined') return
@@ -691,17 +692,12 @@ function VaultApp() {
     }
   }, [showToast, isUnlocked])
 
+  // Listen for SW update — instead of hard-reloading, show a friendly in-app banner
   useEffect(() => {
-    if (!unsavedDirty && !hasUnsyncedChanges) return
-
-    const handleBeforeUnload = (event: BeforeUnloadEvent) => {
-      event.preventDefault()
-      event.returnValue = ''
-    }
-
-    window.addEventListener('beforeunload', handleBeforeUnload)
-    return () => window.removeEventListener('beforeunload', handleBeforeUnload)
-  }, [unsavedDirty, hasUnsyncedChanges])
+    const handleSWUpdate = () => setShowUpdateBanner(true)
+    window.addEventListener('contras:sw-update-ready', handleSWUpdate)
+    return () => window.removeEventListener('contras:sw-update-ready', handleSWUpdate)
+  }, [])
 
   useEffect(() => {
     if (!isUnlocked || !currentProfileId || !biometricAvailable || biometricRegistered || isPromptingMasterPassword) return
@@ -1842,6 +1838,26 @@ function VaultApp() {
         {biometricOnboardingModal}
         {cloudDownloadModal}
         {syncReminderModal}
+
+        {showUpdateBanner && (
+          <div className="fixed bottom-4 left-1/2 z-[200] w-full max-w-sm -translate-x-1/2 animate-fade-in px-4">
+            <div className="flex items-center gap-3 rounded-2xl border border-white/20 bg-slate-900/95 p-3.5 shadow-[0_8px_32px_rgba(0,0,0,0.4)] backdrop-blur-xl dark:border-white/10">
+              <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-xl bg-teal-500/20 text-teal-400">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-xs font-bold text-white">Nueva versión disponible</p>
+                <p className="text-[11px] text-slate-400">Actualiza para obtener las últimas mejoras.</p>
+              </div>
+              <div className="flex shrink-0 gap-1.5">
+                <button type="button" onClick={() => setShowUpdateBanner(false)} className="rounded-lg px-2.5 py-1.5 text-[11px] font-medium text-slate-400 hover:text-white transition-colors">Ahora no</button>
+                <button type="button" onClick={() => window.location.reload()} className="rounded-lg bg-teal-500 px-3 py-1.5 text-[11px] font-bold text-white hover:bg-teal-400 transition-colors active:scale-95">Actualizar</button>
+              </div>
+            </div>
+          </div>
+        )}
 
         {unsavedModalOpen && (
           <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">

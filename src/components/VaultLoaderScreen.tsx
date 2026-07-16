@@ -58,9 +58,7 @@ export function VaultLoaderScreen({ isReady, onAnimationComplete }: VaultLoaderS
   return (
     <div 
       className={`vault-shell vault-stage fixed inset-0 z-[9999] flex w-full flex-col items-center justify-center bg-surface transition-opacity duration-700 ${phase === 'zooming' ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
-      style={{ 
-        perspective: '1200px',
-      }}
+      style={{ minHeight: '100dvh', perspective: '1200px' }}
     >
       <div 
         className={`flex flex-col items-center justify-center ${phase === 'zooming' ? 'animate-vault-3d-zoom' : 'animate-vault-morph'}`} 
