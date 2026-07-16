@@ -91,7 +91,6 @@ function VaultApp() {
     cloudUserEmail,
     localCategories,
     isVaultLoaded,
-    mutationCount,
   } = useVault()
 
   const { showToast } = useToast()
