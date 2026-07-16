@@ -835,8 +835,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
           const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
 
+          const filterLocal = (items: any[]) => items.filter((i) => !i.isLocalOnly)
+
           const diffResult = computeSyncDiff(
-            filteredLocalIdns, localItemsDb, localCatsDb,
+            filteredLocalIdns, filterLocal(localItemsDb), filterLocal(localCatsDb),
             filteredCloudIdns, decryptedCloud.localItems || [], decryptedCloud.localCategories || []
           )
 

@@ -57,7 +57,7 @@ export function VaultLoaderScreen({ isReady, onAnimationComplete }: VaultLoaderS
 
   return (
     <div 
-      className={`vault-shell vault-stage fixed inset-0 z-[9999] flex h-full min-h-screen w-full flex-col items-center justify-center bg-surface transition-opacity duration-700 ${phase === 'zooming' ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
+      className={`vault-shell vault-stage fixed inset-0 z-[9999] flex min-h-dvh h-dvh w-full flex-col items-center justify-center bg-surface transition-opacity duration-700 ${phase === 'zooming' ? 'pointer-events-none opacity-0' : 'opacity-100'}`}
       style={{ 
         perspective: '1200px',
       }}

@@ -300,7 +300,7 @@ export const Sidebar = memo(function Sidebar({
     setPromptModalConfig({ isOpen: true, parentId })
   }
 
-  const confirmAddLocalCategory = async (label: string) => {
+  const confirmAddLocalCategory = async (label: string, isLocalOnly: boolean = false) => {
     const cleanLabel = label.trim()
     if (!cleanLabel) return
     
@@ -315,7 +315,8 @@ export const Sidebar = memo(function Sidebar({
         custom: true,
         createdAt: new Date().toISOString(),
         updatedAt: new Date().toISOString(),
-        parentId: parentId || null
+        parentId: parentId || null,
+        isLocalOnly
       })
       await saveLocalCategory(category)
       setSidebarError(null)
@@ -965,6 +966,7 @@ export const Sidebar = memo(function Sidebar({
         isOpen={promptModalConfig.isOpen}
         title={promptModalConfig.parentId ? 'Nueva Subcategoría' : 'Nueva Categoría Local'}
         placeholder="Nombre de la categoría"
+        checkboxLabel="Solo en este dispositivo"
         onConfirm={confirmAddLocalCategory}
         onCancel={() => setPromptModalConfig({ isOpen: false })}
       />

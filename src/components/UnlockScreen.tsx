@@ -559,6 +559,8 @@ export function UnlockScreen() {
       setConfirmMasterPassword('')
     } catch (caughtError) {
       showToast(getFriendlyErrorMessage(caughtError, 'No se pudo abrir la Bóveda Local.'))
+      setMasterPassword('')
+      setConfirmMasterPassword('')
     } finally {
       setLoading(false)
     }
