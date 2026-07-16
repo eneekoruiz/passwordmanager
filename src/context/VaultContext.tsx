@@ -199,6 +199,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   const storeRef = useRef(new VaultStore(vaultRef.current))
   const firebaseUserRef = useRef<User | null>(null)
   const syncInProgressRef = useRef(false)
+  const hasBootSyncedRef = useRef(false)
   const lastAuthorizedTimeRef = useRef<number>(0)
 
   const [mutationCount, setMutationCount] = useState(0)
@@ -461,6 +462,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       unsubscribe()
     }
   }, [reportCloudError])
+
+  useEffect(() => {
+    hasBootSyncedRef.current = false
+  }, [currentProfileId])
 
   const logoutProfile = useCallback(() => {
     vaultRef.current.lock()
@@ -947,6 +952,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   // Sincronización inicial con reintentos visibles y backoff limitado.
   useEffect(() => {
     if (!isReady || !isAuthReady || !isVaultLoaded) return
+    if (hasBootSyncedRef.current) return
 
     if (isInMemoryFallbackActive()) {
       setIsInMemory(true)
@@ -968,6 +974,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       })
 
       const runBootSync = async () => {
+        hasBootSyncedRef.current = true
         let attempt = 1
         setCloudSyncStatus('syncing')
         showToast('Estamos sincronizando tu bóveda con la nube…', 'info', { id: syncToastId, durationMs: null })
@@ -1033,7 +1040,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     } else {
       setCloudSyncStatus('idle')
     }
-  }, [isReady, isAuthReady, isVaultLoaded, currentProfileId, cloudUserEmail, syncActiveProfileToCloud, downloadLatestCloudVault, dismissToast, showToast])
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [isReady, isAuthReady, isVaultLoaded, currentProfileId, cloudUserEmail, dismissToast, showToast])
 
   const triggerCloudSync = useCallback(() => {
     setHasUnsyncedChanges(true)
@@ -1441,7 +1449,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           setCloudUserEmail(user.email ?? email)
         }
 
-        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+        const snapshot = await withTimeout(
+          getDoc(doc(dbClient, 'vaults', user.uid)),
+          15000,
+          'Error de conexión. No se pudo obtener la bóveda desde la nube.'
+        )
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontró una bóveda válida en la nube.')
         await restoreIntoDefaultProfile(blob, masterPassword, 'Bóveda Restaurada')
@@ -1462,7 +1474,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const user = firebaseUserRef.current
         if (!user) throw new Error('Primero inicia sesión con Google para conectar tu bóveda en la nube.')
 
-        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+        const snapshot = await withTimeout(
+          getDoc(doc(dbClient, 'vaults', user.uid)),
+          15000,
+          'Error de conexión al obtener la bóveda.'
+        )
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda valida en Google.')
         await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Restaurada')
@@ -1574,7 +1590,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           return
         }
 
-        const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+        const snapshot = await withTimeout(
+          getDoc(doc(dbClient, 'vaults', user.uid)),
+          15000,
+          'Error de conexión. No se pudo descargar la bóveda desde la nube.'
+        )
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda en la nube.')
         await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Principal')
@@ -1603,7 +1623,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         if (localDefaultProfile) {
           recoveredMasterPassword = await storeRef.current.recoverMasterPassword(profileId, recoveryPhrase)
         } else {
-          const snapshot = await getDoc(doc(dbClient, 'vaults', user.uid))
+          const snapshot = await withTimeout(
+            getDoc(doc(dbClient, 'vaults', user.uid)),
+            15000,
+            'Error de conexión. No se pudo obtener la bóveda desde la nube.'
+          )
           const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
           if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda en la nube.')
           recoveredMasterPassword = await storeRef.current.recoverMasterPasswordFromCloudPayload(blob, recoveryPhrase)
