@@ -29,6 +29,8 @@ export function MasterPasswordPromptModal() {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
+    // Small delay to allow React to render the loading state before blocking the main thread
+    await new Promise(resolve => setTimeout(resolve, 30))
     try {
       const valid = await withTimeout(
         verifyCurrentMasterPassword(password),

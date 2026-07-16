@@ -643,22 +643,6 @@ export const Sidebar = memo(function Sidebar({
               {sidebarError}
             </div>
           )}
-          <div className="vault-control mb-3 hidden grid-cols-3 rounded-[22px] p-1 md:grid">
-            {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
-              <button
-                key={mode}
-                type="button"
-                onClick={() => onGroupModeChange(mode)}
-                className={`min-h-10 rounded-[18px] px-2 py-1.5 text-xs font-bold transition-all duration-150 ${
-                  groupMode === mode
-                    ? 'vault-button-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)]'
-                    : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
-                }`}
-              >
-                {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
-              </button>
-            ))}
-          </div>
         </div>
 
         <nav ref={navRef} className="relative flex-1 overflow-y-auto scrollbar-thin px-2 pb-5 lg:px-3">

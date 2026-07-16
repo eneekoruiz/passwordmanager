@@ -577,6 +577,12 @@
     transition: color 180ms ease, background 240ms var(--ease-vault), transform 180ms ease;
   }
   .vault-dock-item:active { transform: scale(.93); }
+  @media (hover: hover) {
+    .vault-dock-item:hover:not(.vault-button-primary) {
+      background-color: var(--surface-hover);
+      color: var(--text-primary);
+    }
+  }
   .vault-dock-item.is-active { color: var(--accent-strong); background: rgba(12,140,114,.09); }
   .vault-dock-icon { display: grid; place-items: center; width: 1.55rem; height: 1.55rem; }
   .vault-dock-icon svg { width: 1.35rem; height: 1.35rem; }

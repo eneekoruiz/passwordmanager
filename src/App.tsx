@@ -287,8 +287,7 @@ function VaultApp() {
   const [isOnline, setIsOnline] = useState(true)
   const [syncPopoverOpen, setSyncPopoverOpen] = useState(false)
   const syncButtonRef = useRef<HTMLButtonElement>(null)
-  const [showSyncReminder, setShowSyncReminder] = useState(false)
-  const [showSyncCloseWarning, setShowSyncCloseWarning] = useState(false)
+
   const [showUpdateBanner, setShowUpdateBanner] = useState(false)
 
   useEffect(() => {
@@ -723,15 +722,11 @@ function VaultApp() {
   const prevMutationCount = useRef(mutationCount)
   useEffect(() => {
     if (mutationCount > prevMutationCount.current) {
-      setShowSyncReminder(true)
-      setShowSyncCloseWarning(false)
-    }
-    if (!hasUnsyncedChanges) {
-      setShowSyncReminder(false)
-      setShowSyncCloseWarning(false)
+      setSyncPopoverOpen(true)
+      setTimeout(() => setSyncPopoverOpen(false), 5000)
     }
     prevMutationCount.current = mutationCount
-  }, [mutationCount, hasUnsyncedChanges])
+  }, [mutationCount])
 
 
   const requestNavigation = (action: () => void) => {
@@ -948,7 +943,6 @@ function VaultApp() {
         try {
           const result = await syncActiveProfileToCloud(true)
           if (result.action === 'download_available') {
-            setShowSyncReminder(false)
             setPendingCloudDownload(result)
             showToast('Hay cambios en la nube que necesitan tu revisión.', 'info', { id: toastId, durationMs: 5200 })
             return
@@ -957,7 +951,7 @@ function VaultApp() {
             showToast(result.message, 'info', { id: toastId, durationMs: 4200 })
             return
           }
-          setShowSyncReminder(false)
+
           showToast('Bóveda al día.', 'success', { id: toastId, durationMs: 4200 })
           return
         } catch (error) {
@@ -1281,157 +1275,7 @@ function VaultApp() {
     </div>
   ) : null
 
-  const syncReminderModal = showSyncReminder ? (
-    <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-sm animate-fade-in">
-      <div className="w-full max-w-md rounded-3xl border border-white/50 dark:border-white/10 bg-white/95 dark:bg-slate-900/95 p-6 shadow-[0_34px_100px_rgba(15,23,42,0.25)] backdrop-blur-xl animate-vault-morph">
-        {showSyncCloseWarning ? (
-          <div className="space-y-4">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400">
-              <svg className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-              </svg>
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-text-primary">¿Cerrar sin sincronizar?</h3>
-              <p className="mt-2 text-xs leading-relaxed text-text-secondary">
-                Si cierras, tus cambios solo se guardarán localmente en este dispositivo.
-              </p>
-              <p className="mt-2 text-xs leading-relaxed text-red-600 dark:text-red-400 font-semibold">
-                Nota para Safari / iOS: El navegador puede borrar automáticamente todos los datos locales después de unos días de inactividad. Si no sincronizas con la nube, podrías perder estos cambios de forma permanente.
-              </p>
-            </div>
-            <div className="mt-4 flex gap-3">
-              {cloudUserEmail ? (
-                <button
-                  type="button"
-                  onClick={handleManualSync}
-                  className="flex h-10 flex-1 items-center justify-center rounded-xl bg-text-primary text-xs font-semibold text-white hover:opacity-90 active:scale-95 transition-all"
-                >
-                  Sincronizar ahora
-                </button>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => {
-                    setSettingsOpen(true)
-                    setShowSyncReminder(false)
-                    setShowSyncCloseWarning(false)
-                  }}
-                  className="flex h-10 flex-1 items-center justify-center rounded-xl bg-indigo-600 text-xs font-semibold text-white hover:bg-indigo-700 active:scale-95 transition-all"
-                >
-                  Hacer Copia Manual (Ajustes)
-                </button>
-              )}
-              <button
-                type="button"
-                onClick={() => {
-                  setShowSyncReminder(false)
-                  setShowSyncCloseWarning(false)
-                }}
-                className="flex h-10 flex-1 items-center justify-center rounded-xl border border-border bg-transparent text-xs font-medium text-text-secondary hover:bg-black/5 active:scale-95 transition-all"
-              >
-                Ignorar y cerrar
-              </button>
-            </div>
-          </div>
-        ) : (
-          <div className="space-y-4">
-            <div className="flex items-center gap-3">
-              {cloudUserEmail ? (
-                cloudSyncStatus === 'syncing' ? (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-blue-50 text-blue-600 dark:bg-blue-950/30 dark:text-blue-400 animate-spin">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                    </svg>
-                  </div>
-                ) : cloudSyncStatus === 'error' ? (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-red-50 text-red-600 dark:bg-red-950/30 dark:text-red-400">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                    </svg>
-                  </div>
-                ) : (
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-emerald-50 text-emerald-600 dark:bg-emerald-950/30 dark:text-emerald-400">
-                    <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                      <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                  </div>
-                )
-              ) : (
-                <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-amber-50 text-amber-600 dark:bg-amber-950/30 dark:text-amber-400">
-                  <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
-                    <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
-                  </svg>
-                </div>
-              )}
-              <div>
-                <h3 className="text-sm font-bold text-text-primary">
-                  {cloudUserEmail ? 'Sincronización de Bóveda' : 'Cambios guardados localmente'}
-                </h3>
-                <p className="mt-0.5 text-xs text-text-secondary">
-                  {cloudUserEmail 
-                    ? cloudSyncStatus === 'syncing' 
-                      ? 'Subiendo cambios a la nube...' 
-                      : cloudSyncStatus === 'error' 
-                        ? 'Error al sincronizar con Google Cloud.' 
-                        : 'Tienes cambios locales sin guardar en la nube.'
-                    : 'Tus datos se guardaron localmente en el dispositivo.'}
-                </p>
-              </div>
-            </div>
-            
-            <p className="text-[11px] leading-relaxed text-text-tertiary">
-              {cloudUserEmail
-                ? 'Los cambios se subirán para estar disponibles en todos tus dispositivos y evitar pérdidas de datos en navegadores con almacenamiento volátil.'
-                : 'No tienes una cuenta de Google conectada. Recuerda que en Safari PWA, iOS puede borrar tus datos locales automáticamente tras unos días de inactividad. Te aconsejamos conectar una cuenta o exportar una copia.'}
-            </p>
 
-            <div className="mt-4 flex gap-2 justify-end">
-              {cloudUserEmail ? (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowSyncCloseWarning(true)}
-                    className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold text-text-secondary hover:bg-black/5"
-                  >
-                    Cerrar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={handleManualSync}
-                    disabled={cloudSyncStatus === 'syncing'}
-                    className="flex h-8 items-center justify-center rounded-lg bg-text-primary px-4 text-xs font-semibold text-white hover:opacity-90 disabled:opacity-50"
-                  >
-                    {cloudSyncStatus === 'syncing' ? 'Sincronizando...' : 'Sincronizar ahora'}
-                  </button>
-                </>
-              ) : (
-                <>
-                  <button
-                    type="button"
-                    onClick={() => setShowSyncCloseWarning(true)}
-                    className="flex h-8 items-center justify-center rounded-lg px-3 text-xs font-semibold text-text-secondary hover:bg-black/5"
-                  >
-                    Cerrar
-                  </button>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setSettingsOpen(true)
-                      setShowSyncReminder(false)
-                    }}
-                    className="flex h-8 items-center justify-center rounded-lg bg-indigo-600 px-4 text-xs font-semibold text-white hover:bg-indigo-700"
-                  >
-                    Ver Ajustes / Backup
-                  </button>
-                </>
-              )}
-            </div>
-          </div>
-        )}
-      </div>
-    </div>
-  ) : null
 
   const cloudDownloadModal = pendingCloudDownload ? (
     pendingCloudDownload.diffResult ? (
@@ -1814,7 +1658,6 @@ function VaultApp() {
         <IOSInstallPrompt />
         {biometricOnboardingModal}
         {cloudDownloadModal}
-        {syncReminderModal}
 
         {showUpdateBanner && (
           <div className="fixed bottom-4 left-1/2 z-[200] w-full max-w-sm -translate-x-1/2 animate-fade-in px-4">
@@ -2047,7 +1890,6 @@ function VaultApp() {
       <IOSInstallPrompt />
       {biometricOnboardingModal}
       {cloudDownloadModal}
-      {syncReminderModal}
 
       {unsavedModalOpen && (
         <div className="fixed inset-0 z-[120] flex items-center justify-center bg-slate-950/35 p-4 backdrop-blur-md animate-fade-in">
