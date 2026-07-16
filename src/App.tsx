@@ -1510,7 +1510,6 @@ function VaultApp() {
               selectedPlatformName={selectedPlatformName}
               selectedLocalCategory={selectedLocalCategory}
               searchQuery={localSearchTerm}
-              onGroupModeChange={handleGroupModeChange}
               onSelect={handleSelect}
               onSelectPlatform={handleSelectPlatform}
               onSelectLocalCategory={handleSelectLocalCategory}
@@ -1755,7 +1754,6 @@ function VaultApp() {
           selectedPlatformName={selectedPlatformName}
           selectedLocalCategory={selectedLocalCategory}
           searchQuery={localSearchTerm}
-          onGroupModeChange={handleGroupModeChange}
           onSelect={handleSelect}
           onSelectPlatform={handleSelectPlatform}
           onSelectLocalCategory={handleSelectLocalCategory}

@@ -20,7 +20,6 @@ interface SidebarProps {
   selectedPlatformName: string | null
   selectedLocalCategory: LocalCategory | null
   searchQuery: string
-  onGroupModeChange: (mode: VaultGroupMode) => void
   onSelect: (id: string | null) => void
   onSelectPlatform: (platformName: string | null) => void
   onSelectLocalCategory: (category: LocalCategory | null) => void
@@ -57,7 +56,6 @@ export const Sidebar = memo(function Sidebar({
   selectedPlatformName,
   selectedLocalCategory,
   searchQuery,
-  onGroupModeChange,
   onSelect,
   onSelectPlatform,
   onSelectLocalCategory,
