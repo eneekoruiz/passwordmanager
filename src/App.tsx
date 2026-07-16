@@ -9,6 +9,7 @@ import { Sidebar } from './components/Sidebar'
 import { MainArea } from './components/MainArea'
 import { UnlockScreen } from './components/UnlockScreen'
 import { SettingsModal } from './components/SettingsModal'
+import { CreateAccountModal } from './components/CreateAccountModal'
 import { InboxModal } from './components/InboxModal'
 import { MasterPasswordPromptModal } from './components/MasterPasswordPromptModal'
 import { ImportTextModal } from './components/ImportTextModal'
@@ -91,6 +92,7 @@ function VaultApp() {
     localCategories,
     isVaultLoaded,
     mutationCount,
+    addIdentity,
   } = useVault()
 
   const { showToast } = useToast()
@@ -231,27 +233,37 @@ function VaultApp() {
   const [focusCsvExport, setFocusCsvExport] = useState(false)
   const [showMobileSortMenu, setShowMobileSortMenu] = useState(false)
   const [showDesktopSortMenu, setShowDesktopSortMenu] = useState(false)
-  const [showAddForm, setShowAddForm] = useState(false)
   const [showUserMenu, setShowUserMenu] = useState(false)
   const [createTrigger, setCreateTrigger] = useState(0)
+  const [createModalOpen, setCreateModalOpen] = useState(false)
 
   const handleAddClick = () => {
-    if (selectedId || selectedLocalCategory || selectedPlatformName) {
+    if (groupMode === 'local' || selectedLocalCategory) {
       setCreateTrigger((prev) => prev + 1)
-    } else if (groupMode === 'identity') {
-      setShowAddForm((prev) => !prev)
-    } else if (groupMode === 'platform') {
-      let targetId = selectedId
-      if (!targetId && displayIdentities.length > 0) {
-        targetId = displayIdentities[0].id
-        setSelectedId(targetId)
-      }
-      setCreateTrigger((prev) => prev + 1)
+    } else {
+      setCreateModalOpen(true)
     }
   }
 
-  const handleToggleAddForm = (show?: boolean) => {
-    setShowAddForm((prev) => (show !== undefined ? show : !prev))
+  const handleProceedCreateModal = async (identityId: string, platformName: string, newEmail?: string) => {
+    setCreateModalOpen(false)
+    let finalIdentityId = identityId
+
+    if (identityId === 'new' && newEmail) {
+      // Create new identity first
+      const newIdentity = await addIdentity(newEmail)
+      if (!newIdentity) return // Fallback if creation fails
+      finalIdentityId = newIdentity.id
+    }
+
+    // Set the state so MainArea knows where we are
+    setGroupMode('platform')
+    setSelectedId(finalIdentityId)
+    setSelectedPlatformName(platformName)
+    setSelectedLocalCategory(null)
+
+    // Trigger the actual creation in AccountForm via MainArea
+    setCreateTrigger((prev) => prev + 1)
   }
   const [sidebarOpen, setSidebarOpen] = useState(false)
   const [settingsOpen, setSettingsOpen] = useState(false)
@@ -1037,7 +1049,6 @@ function VaultApp() {
     setSelectedPlatformName(null)
   }
 
-  const isInsideView = selectedId !== null || selectedPlatformName !== null || selectedLocalCategory !== null
   // La barra de búsqueda extra en móvil siempre se muestra
   const showExtraHeaderElements = true
 
@@ -1063,8 +1074,9 @@ function VaultApp() {
           <button
             type="button"
             onClick={handleAddClick}
-            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white dark:bg-slate-800 text-text-secondary dark:text-slate-400 shadow-sm transition-all active:scale-[0.96]"
+            className="flex h-9 w-9 items-center justify-center rounded-xl border border-black/5 bg-white dark:bg-slate-800 text-text-secondary dark:text-slate-400 shadow-sm transition-all hover:text-text-primary dark:hover:text-white hover:border-black/10 dark:hover:border-white/20 active:scale-[0.96]"
             aria-label="Añadir"
+            title="Añadir nuevo..."
           >
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -1077,6 +1089,7 @@ function VaultApp() {
               onClick={() => setShowUserMenu(!showUserMenu)}
               className="relative flex h-9 w-9 items-center justify-center rounded-xl border border-black/[0.06] bg-indigo-50 text-indigo-700 font-bold text-[10px] shadow-sm hover:bg-indigo-100 transition-all active:scale-95 dark:bg-indigo-900/30 dark:text-indigo-400 dark:border-white/10 dark:hover:bg-indigo-900/50"
               aria-label="Menú de usuario"
+              title="Menú de usuario y ajustes"
             >
               {(currentProfileName || cloudUserEmail || 'U').charAt(0).toUpperCase()}
               {inboxCount > 0 && (
@@ -1197,32 +1210,7 @@ function VaultApp() {
         </div>
       )}
 
-      {/* Row 3: Group Mode Toggle */}
-      {showExtraHeaderElements && !isInsideView && (
-        <div className="hidden md:grid grid-cols-3 rounded-xl border border-black/[0.06] bg-surface-elevated p-1 shadow-subtle dark:border-white/10 dark:bg-[#1c1c1e] shrink-0">
-          {(['identity', 'platform', 'local'] as VaultGroupMode[]).map((mode) => (
-            <button
-              key={mode}
-              type="button"
-              onClick={() => {
-                requestNavigation(() => {
-                  setGroupMode(mode)
-                  setSelectedId(null)
-                  setSelectedPlatformName(null)
-                  setSelectedLocalCategory(null)
-                })
-              }}
-              className={`min-h-8 rounded-lg px-2 py-1 text-[11px] font-bold transition-all duration-150 ${
-                groupMode === mode && selectedId === null && selectedLocalCategory === null && selectedPlatformName === null
-                  ? 'bg-text-primary text-white shadow-[0_8px_22px_rgba(15,23,42,0.14)] dark:bg-slate-700'
-                  : 'text-text-secondary hover:bg-surface-hover dark:text-[#a0a0a5] dark:hover:bg-slate-800/50'
-              }`}
-            >
-              {mode === 'identity' ? 'Identidades' : mode === 'platform' ? 'Plataformas' : 'Locales'}
-            </button>
-          ))}
-        </div>
-      )}
+      {/* Row 3 removed: Group Mode Toggle for iPad is now gone to keep UI clean */}
     </div>
   ) : null
 
@@ -1683,14 +1671,6 @@ function VaultApp() {
               onSelect={handleSelect}
               onSelectPlatform={handleSelectPlatform}
               onSelectLocalCategory={handleSelectLocalCategory}
-              onAddIdentity={async (email) => {
-                const identity = await addIdentity(email)
-                requestNavigation(() => {
-                  setSelectedId(identity.id)
-                  setSelectedPlatformName(null)
-                  setSelectedLocalCategory(null)
-                })
-              }}
               onDeleteIdentity={handleDeleteIdentity}
               onLock={handleLock}
               onSync={() => void handleManualSync()}
@@ -1703,8 +1683,6 @@ function VaultApp() {
               onInstall={handleInstallApp}
               syncing={cloudSyncStatus === 'syncing'}
               syncIndicator={CloudSyncIndicator}
-              showAddForm={showAddForm}
-              onToggleAddForm={handleToggleAddForm}
               onAddClick={handleAddClick}
               sortMode={sortMode}
             />
@@ -1757,26 +1735,26 @@ function VaultApp() {
         </div>
 
         <nav className="vault-mobile-dock" aria-label="Navegación principal">
-          <button type="button" className={`vault-dock-item ${groupMode === 'platform' && !settingsOpen && !inboxModalOpen ? 'is-active' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('platform'); }} aria-current={groupMode === 'platform' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
+          <button type="button" title="Inicio" className={`vault-dock-item ${groupMode === 'platform' && !settingsOpen && !inboxModalOpen ? 'vault-button-primary text-white' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('platform'); }} aria-current={groupMode === 'platform' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M2.25 12l9-9 9 9M4.5 9.75V21h5.25v-6h4.5v6h5.25V9.75" /></svg></span>
             <span>Inicio</span>
           </button>
-          <button type="button" className={`vault-dock-item ${groupMode === 'identity' && !settingsOpen && !inboxModalOpen ? 'is-active' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('identity'); }} aria-current={groupMode === 'identity' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
+          <button type="button" title="Identidades" className={`vault-dock-item ${groupMode === 'identity' && !settingsOpen && !inboxModalOpen ? 'vault-button-primary text-white' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('identity'); }} aria-current={groupMode === 'identity' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.5 20.1a7.5 7.5 0 0115 0A18 18 0 0112 21.75a18 18 0 01-7.5-1.65z" /></svg></span>
             <span>Identidades</span>
           </button>
-          <button type="button" className={`vault-dock-item ${groupMode === 'local' && !settingsOpen && !inboxModalOpen ? 'is-active' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('local'); }} aria-current={groupMode === 'local' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
+          <button type="button" title="Locales" className={`vault-dock-item ${groupMode === 'local' && !settingsOpen && !inboxModalOpen ? 'vault-button-primary text-white' : ''}`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(false); handleGroupModeChange('local'); }} aria-current={groupMode === 'local' && !settingsOpen && !inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 0h10.5a2.25 2.25 0 012.25 2.25v6.75a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5v-6.75a2.25 2.25 0 012.25-2.25z" /></svg></span>
             <span>Locales</span>
           </button>
-          <button type="button" className={`vault-dock-item ${inboxModalOpen ? 'is-active' : ''} relative`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(true) }} aria-current={inboxModalOpen ? 'page' : undefined}>
+          <button type="button" title="Buzón" className={`vault-dock-item ${inboxModalOpen ? 'vault-button-primary text-white' : ''} relative`} onClick={() => { setSettingsOpen(false); setInboxModalOpen(true) }} aria-current={inboxModalOpen ? 'page' : undefined}>
             <span className="vault-dock-icon">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
               {inboxCount > 0 && <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[9px] font-bold text-white shadow-sm">{inboxCount}</span>}
             </span>
             <span>Buzón</span>
           </button>
-          <button type="button" className={`vault-dock-item ${settingsOpen ? 'is-active' : ''}`} onClick={() => { setInboxModalOpen(false); setSettingsInitialView('health'); setSettingsOpen(true) }} aria-current={settingsOpen ? 'page' : undefined}>
+          <button type="button" title="Ajustes" className={`vault-dock-item ${settingsOpen ? 'vault-button-primary text-white' : ''}`} onClick={() => { setInboxModalOpen(false); setSettingsInitialView('health'); setSettingsOpen(true) }} aria-current={settingsOpen ? 'page' : undefined}>
             <span className="vault-dock-icon"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9}><path strokeLinecap="round" strokeLinejoin="round" d="M12 15.25A3.25 3.25 0 1012 8.75a3.25 3.25 0 000 6.5zM19.4 15a1.7 1.7 0 00.34 1.88l.06.06-2.83 2.83-.06-.06a1.7 1.7 0 00-1.88-.34 1.7 1.7 0 00-1.03 1.56V21h-4v-.09a1.7 1.7 0 00-1.04-1.56 1.7 1.7 0 00-1.88.34l-.06.06-2.83-2.83.06-.06A1.7 1.7 0 004.6 15a1.7 1.7 0 00-1.56-1.03H3v-4h.09A1.7 1.7 0 004.65 8.9a1.7 1.7 0 00-.34-1.88l-.06-.06 2.83-2.83.06.06A1.7 1.7 0 009 4.6a1.7 1.7 0 001.03-1.56V3h4v.09A1.7 1.7 0 0015.1 4.65a1.7 1.7 0 001.88-.34l.06-.06 2.83 2.83-.06.06A1.7 1.7 0 0019.4 9a1.7 1.7 0 001.56 1.03H21v4h-.09A1.7 1.7 0 0019.4 15z" /></svg></span>
             <span>Ajustes</span>
           </button>
@@ -1820,9 +1798,9 @@ function VaultApp() {
           isOpen={importTextOpen}
           onClose={() => setImportTextOpen(false)}
           onImport={async (rows) => {
-            const identityId = await importMassiveAccounts(rows)
-            if (identityId) {
-              setSelectedId(identityId)
+            const identity = await importMassiveAccounts(rows)
+            if (identity) {
+              setSelectedId(identity.id)
               setSelectedPlatformName(null)
               setSelectedLocalCategory(null)
             }
@@ -1939,14 +1917,6 @@ function VaultApp() {
           onSelect={handleSelect}
           onSelectPlatform={handleSelectPlatform}
           onSelectLocalCategory={handleSelectLocalCategory}
-          onAddIdentity={async (email) => {
-            const identity = await addIdentity(email)
-            requestNavigation(() => {
-              setSelectedId(identity.id)
-              setSelectedPlatformName(null)
-              setSelectedLocalCategory(null)
-            })
-          }}
           onDeleteIdentity={handleDeleteIdentity}
           onLock={handleLock}
           onSync={() => void handleManualSync()}
@@ -1959,8 +1929,6 @@ function VaultApp() {
           onInstall={handleInstallApp}
           syncing={cloudSyncStatus === 'syncing'}
           syncIndicator={CloudSyncIndicator}
-          showAddForm={showAddForm}
-          onToggleAddForm={handleToggleAddForm}
           onAddClick={handleAddClick}
           sortMode={sortMode}
         />
@@ -2065,6 +2033,17 @@ function VaultApp() {
           }
         }}
       />
+
+      {createModalOpen && (
+        <CreateAccountModal
+          isOpen={createModalOpen}
+          onClose={() => setCreateModalOpen(false)}
+          identities={displayIdentities}
+          initialIdentityId={selectedId || (displayIdentities.length > 0 ? displayIdentities[0].id : null)}
+          initialPlatformName={selectedPlatformName}
+          onProceed={handleProceedCreateModal}
+        />
+      )}
 
       <IOSInstallPrompt />
       {biometricOnboardingModal}

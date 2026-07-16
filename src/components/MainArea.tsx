@@ -207,13 +207,13 @@ export const MainArea = memo(function MainArea({
         setEditingPlatform({
           identityId: targetIdentity.id,
           identityEmail: targetIdentity.email,
-          platform: createPlatform('', { username: '' }),
+          platform: createPlatform(selectedPlatformName || '', { username: '' }),
         })
         setView('create')
       }
       onCreateHandled?.()
     }
-  }, [createTrigger, identity, identities, localCategory, onCreateHandled])
+  }, [createTrigger, identity, identities, localCategory, selectedPlatformName, onCreateHandled])
 
   useEffect(() => {
     if (editPlatformTrigger) {

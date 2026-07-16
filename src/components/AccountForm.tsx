@@ -1150,7 +1150,7 @@ export function AccountForm({
       {/* Sticky Header — Modo Edición */}
       <header className="sticky top-0 z-40 flex items-center justify-between gap-3 border-b border-border-subtle bg-white/90 px-4 py-3 backdrop-blur-xl lg:px-8 lg:py-4">
         <div className="flex items-center gap-3 min-w-0">
-          <button type="button" onClick={handleCancelClick} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver">
+          <button type="button" onClick={handleCancelClick} className="rounded-md p-1.5 text-text-secondary transition-colors hover:bg-surface-hover" aria-label="Volver" title="Descartar cambios y volver">
             <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
               <path strokeLinecap="round" strokeLinejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
             </svg>
@@ -1162,7 +1162,7 @@ export function AccountForm({
         </div>
         <div className="flex items-center gap-2 shrink-0">
           {mode === 'edit' && onDelete && (
-            <button type="button" onClick={() => setShowDeleteModal(true)} className="rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95">
+            <button type="button" onClick={() => setShowDeleteModal(true)} className="rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95" title="Eliminar plataforma de forma permanente">
               Eliminar
             </button>
           )}

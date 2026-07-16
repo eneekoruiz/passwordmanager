@@ -24,7 +24,6 @@ interface SidebarProps {
   onSelect: (id: string | null) => void
   onSelectPlatform: (platformName: string | null) => void
   onSelectLocalCategory: (category: LocalCategory | null) => void
-  onAddIdentity: (email: string) => Promise<void>
   onDeleteIdentity: (id: string) => Promise<void>
   onLock: () => void
   onSync: () => void
@@ -37,8 +36,6 @@ interface SidebarProps {
   onInstall?: () => void
   syncing?: boolean
   syncIndicator?: React.ReactNode
-  showAddForm: boolean
-  onToggleAddForm: (show?: boolean) => void
   onAddClick: () => void
   sortMode: SortMode
 }
@@ -64,7 +61,6 @@ export const Sidebar = memo(function Sidebar({
   onSelect,
   onSelectPlatform,
   onSelectLocalCategory,
-  onAddIdentity,
   onDeleteIdentity,
   onSync,
   isOpen,
@@ -75,15 +71,11 @@ export const Sidebar = memo(function Sidebar({
   onInstall,
   syncing = false,
   syncIndicator,
-  showAddForm,
-  onToggleAddForm,
   onAddClick,
   sortMode,
 }: SidebarProps) {
   const { cloudUserEmail, cloudSyncStatus, cloudVaultExists, localCategories, saveLocalCategory, deleteLocalCategory } = useVault()
   const { showToast } = useToast()
-  const [newIdentityEmail, setNewIdentityEmail] = useState('')
-  const [adding, setAdding] = useState(false)
   const [isOnline, setIsOnline] = useState(true)
   const [showCheck, setShowCheck] = useState(false)
   const [pendingDeleteIdentityId, setPendingDeleteIdentityId] = useState<string | null>(null)
@@ -335,23 +327,6 @@ export const Sidebar = memo(function Sidebar({
       return () => clearTimeout(timer)
     }
   }, [cloudSyncStatus])
-
-  const handleAddIdentity = async () => {
-    const email = newIdentityEmail.trim() || LOCAL_IDENTITY_EMAIL
-    setAdding(true)
-    try {
-      await onAddIdentity(email)
-      setSidebarError(null)
-      setNewIdentityEmail('')
-      onToggleAddForm(false)
-    } catch (error) {
-      const message = getFriendlyErrorMessage(error, 'No se pudo crear la identidad.')
-      setSidebarError(message)
-      showToast(message, 'error')
-    } finally {
-      setAdding(false)
-    }
-  }
   const activeSyncIndicator = syncIndicator !== undefined ? syncIndicator : (cloudUserEmail ? (
     <div className="flex items-center gap-1.5">
       {!isOnline ? (
@@ -660,31 +635,6 @@ export const Sidebar = memo(function Sidebar({
               )}
             </div>
           </header>
-        )}
-
-        {showAddForm && (
-          <div className="px-4 pb-3 lg:px-5">
-            <div className="flex gap-2">
-              <input
-                type="email"
-                value={newIdentityEmail}
-                onChange={(event) => setNewIdentityEmail(event.target.value)}
-                placeholder="correo@ejemplo.com"
-                className="min-w-0 flex-1 rounded-lg border border-border-subtle bg-surface-elevated px-3 py-2 text-sm outline-none transition-colors focus:border-border"
-                onKeyDown={(event) => {
-                  if (event.key === 'Enter') void handleAddIdentity()
-                }}
-              />
-              <button
-                type="button"
-                onClick={handleAddIdentity}
-                disabled={adding}
-                className="rounded-lg vault-button-primary px-3 py-2 text-sm font-medium text-white disabled:opacity-50"
-              >
-                {adding ? '...' : 'OK'}
-              </button>
-            </div>
-          </div>
         )}
 
         <div className="px-4 pb-3 lg:px-5">
