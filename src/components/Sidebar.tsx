@@ -1,10 +1,10 @@
 import { useEffect, useState, useMemo, memo, useRef, useCallback } from 'react'
-import type { Identity, LocalCategory, LocalVaultItem, LocalVaultItemType, VaultGroupMode, SortMode } from '../types'
+import type { Identity, LocalCategory, LocalVaultItem, VaultGroupMode, SortMode } from '../types'
 import { useToast } from './ui/ToastProvider'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
-import { LOCAL_ITEM_LABELS, normalizeLocalCategory } from '../utils/vaultItem'
+import { normalizeLocalCategory } from '../utils/vaultItem'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
@@ -447,7 +447,7 @@ export const Sidebar = memo(function Sidebar({
               {activeMenuCategoryId === category.id && (
                 <>
                   <div 
-                    className="fixed inset-0 z-40 bg-black/5 backdrop-blur-[1px] dark:bg-white/5"
+                    className="fixed inset-0 z-40"
                     onClick={(e) => { e.stopPropagation(); setActiveMenuCategoryId(null); }}
                   />
                   <div className="absolute right-0 top-full mt-1 z-50 w-48 rounded-2xl border border-border-subtle bg-white dark:bg-slate-800 shadow-xl overflow-hidden animate-in fade-in zoom-in-95 origin-top-right">
@@ -613,6 +613,39 @@ export const Sidebar = memo(function Sidebar({
               {sidebarError}
             </div>
           )}
+          {/* Desktop Toggle (only visible on lg) */}
+          <div className="hidden lg:flex mb-2 w-full p-1 bg-surface-elevated dark:bg-black/40 rounded-2xl border border-black/[0.04] dark:border-white/5">
+            <button
+              onClick={() => onGroupModeChange('platform')}
+              className={`flex-1 rounded-xl py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                groupMode === 'platform'
+                  ? 'bg-white text-text-primary shadow-sm dark:bg-slate-700 dark:text-white'
+                  : 'text-text-tertiary hover:text-text-secondary dark:text-slate-500 dark:hover:text-slate-300'
+              }`}
+            >
+              Plats
+            </button>
+            <button
+              onClick={() => onGroupModeChange('identity')}
+              className={`flex-1 rounded-xl py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                groupMode === 'identity'
+                  ? 'bg-white text-text-primary shadow-sm dark:bg-slate-700 dark:text-white'
+                  : 'text-text-tertiary hover:text-text-secondary dark:text-slate-500 dark:hover:text-slate-300'
+              }`}
+            >
+              Idens
+            </button>
+            <button
+              onClick={() => onGroupModeChange('local')}
+              className={`flex-1 rounded-xl py-2 text-[10px] font-bold uppercase tracking-wider transition-all duration-200 ${
+                groupMode === 'local'
+                  ? 'bg-white text-text-primary shadow-sm dark:bg-slate-700 dark:text-white'
+                  : 'text-text-tertiary hover:text-text-secondary dark:text-slate-500 dark:hover:text-slate-300'
+              }`}
+            >
+              Local
+            </button>
+          </div>
         </div>
 
         <nav ref={navRef} className="relative flex-1 overflow-y-auto scrollbar-thin px-2 pb-5 lg:px-3">

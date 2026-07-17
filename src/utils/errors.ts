@@ -1,5 +1,5 @@
 const FIREBASE_AUTH_MESSAGES: Record<string, string> = {
-  'auth/popup-closed-by-user': 'El inicio de sesion se cerro antes de completarse.',
+  'auth/popup-closed-by-user': 'Cancelaste el inicio de sesión con Google.',
   'auth/popup-blocked': 'Safari bloqueó la ventana de Google. Pulsa de nuevo y permite la ventana emergente.',
   'auth/internal-error': 'Safari no pudo conservar el estado del acceso. Hemos limpiado la sesión temporal; pulsa de nuevo para reintentarlo.',
   'auth/operation-not-supported-in-this-environment': 'Este modo de navegación no permite completar el acceso. Abre la app en Safari e inténtalo de nuevo.',
@@ -7,7 +7,7 @@ const FIREBASE_AUTH_MESSAGES: Record<string, string> = {
   'auth/invalid-credential': 'La sesion no pudo validarse. Vuelve a intentarlo.',
   'auth/invalid-login-credentials': 'Las credenciales no son validas.',
   'auth/user-not-found': 'No existe una cuenta asociada a ese usuario.',
-  'auth/wrong-password': 'La credencial introducida no es correcta.',
+  'auth/wrong-password': 'La contraseña introducida no es correcta.',
   'auth/too-many-requests': 'Se han detectado demasiados intentos. Espera un momento antes de reintentar.',
   'auth/account-exists-with-different-credential':
     'Esta cuenta ya existe con otro metodo de acceso.',

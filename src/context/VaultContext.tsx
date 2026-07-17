@@ -1511,7 +1511,17 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setIsUnlocked(true)
         setIdentities([localIdentity])
         setLocalItems([])
-        setLocalCategories([])
+        const defaultCategories = [
+          { id: 'cat-tickets', label: 'Tickets y facturas', type: 'DOCUMENT' as const, custom: true },
+          { id: 'cat-docs', label: 'Documentación', type: 'DOCUMENT' as const, custom: true },
+          { id: 'cat-wifi', label: 'WiFi', type: 'WIFI' as const, custom: true }
+        ]
+        
+        for (const cat of defaultCategories) {
+          await storeRef.current.saveLocalCategory(profileId, cat)
+        }
+
+        setLocalCategories(defaultCategories)
 
         const encryptedBlob = await storeRef.current.exportCloudPayload(profileId)
         await setDoc(doc(dbClient, 'vaults', user.uid), {

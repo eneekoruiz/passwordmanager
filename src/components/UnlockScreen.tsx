@@ -61,12 +61,12 @@ function NativeIdentityStep({
   }
 
   return (
-    <div className="w-full space-y-5 text-left animate-fade-in">
-      <div className="space-y-1 text-center">
-        <h1 className="text-xl font-bold tracking-tight text-text-primary">
-          {mode === 'forgot_password' ? 'Recuperar contraseña' : 'Accede a tu cuenta'}
-        </h1>
-        <p className="text-xs leading-relaxed text-text-secondary">
+    <div className="w-full space-y-4 text-left animate-fade-in">
+      <div className="text-center mb-4">
+        <h2 className="text-xl font-black tracking-tight text-text-primary mb-1">
+          {mode === 'login' ? 'Hola de nuevo' : mode === 'forgot_password' ? 'Recuperar Acceso' : 'Crea tu Bóveda'}
+        </h2>
+        <p className="text-[11px] text-text-secondary leading-relaxed max-w-[280px] mx-auto">
           {mode === 'forgot_password'
             ? 'Introduce tu correo para restablecer la contraseña de acceso a tu cuenta de la nube.'
             : 'Inicia sesión o crea una cuenta para sincronizar tu bóveda.'}
@@ -171,12 +171,12 @@ function NativeIdentityStep({
           )}
 
 
-          <div className="space-y-3 mt-6">
+          <div className="space-y-2 mt-4">
             <Button
               type="submit"
               variant="primary"
               size="lg"
-              className="w-full"
+              className="w-full min-h-10 text-xs"
               disabled={loading || !email || (mode !== 'forgot_password' && !password) || (mode === 'register' && password !== confirmPassword)}
             >
               {loading
@@ -209,9 +209,9 @@ function NativeIdentityStep({
 
       {mode !== 'forgot_password' && (
         <>
-          <div className="relative flex py-2 items-center">
+          <div className="relative flex py-1.5 items-center">
             <div className="flex-grow border-t border-black/[0.06]"></div>
-            <span className="flex-shrink mx-4 text-[10px] font-bold uppercase tracking-[0.14em] text-text-tertiary">o continuar con</span>
+            <span className="flex-shrink mx-3 text-[9px] font-bold uppercase tracking-[0.14em] text-text-tertiary">o continuar con</span>
             <div className="flex-grow border-t border-black/[0.06]"></div>
           </div>
 
@@ -219,7 +219,7 @@ function NativeIdentityStep({
             type="button"
             disabled={loading}
             onClick={onGoogleAuth}
-            className="flex w-full items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-3 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
+            className="flex w-full min-h-10 items-center justify-center gap-2 rounded-xl border border-black/10 bg-white py-2 text-xs font-semibold text-text-primary shadow-sm transition-all hover:bg-surface-hover disabled:opacity-50 active:scale-[0.98]"
           >
             <svg className="h-4 w-4" viewBox="0 0 24 24" width="24" height="24">
               <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
@@ -693,8 +693,8 @@ export function UnlockScreen() {
         </div>
       </section>
 
-      <div className="relative m-2 flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto pb-24 rounded-[34px] px-4 py-8 lg:m-3 lg:pb-8">
-        <div className="vault-glass flex w-full max-w-md flex-col items-center rounded-[32px] p-6 text-center animate-fade-in sm:p-8">
+      <div className="relative m-1 flex min-w-0 flex-1 flex-col items-center justify-center overflow-y-auto pb-4 rounded-[34px] px-3 py-4 lg:m-3 lg:pb-8">
+        <div className="vault-glass flex w-full max-w-md flex-col items-center rounded-[32px] p-5 text-center animate-fade-in sm:p-8">
         {cloudUserEmail === null ? (
           <NativeIdentityStep
             loading={loading || isCloudLoading}

@@ -425,7 +425,7 @@ export function SettingsModal({
   )
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm animate-fade-in">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/20 p-4 backdrop-blur-sm animate-fade-in">
       <button
         type="button"
         className="fixed inset-0 cursor-default bg-transparent outline-none"
