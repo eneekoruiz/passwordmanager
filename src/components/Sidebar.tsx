@@ -227,25 +227,8 @@ export const Sidebar = memo(function Sidebar({
   }, [localItems])
 
   const localCategoryOptions: LocalCategory[] = useMemo(() => {
-    const categoriesFromItems = localItems.reduce<LocalCategory[]>((categories, item) => {
-      const id = item.categoryId ?? item.type
-      if (categories.some((category) => category.id === id)) return categories
-      categories.push({
-        id,
-        label: item.categoryLabel?.trim() || item.title || LOCAL_ITEM_LABELS[item.type as LocalVaultItemType] || 'Categoría',
-        type: item.type,
-        custom: true,
-      })
-      return categories
-    }, [])
-
-    return [
-      ...localCategories,
-      ...categoriesFromItems.filter(
-        (fromItem) => !localCategories.some((custom) => custom.id === fromItem.id)
-      ),
-    ]
-  }, [localCategories, localItems])
+    return localCategories
+  }, [localCategories])
 
   const visibleLocalCategories = useMemo(
     () => (query

@@ -93,7 +93,7 @@ function VaultApp() {
     isVaultLoaded,
   } = useVault()
 
-  const { showToast } = useToast()
+  const { showToast, dismissToast } = useToast()
 
   const [showLoader, setShowLoader] = useState(true)
   const [mounted, setMounted] = useState(false)
@@ -934,7 +934,7 @@ function VaultApp() {
           const result = await syncActiveProfileToCloud(true)
           if (result.action === 'download_available') {
             setPendingCloudDownload(result)
-            showToast('Hay cambios en la nube que necesitan tu revisión.', 'info', { id: toastId, durationMs: 5200 })
+            dismissToast(toastId)
             return
           }
           if (result.action === 'idle') {
