@@ -16,6 +16,7 @@ interface SidebarProps {
   identities: Identity[]
   localItems: LocalVaultItem[]
   groupMode: VaultGroupMode
+  onGroupModeChange: (mode: VaultGroupMode) => void
   selectedId: string | null
   selectedPlatformName: string | null
   selectedLocalCategory: LocalCategory | null
@@ -52,6 +53,7 @@ export const Sidebar = memo(function Sidebar({
   identities,
   localItems,
   groupMode,
+  onGroupModeChange,
   selectedId,
   selectedPlatformName,
   selectedLocalCategory,

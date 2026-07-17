@@ -1656,6 +1656,7 @@ function VaultApp() {
               identities={displayIdentities}
               localItems={displayLocalItems}
               groupMode={groupMode}
+              onGroupModeChange={handleGroupModeChange}
               selectedId={selectedId}
               selectedPlatformName={selectedPlatformName}
               selectedLocalCategory={selectedLocalCategory}
@@ -1846,6 +1847,7 @@ function VaultApp() {
           identities={displayIdentities}
           localItems={displayLocalItems}
           groupMode={groupMode}
+          onGroupModeChange={handleGroupModeChange}
           selectedId={selectedId}
           selectedPlatformName={selectedPlatformName}
           selectedLocalCategory={selectedLocalCategory}
