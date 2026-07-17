@@ -92,8 +92,21 @@ export function computeSyncDiff(
         })
         hasChanges = true
       } else {
-        const localStr = deterministicStringify({ ...localItem, updatedAt: undefined, createdAt: undefined })
-        const cloudStr = deterministicStringify({ ...cloudItem, updatedAt: undefined, createdAt: undefined })
+        const deepOmitMeta = (obj: any): any => {
+          if (Array.isArray(obj)) return obj.map(deepOmitMeta)
+          if (obj !== null && typeof obj === 'object') {
+            const newObj: any = {}
+            for (const key in obj) {
+              if (!['updatedAt', 'createdAt', 'lastAccessedAt', 'accessCount'].includes(key)) {
+                newObj[key] = deepOmitMeta(obj[key])
+              }
+            }
+            return newObj
+          }
+          return obj
+        }
+        const localStr = deterministicStringify(deepOmitMeta(localItem))
+        const cloudStr = deterministicStringify(deepOmitMeta(cloudItem))
         if (localStr !== cloudStr) {
           diffs.push({
             id,

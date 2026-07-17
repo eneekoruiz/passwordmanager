@@ -4,7 +4,7 @@ import { useToast } from './ui/ToastProvider'
 import { useVault } from '../context/VaultContext'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
-import { LOCAL_ITEM_LABELS, PRESET_LOCAL_CATEGORIES, normalizeLocalCategory } from '../utils/vaultItem'
+import { LOCAL_ITEM_LABELS, normalizeLocalCategory } from '../utils/vaultItem'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { getCanonicalPlatformName } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
@@ -229,31 +229,20 @@ export const Sidebar = memo(function Sidebar({
   const localCategoryOptions: LocalCategory[] = useMemo(() => {
     const categoriesFromItems = localItems.reduce<LocalCategory[]>((categories, item) => {
       const id = item.categoryId ?? item.type
-      if (id === item.type || categories.some((category) => category.id === id)) return categories
+      if (categories.some((category) => category.id === id)) return categories
       categories.push({
         id,
-        label: item.categoryLabel?.trim() || item.title || LOCAL_ITEM_LABELS[item.type],
+        label: item.categoryLabel?.trim() || item.title || LOCAL_ITEM_LABELS[item.type as LocalVaultItemType] || 'Categoría',
         type: item.type,
         custom: true,
-        updatedAt: item.updatedAt,
-        createdAt: item.createdAt,
       })
       return categories
     }, [])
 
     return [
-      ...(Object.keys(LOCAL_ITEM_LABELS) as LocalVaultItemType[]).map((type) => ({
-        id: type,
-        label: LOCAL_ITEM_LABELS[type],
-        type,
-        custom: false,
-      })),
-      ...PRESET_LOCAL_CATEGORIES,
       ...localCategories,
       ...categoriesFromItems.filter(
-        (fromItem) =>
-          !localCategories.some((custom) => custom.id === fromItem.id) &&
-          !PRESET_LOCAL_CATEGORIES.some((preset) => preset.id === fromItem.id),
+        (fromItem) => !localCategories.some((custom) => custom.id === fromItem.id)
       ),
     ]
   }, [localCategories, localItems])
@@ -815,10 +804,33 @@ export const Sidebar = memo(function Sidebar({
                   <p className="px-3 pb-2 text-[11px] leading-relaxed text-text-tertiary">
                     Espacios privados personalizables para notas, documentos, tarjetas o cualquier dato sensible que no dependa de una plataforma.
                   </p>
-                  {sidebarLocalCategories.length === 0 ? (
+                  {sidebarLocalCategories.length === 0 && localItems.length === 0 ? (
                     renderEmptyNavigationState('Crea una categoría aquí', () => void handleAddLocalCategory())
                   ) : (
                     <ul className="space-y-0.5">
+                      <li className="mb-2">
+                        <button
+                          type="button"
+                          onClick={() => onSelectLocalCategory({ id: 'all', label: 'Todas las notas locales', type: 'SECURE_NOTE', custom: false })}
+                          className={`group flex w-full items-center justify-between rounded-xl px-3 py-2.5 text-sm font-semibold transition-all duration-200 ${
+                            selectedLocalCategory?.id === 'all'
+                              ? 'bg-emerald-50 text-emerald-800 dark:bg-emerald-500/10 dark:text-emerald-300'
+                              : 'text-text-secondary hover:bg-black/[0.03] dark:text-[#a0a0a5] dark:hover:bg-white/[0.03]'
+                          }`}
+                        >
+                          <div className="flex items-center gap-2.5">
+                            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-emerald-100 text-emerald-600 dark:bg-emerald-500/20 dark:text-emerald-400">
+                              <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                                <path strokeLinecap="round" strokeLinejoin="round" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 002-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10" />
+                              </svg>
+                            </span>
+                            Todas las notas locales
+                          </div>
+                          <span className="flex h-6 min-w-[24px] items-center justify-center rounded-full bg-black/[0.04] px-2 text-[10px] font-bold tabular-nums text-text-secondary dark:bg-white/[0.04] dark:text-[#a0a0a5]">
+                            {localItems.length}
+                          </span>
+                        </button>
+                      </li>
                       {sidebarLocalCategories.filter(c => !c.parentId).map((c, i) => renderLocalCategoryItem(c, i, 0))}
                     </ul>
                   )}

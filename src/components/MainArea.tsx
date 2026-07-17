@@ -201,7 +201,9 @@ export const MainArea = memo(function MainArea({
     if (createTrigger > 0) {
       const targetIdentity = identity || (identities.length > 0 ? identities[0] : null)
       if (localCategory) {
-        setEditingLocalItem(createLocalVaultItem(localCategory.type, localCategory.id, localCategory.label))
+        const cid = localCategory.id === 'all' ? undefined : localCategory.id
+        const clabel = localCategory.id === 'all' ? undefined : localCategory.label
+        setEditingLocalItem(createLocalVaultItem(localCategory.type, cid, clabel))
         setView('create')
       } else if (targetIdentity) {
         setEditingPlatform({
@@ -332,6 +334,7 @@ export const MainArea = memo(function MainArea({
 
   const selectedLocalItems = useMemo(() => {
     if (!localCategory) return []
+    if (localCategory.id === 'all') return localItems
     const categoryIds = new Set([localCategory.id, ...subCategories.map(c => c.id)])
     return localItems.filter((item) => categoryIds.has(item.categoryId ?? item.type))
   }, [localItems, localCategory, subCategories])
