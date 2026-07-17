@@ -664,8 +664,9 @@ function VaultApp() {
     }
   }, [isUnlocked, logoutProfile, showToast])
 
+  const handleOpenSettings = useCallback(() => { setSettingsInitialView('health'); setSettingsOpen(true); }, [])
+
   useEffect(() => {
-    const handleOpenSettings = () => { setSettingsInitialView('health'); setSettingsOpen(true); }
     const handleClipboardCleared = () => showToast('Portapapeles limpiado por seguridad', 'info')
     
     const handleKeyDown = (e: KeyboardEvent) => {
