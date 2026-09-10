@@ -51,6 +51,15 @@ export default {
           '0%, 100%': { opacity: '1' },
           '50%': { opacity: '0.75' },
         },
+        'shake': {
+          '0%, 100%': { transform: 'translateX(0)' },
+          '15%': { transform: 'translateX(-6px)' },
+          '30%': { transform: 'translateX(6px)' },
+          '45%': { transform: 'translateX(-5px)' },
+          '60%': { transform: 'translateX(5px)' },
+          '75%': { transform: 'translateX(-3px)' },
+          '90%': { transform: 'translateX(3px)' },
+        },
       },
       animation: {
         'fade-in': 'fade-in 0.35s cubic-bezier(0.16, 1, 0.3, 1) forwards',

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 
@@ -23,6 +23,8 @@ export function MasterPasswordPromptModal() {
   const [password, setPassword] = useState('')
   const toastContext = useToast()
   const [loading, setLoading] = useState(false)
+  const [shakeError, setShakeError] = useState(false)
+  const inputRef = useRef<HTMLInputElement>(null)
 
   if (!isPromptingMasterPassword) return null
 
@@ -42,9 +44,23 @@ export function MasterPasswordPromptModal() {
         setPassword('')
       } else {
         toastContext.showToast('Contraseña incorrecta.', 'error')
+        // Shake + red ring feedback — keep password editable
+        setShakeError(true)
+        setTimeout(() => setShakeError(false), 600)
+        // Select all text so user can retype immediately
+        requestAnimationFrame(() => {
+          inputRef.current?.select()
+          inputRef.current?.focus()
+        })
       }
     } catch (err) {
       toastContext.showToast(err instanceof Error ? err.message : 'Error de verificación', 'error')
+      setShakeError(true)
+      setTimeout(() => setShakeError(false), 600)
+      requestAnimationFrame(() => {
+        inputRef.current?.select()
+        inputRef.current?.focus()
+      })
     } finally {
       setLoading(false)
     }
@@ -74,14 +90,20 @@ export function MasterPasswordPromptModal() {
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
               <input
+                ref={inputRef}
                 type="password"
                 required
                 autoFocus
                 value={password}
                 onChange={(e) => {
                   setPassword(e.target.value)
+                  if (shakeError) setShakeError(false)
                 }}
-                className={`w-full rounded-2xl border border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20 px-4 py-3 text-sm font-medium shadow-sm transition-all outline-none focus:ring-4`}
+                className={`w-full rounded-2xl border px-4 py-3 text-sm font-medium shadow-sm transition-all outline-none focus:ring-4 ${
+                  shakeError
+                    ? 'border-red-400 bg-red-50 focus:border-red-500 focus:ring-red-500/20 animate-[shake_0.5s_ease-in-out]'
+                    : 'border-slate-200 bg-white focus:border-indigo-500 focus:ring-indigo-500/20'
+                }`}
                 placeholder="Contraseña Maestra..."
               />
             </div>
@@ -122,3 +144,4 @@ export function MasterPasswordPromptModal() {
     </div>
   )
 }
+
