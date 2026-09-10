@@ -6,6 +6,8 @@ import { PlatformLogo } from './ui/PlatformLogo'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
 import { cn } from './ui/BottomSheet' // Using our new cn utility
+import { isAccountUnverified } from '../utils/security'
+import { getPlatformUrl } from '../utils/platformUtils'
 
 interface AccountCardProps {
   account: Platform
@@ -89,12 +91,46 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
           "hover:bg-surface-elevated transition-colors will-change-transform"
         )}
       >
-        <PlatformLogo name={account.name} className="h-14 w-14 shrink-0 rounded-[18px] shadow-sm bg-white border border-black/5 dark:border-white/10 dark:bg-white/5 p-2" />
+        <div className="relative shrink-0">
+          <PlatformLogo name={account.name} className="h-14 w-14 rounded-[18px] shadow-sm bg-white border border-black/5 dark:border-white/10 dark:bg-white/5 p-2" />
+          {isAccountUnverified(account) && (
+            <button
+              type="button"
+              title="Abrir web para verificar"
+              aria-label="Abrir web para verificar"
+              onClick={(e) => {
+                e.stopPropagation()
+                const url = getPlatformUrl(account.name)
+                if (url) window.open(url, '_blank', 'noopener,noreferrer')
+              }}
+              className="group/indicator absolute -top-1 -right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+            >
+              <span className="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-surface bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] transition-all duration-150 group-hover/indicator:bg-amber-400 group-hover/indicator:shadow-[0_0_12px_rgba(245,158,11,0.9)] dark:border-[#1c1c1e] dark:bg-amber-400" />
+            </button>
+          )}
+        </div>
 
         <div className="flex-1 min-w-0 text-left">
-          <p className="text-[16px] font-black tracking-tight text-text-primary truncate">
-            {accountDisplayName(account)}
-          </p>
+          <div className="flex items-center gap-2 min-w-0">
+            <p className="text-[16px] font-black tracking-tight text-text-primary truncate">
+              {accountDisplayName(account)}
+            </p>
+            {isAccountUnverified(account) && (
+              <button
+                type="button"
+                title="Abrir web para verificar"
+                aria-label="Abrir web para verificar"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const url = getPlatformUrl(account.name)
+                  if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                }}
+                className="group/dot inline-flex h-4 w-4 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              >
+                <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-400/30 transition-all duration-150 group-hover/dot:bg-amber-400 group-hover/dot:ring-amber-400/60 group-hover/dot:shadow-[0_0_6px_rgba(245,158,11,0.8)] dark:bg-amber-400" />
+              </button>
+            )}
+          </div>
 
           <div className="mt-0.5">
             {(account?.accessMethods || [])

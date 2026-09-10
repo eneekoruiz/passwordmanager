@@ -184,15 +184,15 @@ export function SecurityReviewHub({
 
           <AuditRow
             icon={
-              <svg className="h-5 w-5 text-blue-600" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                <path strokeLinecap="round" strokeLinejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" />
+              <svg className="h-5 w-5 text-amber-600 dark:text-amber-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
               </svg>
             }
-            label="Contraseñas Antiguas"
-            description="Sin cambiar en más de 90 días."
+            label="Contraseñas sin Verificar"
+            description="Sin comprobar en la web oficial o modificadas tras ser verificadas."
             count={oldCount}
-            countColor="text-blue-600 dark:text-blue-400"
-            badgeBg="bg-blue-50 dark:bg-blue-900/30"
+            countColor="text-amber-600 dark:text-amber-400"
+            badgeBg="bg-amber-50 dark:bg-amber-900/30"
             onClick={() => { onClose(); onOpenOld() }}
           />
         </div>

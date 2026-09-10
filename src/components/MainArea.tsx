@@ -2,28 +2,17 @@ import { useEffect, useMemo, useState, memo, useRef } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
-import { hasWeakPassword, hasExposedPassword } from '../utils/security'
+import { hasWeakPassword, hasExposedPassword, isAccountUnverified, isAccountVerified } from '../utils/security'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { VaultItemForm } from './VaultItemForm'
-import { getCanonicalPlatformName } from '../utils/platformUtils'
+import { getCanonicalPlatformName, getPlatformUrl } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ExposedPasswordWarningPopover } from './ui/ExposedPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
 import { useVault } from '../context/VaultContext'
 type ViewMode = 'grid' | 'create' | 'edit'
-
-const getPlatformUrl = (name: string): string => {
-  const cleanName = name.trim().toLowerCase()
-  if (cleanName.startsWith('http://') || cleanName.startsWith('https://')) {
-    return cleanName
-  }
-  if (cleanName.includes('.')) {
-    return `https://${cleanName}`
-  }
-  return `https://${cleanName}.com`
-}
 
 interface MainAreaProps {
   identities: Identity[]
@@ -72,6 +61,7 @@ interface PlatformQuickPick {
   name: string
   count: number
   hasWeakPassword: boolean
+  hasUnverifiedAccount?: boolean
   maxAccessDate: string
 }
 
@@ -276,7 +266,7 @@ export const MainArea = memo(function MainArea({
   const selectedPlatformDisplayName = getCanonicalPlatformName(rawDisplayName)
   const hasVaultSelection = Boolean(identity || localCategory || selectedPlatformName)
   const featuredPlatforms = useMemo<PlatformQuickPick[]>(() => {
-    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean }>()
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean; hasUnverifiedAccount: boolean }>()
     identities.forEach((item) => {
       (item?.platforms || []).forEach((platform) => {
         const name = platform?.name?.trim()
@@ -292,6 +282,7 @@ export const MainArea = memo(function MainArea({
           if (date > existing.maxDate) existing.maxDate = date
           if (accessDate > existing.maxAccessDate) existing.maxAccessDate = accessDate
           existing.hasWeakPassword = existing.hasWeakPassword || hasWeakPassword(platform)
+          existing.hasUnverifiedAccount = existing.hasUnverifiedAccount || isAccountUnverified(platform)
         } else {
           platformData.set(key, {
             name: canonicalName,
@@ -300,6 +291,7 @@ export const MainArea = memo(function MainArea({
             maxDate: date,
             maxAccessDate: accessDate,
             hasWeakPassword: hasWeakPassword(platform),
+            hasUnverifiedAccount: isAccountUnverified(platform),
           })
         }
       })
@@ -482,16 +474,59 @@ export const MainArea = memo(function MainArea({
                             )}
                             <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
                               {platforms.map((platform, index) => (
-                                <button
+                                <div
                                   key={platform.name}
-                                  type="button"
+                                  role="button"
+                                  tabIndex={0}
                                   onClick={() => onRequestNavigation(() => onSelectPlatformName(platform.name))}
-                                  className="vault-card animate-vault-slide-up flex items-center gap-4 rounded-[24px] p-4 text-left"
+                                  onKeyDown={(e) => {
+                                    if (e.key === 'Enter' || e.key === ' ') {
+                                      e.preventDefault()
+                                      onRequestNavigation(() => onSelectPlatformName(platform.name))
+                                    }
+                                  }}
+                                  className="vault-card animate-vault-slide-up flex items-center gap-4 rounded-[24px] p-4 text-left cursor-pointer"
                                   style={{ animationDelay: `${index * 40}ms` }}
                                 >
-                                  <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
+                                  <div className="relative shrink-0">
+                                    <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-11 w-11 rounded-2xl border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
+                                    {platform.hasUnverifiedAccount && (
+                                      <button
+                                        type="button"
+                                        title="Abrir web para verificar"
+                                        aria-label="Abrir web para verificar"
+                                        onClick={(e) => {
+                                          e.stopPropagation()
+                                          const url = getPlatformUrl(platform.name)
+                                          if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                                        }}
+                                        className="group/indicator absolute -top-1 -right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                                      >
+                                        <span className="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-surface bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] transition-all duration-150 group-hover/indicator:bg-amber-400 group-hover/indicator:shadow-[0_0_12px_rgba(245,158,11,0.9)] dark:border-[#1c1c1e] dark:bg-amber-400" />
+                                      </button>
+                                    )}
+                                  </div>
                                   <span className="min-w-0 flex-1 relative">
-                                    <span className="block break-words line-clamp-2 text-sm font-semibold text-text-primary pr-5 dark:text-white leading-tight" title={getCanonicalPlatformName(platform.name)}>{getCanonicalPlatformName(platform.name)}</span>
+                                    <span className="flex items-center gap-1.5 min-w-0">
+                                      <span className="block break-words line-clamp-2 text-sm font-semibold text-text-primary pr-2 dark:text-white leading-tight" title={getCanonicalPlatformName(platform.name)}>
+                                        {getCanonicalPlatformName(platform.name)}
+                                      </span>
+                                      {platform.hasUnverifiedAccount && (
+                                        <button
+                                          type="button"
+                                          title="Abrir web para verificar"
+                                          aria-label="Abrir web para verificar"
+                                          onClick={(e) => {
+                                            e.stopPropagation()
+                                            const url = getPlatformUrl(platform.name)
+                                            if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                                          }}
+                                          className="group/dot inline-flex h-4 w-4 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                                        >
+                                          <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-400/30 transition-all duration-150 group-hover/dot:bg-amber-400 group-hover/dot:ring-amber-400/60 group-hover/dot:shadow-[0_0_6px_rgba(245,158,11,0.8)] dark:bg-amber-400" />
+                                        </button>
+                                      )}
+                                    </span>
                                     {(!hideWarnings && platform.hasWeakPassword) && (
                                       <div className="absolute right-0 top-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
                                         <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20">
@@ -506,7 +541,7 @@ export const MainArea = memo(function MainArea({
                                   <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary dark:bg-slate-900 dark:text-slate-300">
                                     Abrir
                                   </span>
-                                </button>
+                                </div>
                               ))}
                             </div>
                           </div>
@@ -738,7 +773,7 @@ export const MainArea = memo(function MainArea({
       </header>
       )}
 
-      <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain relative ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:py-6'}`}>
+      <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain relative ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:pt-6 lg:pb-32'}`}>
         {view === 'grid' && (
           <>
 
@@ -756,7 +791,7 @@ export const MainArea = memo(function MainArea({
                 <div className="space-y-8">
                   {Array.from(
                     filteredLocalItems
-                      .filter(item => (item.categoryId ?? item.type) === localCategory.id)
+                      .filter(item => localCategory.id === 'all' || (item.categoryId ?? item.type) === localCategory.id)
                       .reduce((acc, item) => {
                         const sec = item.section?.trim() || 'General'
                         if (!acc.has(sec)) acc.set(sec, [])
@@ -854,26 +889,68 @@ export const MainArea = memo(function MainArea({
                   },
                 })
               ) : (
-                <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                <div className={filteredPlatformAccounts.length <= 2 ? "flex flex-col gap-3 pr-1" : "grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3"}>
                   {filteredPlatformAccounts.map(({ identityId, identityEmail, platform }, index) => {
                     const pwMethod = (platform.accessMethods || []).find((m: any) => m?.type === 'PASSWORD') as any
                     const hasUrl = !!(platform as any).url
+                    const isListMode = filteredPlatformAccounts.length <= 2
                     return (
                     <div key={`${identityId}-${platform.id}`} className="relative group">
-                      <button
-                        type="button"
+                      <div
+                        role="button"
+                        tabIndex={0}
                         onClick={() => {
                           setEditingPlatform({ identityId, identityEmail, platform })
                           setView('edit')
                         }}
+                        onKeyDown={(e) => {
+                          if (e.key === 'Enter' || e.key === ' ') {
+                            e.preventDefault()
+                            setEditingPlatform({ identityId, identityEmail, platform })
+                            setView('edit')
+                          }
+                        }}
                         style={{ animationDelay: `${index * 45}ms` }}
-                        className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                        className={`animate-vault-slide-up relative flex w-full items-start gap-4 rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.01] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.99] cursor-pointer ${isListMode ? 'min-h-[88px] p-5' : 'min-h-[112px] gap-3 p-4'}`}
                       >
-                        <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 to-transparent" />
-                        <PlatformLogo name={getCanonicalPlatformName(platform.name)} className="h-9 w-9" />
+                        <div className="relative shrink-0">
+                          <PlatformLogo name={getCanonicalPlatformName(platform.name)} className={isListMode ? "h-12 w-12" : "h-9 w-9"} />
+                          {isAccountUnverified(platform) && (
+                            <button
+                              type="button"
+                              title="Abrir web para verificar"
+                              aria-label="Abrir web para verificar"
+                              onClick={(e) => {
+                                e.stopPropagation()
+                                const url = getPlatformUrl((platform as any).url || platform.name)
+                                if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                              }}
+                              className="group/indicator absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                            >
+                              <span className="relative inline-flex h-2 w-2 rounded-full border border-surface bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)] transition-all duration-150 group-hover/indicator:bg-amber-400 group-hover/indicator:shadow-[0_0_10px_rgba(245,158,11,0.9)] dark:border-[#1c1c1e] dark:bg-amber-400" />
+                            </button>
+                          )}
+                        </div>
                         <span className="min-w-0 flex-1">
-                          <span className="block truncate text-sm font-semibold text-text-primary dark:text-white min-h-[20px] pr-5">
-                            {platform.username}
+                          <span className="flex items-center gap-1.5 min-w-0 pr-5">
+                            <span className={`block truncate font-semibold text-text-primary dark:text-white min-h-[20px] ${isListMode ? 'text-base' : 'text-sm'}`}>
+                              {platform.username || identityEmail}
+                            </span>
+                            {isAccountUnverified(platform) && (
+                              <button
+                                type="button"
+                                title="Abrir web para verificar"
+                                aria-label="Abrir web para verificar"
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  const url = getPlatformUrl((platform as any).url || platform.name)
+                                  if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                                }}
+                                className="group/dot inline-flex h-3.5 w-3.5 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                              >
+                                <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-400/20 transition-all duration-150 group-hover/dot:bg-amber-400 group-hover/dot:ring-amber-400/50 dark:bg-amber-400" />
+                              </button>
+                            )}
                           </span>
                           <span className="mt-1 block text-xs text-text-secondary max-w-full">
                             {revealedPasswords.has(`${identityId}-${platform.id}`) && pwMethod?.password ? (
@@ -884,6 +961,11 @@ export const MainArea = memo(function MainArea({
                               <span className="block break-all">{identityEmail}</span>
                             )}
                           </span>
+                          {isListMode && platform.notes && (
+                            <span className="mt-2 block text-xs text-text-tertiary dark:text-slate-500 line-clamp-2 leading-relaxed">
+                              {platform.notes}
+                            </span>
+                          )}
                           <span className="mt-3 flex flex-wrap gap-1.5">
                             {(platform?.accessMethods || [])
                               .filter((method) => method?.type === 'SSO')
@@ -909,7 +991,7 @@ export const MainArea = memo(function MainArea({
                             )}
                           </span>
                         </span>
-                      </button>
+                      </div>
                       {(!hideWarnings && hasWeakPassword(platform) && !hasExposedPassword(platform)) && (
                         <WeakPasswordWarningPopover
                           className="absolute right-3 top-3 z-20"
@@ -1059,11 +1141,19 @@ export const MainArea = memo(function MainArea({
                       )}
                       {/* Password is now displayed inline */}
                       {/* Last Verified Banner */}
-                      {platform.lastVerifiedAt && !revealedPasswords.has(`${identityId}-${platform.id}`) && (
+                      {isAccountVerified(platform) && pwMethod?.password && !revealedPasswords.has(`${identityId}-${platform.id}`) && (
                         <div className="absolute left-4 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
                           <span className="inline-flex items-center gap-1 rounded-md bg-green-50 dark:bg-green-900/20 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-green-700 dark:text-green-400 border border-green-200/50 dark:border-green-800/50">
                             <svg className="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}><path strokeLinecap="round" strokeLinejoin="round" d="M5 13l4 4L19 7" /></svg>
                             Verificada
+                          </span>
+                        </div>
+                      )}
+                      {isAccountUnverified(platform) && !revealedPasswords.has(`${identityId}-${platform.id}`) && (
+                        <div className="absolute left-4 bottom-3 opacity-0 group-hover:opacity-100 transition-opacity">
+                          <span className="inline-flex items-center gap-1 rounded-md bg-amber-50 dark:bg-amber-900/20 px-2 py-1 text-[9px] font-bold uppercase tracking-wider text-amber-700 dark:text-amber-400 border border-amber-200/50 dark:border-amber-800/50">
+                            <span className="h-1.5 w-1.5 rounded-full bg-amber-500" />
+                            Sin verificar
                           </span>
                         </div>
                       )}
@@ -1100,8 +1190,9 @@ export const MainArea = memo(function MainArea({
                       </div>
                     )}
                   <div className="relative group">
-                    <button
-                      type="button"
+                    <div
+                      role="button"
+                      tabIndex={0}
                       onClick={() => {
                         setEditingPlatform({
                           identityId: identity?.id ?? '',
@@ -1110,14 +1201,60 @@ export const MainArea = memo(function MainArea({
                         })
                         setView('edit')
                       }}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter' || e.key === ' ') {
+                          e.preventDefault()
+                          setEditingPlatform({
+                            identityId: identity?.id ?? '',
+                            identityEmail: identity?.email ?? '',
+                            platform,
+                          })
+                          setView('edit')
+                        }
+                      }}
                       style={{ animationDelay: `${index * 45}ms` }}
-                      className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98]"
+                      className="animate-vault-slide-up relative flex w-full min-h-[112px] items-start gap-3 overflow-hidden rounded-2xl border border-black/[0.06] dark:border-white/10 bg-gradient-to-b from-white via-white to-slate-50/90 dark:from-slate-800 dark:via-slate-800 dark:to-slate-900/90 p-4 text-left shadow-[0_18px_55px_rgba(15,23,42,0.05)] backdrop-blur transition-all duration-150 hover:-translate-y-1 hover:scale-[1.02] hover:border-black/10 dark:hover:border-white/20 hover:shadow-[0_24px_70px_rgba(15,23,42,0.08)] active:scale-[0.98] cursor-pointer"
                     >
-                    <span className="absolute inset-x-0 top-0 h-px bg-gradient-to-r from-transparent via-black/10 dark:via-white/10 to-transparent" />
-                    <PlatformLogo name={platform.name} className="h-9 w-9" />
+                    <div className="relative shrink-0">
+                      <PlatformLogo name={platform.name} className="h-9 w-9" />
+                      {isAccountUnverified(platform) && (
+                        <button
+                          type="button"
+                          title="Abrir web para verificar"
+                          aria-label="Abrir web para verificar"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            const url = getPlatformUrl((platform as any).url || platform.name)
+                            if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                          }}
+                          className="group/indicator absolute -top-1 -right-1 z-20 flex h-4 w-4 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                        >
+                          <span className="relative inline-flex h-2 w-2 rounded-full border border-surface bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.6)] transition-all duration-150 group-hover/indicator:bg-amber-400 group-hover/indicator:shadow-[0_0_10px_rgba(245,158,11,0.9)] dark:border-[#1c1c1e] dark:bg-amber-400" />
+                        </button>
+                      )}
+                    </div>
                     <span className="min-w-0 flex-1">
-                      <span className="block truncate text-sm font-semibold text-text-primary pr-5">
-                        {platform.name}
+                      <span className="flex items-center gap-1.5 min-w-0 pr-5">
+                        <span className="block truncate text-sm font-semibold text-text-primary dark:text-white">
+                          {platform.name}
+                        </span>
+                        {isAccountUnverified(platform) && (
+                          <button
+                            type="button"
+                            title="Abrir web para verificar"
+                            aria-label="Abrir web para verificar"
+                            onClick={(e) => {
+                              e.stopPropagation()
+                              const url = getPlatformUrl((platform as any).url || platform.name)
+                              if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                            }}
+                            className="group/dot inline-flex h-3.5 w-3.5 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                          >
+                            <span
+                              className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-400/20 transition-all duration-150 group-hover/dot:bg-amber-400 group-hover/dot:ring-amber-400/50 dark:bg-amber-400"
+                            />
+                          </button>
+                        )}
                       </span>
                       <span className="mt-1 block text-xs text-text-secondary max-w-full">
                         {revealedPasswords.has(`${identity?.id}-${platform.id}`) && pwMethod?.password ? (
@@ -1178,7 +1315,7 @@ export const MainArea = memo(function MainArea({
                         ) : null}
                       </span>
                     </span>
-                    </button>
+                    </div>
                     {(!hideWarnings && hasWeakPassword(platform) && !hasExposedPassword(platform)) && identity && (
                       <WeakPasswordWarningPopover
                         className="absolute right-3 top-3 z-20"
@@ -1470,10 +1607,12 @@ export const MainArea = memo(function MainArea({
                 <button
                   type="button"
                   onClick={async () => {
-                    const platform = testPasswordModalOpen.platform
-                    await onUpdatePlatform(testPasswordModalOpen.identityId, platform.id, {
+                    const { identityId, platform } = testPasswordModalOpen
+                    const now = new Date().toISOString()
+                    await onUpdatePlatform(identityId, platform.id, {
                       ...platform,
-                      lastVerifiedAt: new Date().toISOString()
+                      lastVerifiedAt: now,
+                      lastVerifiedDate: now,
                     })
                     setTestPasswordModalOpen(null)
                   }}

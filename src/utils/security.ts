@@ -181,25 +181,55 @@ export function hasExposedPassword(platform: any): boolean {
   return platform.exposedBreachCount !== undefined && platform.exposedBreachCount !== null && platform.exposedBreachCount > 0
 }
 
-/** Returns the age of a password in days based on the most recent passwordHistory entry or updatedAt */
-export function getPasswordAgeDays(platform: any): number | null {
-  const history: Array<{ changedAt: string }> = platform.passwordHistory ?? []
-  const mostRecent = history.length > 0
-    ? history.reduce((latest, entry) => (entry.changedAt > latest.changedAt ? entry : latest))
-    : null
-  const ref = mostRecent?.changedAt ?? platform.updatedAt ?? platform.createdAt
-  if (!ref) return null
-  const diff = Date.now() - new Date(ref).getTime()
-  return Math.floor(diff / (1000 * 60 * 60 * 24))
+/**
+ * Evalúa si una cuenta/contraseña está verificada.
+ * Una contraseña solo tiene dos estados: Verificada o No Verificada (sin caducidad por tiempo).
+ * 
+ * Una contraseña es 'No Verificada' si:
+ *   1. lastVerifiedDate (o lastVerifiedAt) es undefined (datos legacy o sin verificar).
+ *   2. O si la fecha de última modificación (lastUpdatedDate) es posterior a la fecha de verificación.
+ */
+export function isAccountVerified(platform: any): boolean {
+  if (!platform) return true
+  const hasPwMethod = platform.accessMethods?.some((m: any) => m?.type === 'PASSWORD' && m?.password)
+  const hasLegacyPw = Boolean(platform.password || (Array.isArray(platform.passwords) && platform.passwords.length > 0))
+  // Cuentas sin ninguna contraseña configurada (ej. solo SSO o Passkey) no requieren verificación
+  if (!hasPwMethod && !hasLegacyPw) return true
+
+  const verifiedDate = platform.lastVerifiedDate || platform.lastVerifiedAt
+  if (!verifiedDate) return false
+
+  const verifiedTime = new Date(verifiedDate).getTime()
+  if (isNaN(verifiedTime)) return false
+
+  // Fecha de última modificación de la contraseña
+  const updatedDate = platform.lastUpdatedDate
+  if (updatedDate) {
+    const updatedTime = new Date(updatedDate).getTime()
+    if (!isNaN(updatedTime) && updatedTime > verifiedTime) {
+      return false
+    }
+  }
+
+  return true
 }
 
-/** True if the password has not been changed in 90+ days */
-export function hasOldPassword(platform: any): boolean {
-  if (platform.ignoreWeakPasswordWarning) return false
-  const pwMethod = platform.accessMethods?.find((m: any) => m?.type === 'PASSWORD')
-  if (!pwMethod?.password) return false
-  const days = getPasswordAgeDays(platform)
-  if (days === null) return false
-  return days >= 90
+/**
+ * Devuelve true si la cuenta tiene contraseña y está en estado 'No Verificada'.
+ */
+export function isAccountUnverified(platform: any): boolean {
+  if (!platform) return false
+  const hasPwMethod = platform.accessMethods?.some((m: any) => m?.type === 'PASSWORD' && m?.password)
+  const hasLegacyPw = Boolean(platform.password || (Array.isArray(platform.passwords) && platform.passwords.length > 0))
+  if (!hasPwMethod && !hasLegacyPw) return false
+  return !isAccountVerified(platform)
+}
+
+/**
+ * Evalúa si una plataforma (o colección de cuentas) contiene al menos una cuenta No Verificada.
+ */
+export function platformHasUnverifiedAccounts(accounts: any[]): boolean {
+  if (!Array.isArray(accounts)) return false
+  return accounts.some(isAccountUnverified)
 }
 

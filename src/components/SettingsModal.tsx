@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
 import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip } from '../utils/exportVault'
-import { passwordStrengthIssue, evaluatePassword, hasExposedPassword } from '../utils/security'
+import { passwordStrengthIssue, evaluatePassword, hasExposedPassword, isAccountUnverified } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 import { ThemeToggle } from './ui/ThemeToggle'
 import { ExposedPasswordsModal } from './ExposedPasswordsModal'
@@ -191,26 +191,14 @@ export function SettingsModal({
     )
     const weak = entries.filter((entry) => passwordStrengthIssue(entry?.password || '') && !entry?.platform?.ignoreWeakPasswordWarning)
     const exposed = entries.filter((entry) => hasExposedPassword(entry?.platform))
-    const old = entries.filter((entry) => {
-      if (!entry?.platform) return false
-      const history: Array<{ changedAt: string }> = entry.platform.passwordHistory ?? []
-      const mostRecent = history.length > 0
-        ? history.reduce((latest: { changedAt: string }, e: { changedAt: string }) => (e.changedAt > latest.changedAt ? e : latest))
-        : null
-      const ref = mostRecent?.changedAt ?? entry.platform.updatedAt ?? entry.platform.createdAt
-      if (!ref) return false
-      const diff = Date.now() - new Date(ref).getTime()
-      const days = diff / (1000 * 60 * 60 * 24)
-      return days >= 90
-    })
+    const unverified = entries.filter((entry) => entry?.platform && isAccountUnverified(entry.platform))
 
     // El score se calcula abajo basado en el % de seguras
-
     const insecureIds = new Set([
       ...reused.map((r) => r?.platform?.id).filter(Boolean),
       ...weak.map((w) => w?.platform?.id).filter(Boolean),
       ...exposed.map((e) => e?.platform?.id).filter(Boolean),
-      ...old.map((o) => o?.platform?.id).filter(Boolean),
+      ...unverified.map((u) => u?.platform?.id).filter(Boolean),
     ])
 
     const total = entries.length
@@ -221,7 +209,7 @@ export function SettingsModal({
       reusedPasswords: reused,
       weakPasswords: weak,
       exposedPasswords: exposed,
-      oldPasswords: old,
+      oldPasswords: unverified,
       healthScore: entries.length === 0 ? 100 : Math.round((secureCount / entries.length) * 100),
       totalPasswordsCount: total,
       securePasswordsCount: secureCount,
@@ -512,8 +500,8 @@ export function SettingsModal({
                     <p className="mt-1 text-[10px] font-bold leading-tight text-amber-700 dark:text-amber-400">Débiles</p>
                   </div>
                   <div className="p-3 text-center">
-                    <p className="text-2xl font-black text-blue-500 dark:text-blue-400">{oldPasswords.length}</p>
-                    <p className="mt-1 text-[10px] font-bold leading-tight text-blue-700 dark:text-blue-400">Antiguas</p>
+                    <p className="text-2xl font-black text-amber-500 dark:text-amber-400">{oldPasswords.length}</p>
+                    <p className="mt-1 text-[10px] font-bold leading-tight text-amber-700 dark:text-amber-400">Sin Verificar</p>
                   </div>
                 </div>
 

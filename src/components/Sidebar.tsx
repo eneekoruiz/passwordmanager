@@ -6,9 +6,9 @@ import { getFriendlyErrorMessage } from '../utils/errors'
 import { LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { normalizeLocalCategory } from '../utils/vaultItem'
 import { PlatformLogo } from './ui/PlatformLogo'
-import { getCanonicalPlatformName } from '../utils/platformUtils'
+import { getCanonicalPlatformName, getPlatformUrl } from '../utils/platformUtils'
 import { generateId } from '../utils/id'
-import { hasWeakPassword, hasExposedPassword } from '../utils/security'
+import { hasWeakPassword, hasExposedPassword, isAccountUnverified } from '../utils/security'
 import { AlphaScrollBar } from './ui/AlphaScrollBar'
 import { InputModal } from './ui/InputModal'
 
@@ -99,7 +99,7 @@ export const Sidebar = memo(function Sidebar({
     [cloudIdentities, query],
   )
   const platformSummaries = useMemo(() => {
-    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean; hasExposedPassword: boolean }>()
+    const platformData = new Map<string, { name: string; count: number; minDate: string; maxDate: string; maxAccessDate: string; hasWeakPassword: boolean; hasExposedPassword: boolean; hasUnverifiedAccount: boolean }>()
     for (const identity of cloudIdentities) {
       for (const platform of (identity?.platforms || [])) {
         const name = platform.name.trim()
@@ -115,6 +115,7 @@ export const Sidebar = memo(function Sidebar({
           if (accessDate > existing.maxAccessDate) existing.maxAccessDate = accessDate
           existing.hasWeakPassword = existing.hasWeakPassword || hasWeakPassword(platform)
           existing.hasExposedPassword = existing.hasExposedPassword || hasExposedPassword(platform)
+          existing.hasUnverifiedAccount = existing.hasUnverifiedAccount || isAccountUnverified(platform)
         } else {
           platformData.set(key, {
             name,
@@ -124,6 +125,7 @@ export const Sidebar = memo(function Sidebar({
             maxAccessDate: accessDate,
             hasWeakPassword: hasWeakPassword(platform),
             hasExposedPassword: hasExposedPassword(platform),
+            hasUnverifiedAccount: isAccountUnverified(platform),
           })
         }
       }
@@ -313,24 +315,63 @@ export const Sidebar = memo(function Sidebar({
     </div>
   ) : null)
 
-  const renderPlatformItem = (platform: { name: string; count: number; hasWeakPassword?: boolean; hasExposedPassword?: boolean }) => {
+  const renderPlatformItem = (platform: { name: string; count: number; hasWeakPassword?: boolean; hasExposedPassword?: boolean; hasUnverifiedAccount?: boolean }) => {
     const selected = selectedPlatformName?.toLowerCase() === platform.name.toLowerCase()
     const canonicalName = getCanonicalPlatformName(platform.name)
     return (
       <li key={platform.name}>
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={() => onSelectPlatform(platform.name)}
-          className={`vault-card group flex min-h-[86px] w-full items-center gap-3 rounded-[22px] p-3.5 text-left active:scale-[0.98] ${
+          onKeyDown={(e) => {
+            if (e.key === 'Enter' || e.key === ' ') {
+              e.preventDefault()
+              onSelectPlatform(platform.name)
+            }
+          }}
+          className={`vault-card group flex min-h-[86px] w-full items-center gap-3 rounded-[22px] p-3.5 text-left active:scale-[0.98] cursor-pointer ${
             selected
               ? 'ring-2 ring-teal-500/25 text-text-primary dark:text-white'
               : 'text-text-secondary dark:text-[#a0a0a5]'
           }`}
         >
-          <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-[22px] border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
+          <div className="relative shrink-0">
+            <PlatformLogo name={canonicalName} className="h-11 w-11 rounded-[22px] border border-black/[0.05] bg-white p-1 shadow-sm dark:border-white/5 dark:bg-[#2c2c2e]" />
+            {platform.hasUnverifiedAccount && (
+              <button
+                type="button"
+                title="Abrir web para verificar"
+                aria-label="Abrir web para verificar"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  const url = getPlatformUrl(platform.name)
+                  if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                }}
+                className="group/indicator absolute -top-1 -right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+              >
+                <span className="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-surface bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] transition-all duration-150 group-hover/indicator:bg-amber-400 group-hover/indicator:shadow-[0_0_12px_rgba(245,158,11,0.9)] dark:border-[#1c1c1e] dark:bg-amber-400" />
+              </button>
+            )}
+          </div>
           <span className="min-w-0 flex-1 pr-5">
             <span className="flex items-center gap-1.5">
               <span className="block min-w-0 truncate text-sm font-bold text-text-primary dark:text-white">{canonicalName}</span>
+              {platform.hasUnverifiedAccount && (
+                <button
+                  type="button"
+                  title="Abrir web para verificar"
+                  aria-label="Abrir web para verificar"
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const url = getPlatformUrl(platform.name)
+                    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                  }}
+                  className="group/dot inline-flex h-4 w-4 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-400/30 transition-all duration-150 group-hover/dot:bg-amber-400 group-hover/dot:ring-amber-400/60 group-hover/dot:shadow-[0_0_6px_rgba(245,158,11,0.8)] dark:bg-amber-400" />
+                </button>
+              )}
               {platform.hasWeakPassword && !platform.hasExposedPassword && (
                 <span className="shrink-0 text-amber-500" title="Al menos una cuenta tiene contraseña débil">
                   <svg className="h-4 w-4" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
@@ -351,7 +392,7 @@ export const Sidebar = memo(function Sidebar({
             </span>
           </span>
           <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#a0a0a5] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
-        </button>
+        </div>
       </li>
     )
   }
@@ -515,6 +556,8 @@ export const Sidebar = memo(function Sidebar({
   const renderIdentityItem = (identity: Identity) => {
     const selected = identity.id === selectedId
     const platformCount = (identity?.platforms || []).length
+    const unverifiedPlatform = (identity?.platforms || []).find(isAccountUnverified)
+    const hasUnverified = Boolean(unverifiedPlatform)
     return (
       <li key={identity.id}>
         <div
@@ -522,12 +565,57 @@ export const Sidebar = memo(function Sidebar({
             selected ? 'ring-2 ring-teal-500/25' : ''
           }`}
         >
-          <button type="button" onClick={() => onSelect(identity.id)} className="flex min-h-[74px] w-full items-center gap-3 text-left active:scale-[0.99]">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] bg-slate-100 font-bold text-text-primary ring-1 ring-black/5">
-              {identity.email.charAt(0).toUpperCase()}
-            </span>
+          <div
+            role="button"
+            tabIndex={0}
+            onClick={() => onSelect(identity.id)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onSelect(identity.id)
+              }
+            }}
+            className="flex min-h-[74px] w-full items-center gap-3 text-left active:scale-[0.99] cursor-pointer"
+          >
+            <div className="relative shrink-0">
+              <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-[22px] bg-slate-100 font-bold text-text-primary ring-1 ring-black/5 dark:bg-[#2c2c2e] dark:text-white">
+                {identity.email.charAt(0).toUpperCase()}
+              </span>
+              {hasUnverified && unverifiedPlatform && (
+                <button
+                  type="button"
+                  title={`Abrir ${unverifiedPlatform.name} para verificar`}
+                  aria-label={`Abrir ${unverifiedPlatform.name} para verificar`}
+                  onClick={(e) => {
+                    e.stopPropagation()
+                    const url = getPlatformUrl(unverifiedPlatform.name)
+                    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                  }}
+                  className="group/indicator absolute -top-1 -right-1 z-20 flex h-5 w-5 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                >
+                  <span className="relative inline-flex h-2.5 w-2.5 rounded-full border-2 border-surface bg-amber-500 shadow-[0_0_8px_rgba(245,158,11,0.6)] transition-all duration-150 group-hover/indicator:bg-amber-400 group-hover/indicator:shadow-[0_0_12px_rgba(245,158,11,0.9)] dark:border-[#1c1c1e] dark:bg-amber-400" />
+                </button>
+              )}
+            </div>
             <span className="min-w-0 flex-1">
-              <span className="block break-all text-sm font-bold text-text-primary">{identity.email}</span>
+              <span className="flex items-center gap-1.5 min-w-0">
+                <span className="block break-all text-sm font-bold text-text-primary dark:text-white">{identity.email}</span>
+                {hasUnverified && unverifiedPlatform && (
+                  <button
+                    type="button"
+                    title={`Abrir ${unverifiedPlatform.name} para verificar`}
+                    aria-label={`Abrir ${unverifiedPlatform.name} para verificar`}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      const url = getPlatformUrl(unverifiedPlatform.name)
+                      if (url) window.open(url, '_blank', 'noopener,noreferrer')
+                    }}
+                    className="group/dot inline-flex h-4 w-4 items-center justify-center rounded-full p-0.5 cursor-pointer transition-transform duration-150 hover:scale-125 active:scale-95 focus:outline-none focus-visible:ring-2 focus-visible:ring-amber-500"
+                  >
+                    <span className="inline-block h-2 w-2 shrink-0 rounded-full bg-amber-500 ring-2 ring-amber-400/30 transition-all duration-150 group-hover/dot:bg-amber-400 group-hover/dot:ring-amber-400/60 group-hover/dot:shadow-[0_0_6px_rgba(245,158,11,0.8)] dark:bg-amber-400" />
+                  </button>
+                )}
+              </span>
               <span className="mt-1 block text-xs font-medium text-text-secondary">
                 {platformCount} plataforma{platformCount !== 1 ? 's' : ''} vinculada{platformCount !== 1 ? 's' : ''}
               </span>
@@ -546,7 +634,7 @@ export const Sidebar = memo(function Sidebar({
               )}
             </span>
             <span className="rounded-full bg-slate-100 px-2.5 py-1 text-[10px] font-bold text-text-secondary transition-colors group-hover:bg-slate-200 dark:bg-[#2c2c2e] dark:text-[#a0a0a5] dark:group-hover:bg-[#3a3a3c]">Abrir</span>
-          </button>
+          </div>
           <button
             type="button"
             onClick={() => setPendingDeleteIdentityId(pendingDeleteIdentityId === identity.id ? null : identity.id)}

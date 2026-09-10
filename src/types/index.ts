@@ -151,6 +151,8 @@ export interface AccountVaultItem extends BaseVaultItem {
   ignoreWeakPasswordWarning?: boolean
   ignoreExposedPasswordWarning?: boolean
   lastVerifiedAt?: string
+  lastVerifiedDate?: string
+  lastUpdatedDate?: string
   exposedBreachCount?: number | null
   lastExposedCheckAt?: string
 }
