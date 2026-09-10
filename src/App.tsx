@@ -1873,7 +1873,7 @@ function VaultApp() {
         />
 
       <div className="flex min-h-0 min-w-0 flex-1 flex-col">
-        <main className="vault-glass flex min-h-0 min-w-0 flex-1 flex-col overflow-hidden rounded-[30px]">
+        <main className="vault-glass flex min-h-0 min-w-0 flex-1 flex-col overflow-clip rounded-[30px]">
           {desktopToolbar}
           <MainArea
             identities={displayIdentities}

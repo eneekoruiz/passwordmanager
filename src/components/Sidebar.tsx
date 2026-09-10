@@ -672,10 +672,10 @@ export const Sidebar = memo(function Sidebar({
           isMobile
             ? 'flex h-full w-full flex-col bg-transparent'
             : `
-              fixed inset-y-0 left-0 z-30 flex h-screen w-full max-w-[320px] flex-col
+              fixed inset-y-0 left-0 z-30 flex h-full max-h-screen w-full max-w-[320px] flex-col
               border-r border-border-subtle bg-surface transition-transform duration-300 ease-out
               dark:border-[#2c2c2e] dark:bg-[#0f0f10]
-              lg:sticky lg:top-0 lg:z-auto lg:w-80 lg:max-w-none lg:translate-x-0
+              lg:static lg:h-full lg:max-h-full lg:z-auto lg:w-80 lg:max-w-none lg:translate-x-0
               \${isOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'}
             `
         }
@@ -738,7 +738,7 @@ export const Sidebar = memo(function Sidebar({
           </div>
         </div>
 
-        <nav ref={navRef} className="relative flex-1 overflow-y-auto scrollbar-thin px-2 pb-5 lg:px-3">
+        <nav ref={navRef} className="relative flex-1 overflow-y-auto scrollbar-thin px-2 pb-24 lg:px-3 scroll-mask-bottom">
           {(syncing || (cloudVaultExists === true && cloudSyncStatus === 'idle')) && localLooksEmpty ? (
             <div className="space-y-4 px-3 py-4">
               <div className="h-3 w-1/3 rounded-full bg-slate-200/60 shimmer mb-6" />

@@ -409,8 +409,8 @@ export const MainArea = memo(function MainArea({
             <span className="text-sm font-medium text-text-secondary">Contras</span>
           </header>
         )}
-        <div className="min-h-0 flex-1 overflow-y-auto">
-          <div className="flex min-h-full justify-center px-4 py-5 sm:px-6 lg:py-10">
+        <div className="min-h-0 flex-1 overflow-y-auto scroll-mask-bottom">
+          <div className="flex min-h-full justify-center px-4 pt-5 pb-28 sm:px-6 lg:pt-8 lg:pb-36">
             <div className="w-full max-w-6xl">
             <div className="p-1">
               <div className="grid gap-6">
@@ -773,7 +773,7 @@ export const MainArea = memo(function MainArea({
       </header>
       )}
 
-      <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain relative ${isFormView ? '' : 'px-4 py-4 pb-24 lg:px-8 lg:pt-6 lg:pb-32'}`}>
+      <div ref={scrollContainerRef} className={`flex-1 min-h-0 overflow-y-auto overscroll-contain relative scroll-mask-bottom ${isFormView ? '' : 'px-4 py-4 pb-28 lg:px-8 lg:pt-6 lg:pb-36'}`}>
         {view === 'grid' && (
           <>
 

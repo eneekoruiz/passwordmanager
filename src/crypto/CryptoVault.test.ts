@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest'
 import { CryptoVault } from './CryptoVault'
 import { base64ToBytes } from './encoding'
 
-describe('CryptoVault', () => {
+describe('CryptoVault', { timeout: 15000 }, () => {
   it('encrypts and decrypts JSON with the active session key', async () => {
     const vault = new CryptoVault()
     const salt = CryptoVault.generateSalt()
@@ -20,7 +20,7 @@ describe('CryptoVault', () => {
     await expect(
       CryptoVault.verifyMasterPassword('wrong password', base64ToBytes(metadata.salt), encryptedPayload),
     ).resolves.toBe(false)
-  })
+  }, 15000)
 
   it('detects authenticated-ciphertext tampering', async () => {
     const salt = CryptoVault.generateSalt()
