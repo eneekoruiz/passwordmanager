@@ -1,5 +1,7 @@
 {
+  "ignoreCommand": "bash -c '[[ \"$VERCEL_GIT_COMMIT_REF\" =~ ^dependabot/ ]] && exit 0 || exit 1'",
   "rewrites": [
+
     {
       "source": "/__/auth/:path*",
       "destination": "https://contras-54017.firebaseapp.com/__/auth/:path*"
