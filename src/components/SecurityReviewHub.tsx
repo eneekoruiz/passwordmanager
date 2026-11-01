@@ -10,6 +10,7 @@ interface SecurityReviewHubProps {
   onOpenWeak: () => void
   onOpenOld: () => void
   healthScore: number
+  onOpenAutopilot?: () => void
 }
 
 interface AuditRowProps {
@@ -63,6 +64,7 @@ export function SecurityReviewHub({
   onOpenWeak,
   onOpenOld,
   healthScore,
+  onOpenAutopilot,
 }: SecurityReviewHubProps) {
   if (!isOpen) return null
 
@@ -195,6 +197,34 @@ export function SecurityReviewHub({
             badgeBg="bg-amber-50 dark:bg-amber-900/30"
             onClick={() => { onClose(); onOpenOld() }}
           />
+
+          <div className="mt-2 pt-2 border-t border-border-subtle dark:border-white/10">
+            <button
+              type="button"
+              onClick={() => {
+                onClose()
+                if (onOpenAutopilot) {
+                  onOpenAutopilot()
+                } else {
+                  window.dispatchEvent(new Event('contras:open-autopilot'))
+                }
+              }}
+              className="group flex w-full items-center gap-3 rounded-2xl border border-emerald-500/25 bg-emerald-500/10 p-3.5 text-left transition-all hover:bg-emerald-500/20 active:scale-[0.99]"
+            >
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-emerald-500/20 text-emerald-700 dark:text-emerald-300">
+                <svg className="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                </svg>
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-bold text-emerald-800 dark:text-emerald-300">Autopilot y Cuentas Huérfanas</p>
+                <p className="text-[11px] text-emerald-700/80 dark:text-emerald-400 mt-0.5">Auto-confirmar cuentas y auditar sin contraseña</p>
+              </div>
+              <svg className="h-4 w-4 text-emerald-600 transition-transform group-hover:translate-x-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
         </div>
       </div>
     </div>

@@ -39,7 +39,9 @@ import {
   isRecoverableFirebaseAuthError,
   logUnexpectedError,
 } from '../utils/errors'
-import { createIdentity, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
+import { createIdentity, createPlatform, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
+import { evaluatePlatformAutopilot, isOrphanAccount } from '../utils/security'
+import { AUDITED_ORPHAN_PLATFORMS } from '../data/popularServices'
 import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
 import { useToast } from '../components/ui/ToastProvider'
 import { payloadsAreIdentical } from '../utils/hash'
@@ -130,6 +132,17 @@ interface VaultContextValue {
   exposedScanProgress: number
   exposedScanTotal: number
   runExposedPasswordsScan: () => Promise<void>
+  runAutopilot: () => Promise<{
+    totalEvaluated: number
+    autoVerifiedCount: number
+    manualRequiredCount: number
+    orphanCount: number
+    timestamp: string
+  }>
+  injectOrphanAuditPlatforms: (targetIdentityId?: string) => Promise<{
+    injectedCount: number
+    platforms: string[]
+  }>
 }
 
 export interface CloudSyncResult {
@@ -2074,6 +2087,156 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     }
   }, [currentProfileId, refreshVaultData, triggerCloudSync, showToast, isScanningExposed])
 
+  const runAutopilot = useCallback(async () => {
+    if (!currentProfileId) throw new Error('No hay un perfil activo.')
+
+    let totalEvaluated = 0
+    let autoVerifiedCount = 0
+    let manualRequiredCount = 0
+    let orphanCount = 0
+    const now = new Date().toISOString()
+
+    const updatedIdentities: Identity[] = []
+
+    for (const identity of identities) {
+      let identityModified = false
+      const updatedPlatforms = identity.platforms.map((platform) => {
+        totalEvaluated++
+        const evaluation = evaluatePlatformAutopilot(platform)
+
+        if (evaluation.canAutoVerify) {
+          autoVerifiedCount++
+          identityModified = true
+          return {
+            ...platform,
+            lastVerifiedAt: now,
+            lastVerifiedDate: now,
+            autoVerified: true,
+            autoVerifiedAt: now,
+            requiresManualVerification: false,
+            manualVerificationReason: undefined,
+            autoVerificationLog: evaluation.log,
+            updatedAt: now,
+          }
+        } else if (evaluation.status === 'MANUAL_REQUIRED') {
+          manualRequiredCount++
+          identityModified = true
+          return {
+            ...platform,
+            autoVerified: false,
+            requiresManualVerification: true,
+            manualVerificationReason: evaluation.reason,
+            autoVerificationLog: evaluation.log,
+            updatedAt: now,
+          }
+        } else if (evaluation.status === 'ORPHAN_NO_PASSWORD') {
+          orphanCount++
+          identityModified = true
+          return {
+            ...platform,
+            isOrphan: true,
+            orphanReason: evaluation.reason,
+            requiresManualVerification: true,
+            manualVerificationReason: 'Falta contraseña',
+            autoVerificationLog: evaluation.log,
+            updatedAt: now,
+          }
+        }
+        return platform
+      })
+
+      if (identityModified) {
+        updatedIdentities.push({
+          ...identity,
+          platforms: updatedPlatforms,
+          updatedAt: now,
+        })
+      }
+    }
+
+    if (updatedIdentities.length > 0) {
+      await storeRef.current.saveMultipleIdentities(currentProfileId, updatedIdentities)
+      await refreshVaultData()
+      setHasUnsyncedChanges(true)
+      triggerCloudSync()
+    }
+
+    return {
+      totalEvaluated,
+      autoVerifiedCount,
+      manualRequiredCount,
+      orphanCount,
+      timestamp: now,
+    }
+  }, [currentProfileId, identities, refreshVaultData, triggerCloudSync])
+
+  const injectOrphanAuditPlatforms = useCallback(
+    async (targetIdentityId?: string) => {
+      if (!currentProfileId) throw new Error('No hay un perfil activo.')
+
+      const targetIdentity = targetIdentityId
+        ? identities.find((i) => i.id === targetIdentityId) || identities[0] || createIdentity()
+        : identities[0] || createIdentity()
+
+      const now = new Date().toISOString()
+      const existingNames = new Set(
+        targetIdentity.platforms.map((p) => p.name.trim().toLowerCase())
+      )
+
+      const updatedPlatforms = [...targetIdentity.platforms]
+      const injectedPlatformNames: string[] = []
+
+      for (const item of AUDITED_ORPHAN_PLATFORMS) {
+        const key = item.name.trim().toLowerCase()
+        if (existingNames.has(key)) {
+          const idx = updatedPlatforms.findIndex((p) => p.name.trim().toLowerCase() === key)
+          if (idx !== -1 && isOrphanAccount(updatedPlatforms[idx])) {
+            updatedPlatforms[idx] = {
+              ...updatedPlatforms[idx],
+              isOrphan: true,
+              orphanReason: 'Falta contraseña - Detectada por auditoría',
+              requiresManualVerification: true,
+              manualVerificationReason: 'Falta contraseña',
+              notes: updatedPlatforms[idx].notes || `Categoría: ${item.category} | Dominio: ${item.domain}`,
+              updatedAt: now,
+            }
+            injectedPlatformNames.push(item.name)
+          }
+        } else {
+          const newPlatform = createPlatform(item.name, {
+            username: '',
+            notes: `Categoría: ${item.category} | Dominio: ${item.domain}`,
+          })
+          newPlatform.isOrphan = true
+          newPlatform.orphanReason = 'Falta contraseña - Detectada por auditoría'
+          newPlatform.requiresManualVerification = true
+          newPlatform.manualVerificationReason = 'Falta contraseña'
+          newPlatform.createdAt = now
+          newPlatform.updatedAt = now
+          updatedPlatforms.push(newPlatform)
+          injectedPlatformNames.push(item.name)
+        }
+      }
+
+      const updatedIdentity: Identity = {
+        ...targetIdentity,
+        platforms: updatedPlatforms,
+        updatedAt: now,
+      }
+
+      await storeRef.current.saveIdentity(currentProfileId, updatedIdentity)
+      await refreshVaultData()
+      setHasUnsyncedChanges(true)
+      triggerCloudSync()
+
+      return {
+        injectedCount: injectedPlatformNames.length,
+        platforms: injectedPlatformNames,
+      }
+    },
+    [currentProfileId, identities, refreshVaultData, triggerCloudSync],
+  )
+
   const exportBackup = useCallback(
     async (masterPassword: string) => {
       if (!currentProfileId) throw new Error('No hay un perfil activo para exportar.')
@@ -2195,6 +2358,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       exposedScanProgress,
       exposedScanTotal,
       runExposedPasswordsScan,
+      runAutopilot,
+      injectOrphanAuditPlatforms,
     }),
     [
       addIdentity,
@@ -2266,6 +2431,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       exposedScanProgress,
       exposedScanTotal,
       runExposedPasswordsScan,
+      runAutopilot,
+      injectOrphanAuditPlatforms,
     ],
   )
 

@@ -157,6 +157,11 @@ export interface AccountVaultItem extends BaseVaultItem {
   lastExposedCheckAt?: string
   isOrphan?: boolean
   orphanReason?: string
+  autoVerified?: boolean
+  autoVerifiedAt?: string
+  autoVerificationLog?: string
+  requiresManualVerification?: boolean
+  manualVerificationReason?: string
 }
 
 /** Plataforma concreta dentro de una identidad: Amazon, Netflix, GitHub, etc. */

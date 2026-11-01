@@ -6,6 +6,8 @@ import {
   isAccountVerified,
   isAccountUnverified,
   platformHasUnverifiedAccounts,
+  isOrphanAccount,
+  evaluatePlatformAutopilot,
 } from './security'
 
 describe('password generation', () => {
@@ -83,5 +85,71 @@ describe('account verification logic (without time expiration)', () => {
     expect(platformHasUnverifiedAccounts([])).toBe(false)
     expect(platformHasUnverifiedAccounts([verifiedPlat])).toBe(false)
     expect(platformHasUnverifiedAccounts([verifiedPlat, unverifiedPlat])).toBe(true)
+  })
+})
+
+describe('orphan accounts and autopilot evaluation', () => {
+  it('detects orphan accounts when password is missing or empty', () => {
+    const orphan1 = {
+      name: 'Canva',
+      accessMethods: [{ id: 'm1', type: 'PASSWORD', password: '' }],
+    }
+    const orphan2 = {
+      name: 'Primeran',
+      accessMethods: [],
+      isOrphan: true,
+    }
+    const valid = {
+      name: 'Google',
+      accessMethods: [{ id: 'm1', type: 'PASSWORD', password: 'my-secret-pass' }],
+    }
+
+    expect(isOrphanAccount(orphan1)).toBe(true)
+    expect(isOrphanAccount(orphan2)).toBe(true)
+    expect(isOrphanAccount(valid)).toBe(false)
+  })
+
+  it('evaluates autopilot as auto-verified when credentials exist without manual barriers', () => {
+    const plat = {
+      name: 'Fnac',
+      accessMethods: [{ id: 'm1', type: 'PASSWORD', password: 'valid-pass-123' }],
+    }
+    const result = evaluatePlatformAutopilot(plat)
+    expect(result.canAutoVerify).toBe(true)
+    expect(result.status).toBe('AUTO_VERIFIED')
+  })
+
+  it('safely aborts and requires manual intervention if 2FA is required', () => {
+    const plat = {
+      name: 'Figma',
+      accessMethods: [{ id: 'm1', type: 'PASSWORD', password: 'valid-pass-123' }],
+      twoFactorAuth: { id: '2fa', type: 'TOTP' },
+    }
+    const result = evaluatePlatformAutopilot(plat)
+    expect(result.canAutoVerify).toBe(false)
+    expect(result.status).toBe('MANUAL_REQUIRED')
+    expect(result.reason).toContain('2FA')
+  })
+
+  it('safely aborts and requires manual intervention if Hardware Key is required', () => {
+    const plat = {
+      name: 'Notion',
+      accessMethods: [{ id: 'm1', type: 'PASSWORD', password: 'valid-pass-123' }],
+      hardwareKey: true,
+    }
+    const result = evaluatePlatformAutopilot(plat)
+    expect(result.canAutoVerify).toBe(false)
+    expect(result.status).toBe('MANUAL_REQUIRED')
+    expect(result.reason).toContain('Llave de Seguridad')
+  })
+
+  it('marks orphan accounts as requiring manual password creation', () => {
+    const plat = {
+      name: 'Symbolab',
+      accessMethods: [{ id: 'm1', type: 'PASSWORD', password: '' }],
+    }
+    const result = evaluatePlatformAutopilot(plat)
+    expect(result.canAutoVerify).toBe(false)
+    expect(result.status).toBe('ORPHAN_NO_PASSWORD')
   })
 })

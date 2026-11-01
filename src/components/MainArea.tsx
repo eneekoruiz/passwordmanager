@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState, memo, useRef } from 'react'
 import type { Identity, LocalCategory, LocalVaultItem, Platform, VaultGroupMode, SortMode } from '../types'
 import { createPlatform } from '../utils/identity'
 import { createLocalVaultItem, LOCAL_ITEM_LABELS, vaultItemDisplayName } from '../utils/vaultItem'
-import { hasWeakPassword, hasExposedPassword, isAccountUnverified, isAccountVerified } from '../utils/security'
+import { hasWeakPassword, hasExposedPassword, isAccountUnverified, isAccountVerified, isOrphanAccount } from '../utils/security'
+import { formatRelativeTime } from '../utils/time'
 import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
@@ -11,6 +12,7 @@ import { getCanonicalPlatformName, getPlatformUrl } from '../utils/platformUtils
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ExposedPasswordWarningPopover } from './ui/ExposedPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
+import { AutopilotModal } from './AutopilotModal'
 import { useVault } from '../context/VaultContext'
 type ViewMode = 'grid' | 'create' | 'edit'
 
@@ -100,6 +102,7 @@ export const MainArea = memo(function MainArea({
   const [editingPlatform, setEditingPlatform] = useState<EditingPlatformContext | null>(null)
   const [editingLocalItem, setEditingLocalItem] = useState<LocalVaultItem | null>(null)
   const [showShareModal, setShowShareModal] = useState<SharePayload | null>(null)
+  const [showAutopilotModal, setShowAutopilotModal] = useState(false)
   const [quickTravelCopied, setQuickTravelCopied] = useState<string | null>(null)
   const [revealedPasswords, setRevealedPasswords] = useState<Set<string>>(new Set())
   const [authVerifiedFor, setAuthVerifiedFor] = useState<Set<string>>(new Set())
@@ -130,7 +133,12 @@ export const MainArea = memo(function MainArea({
       setHideWarnings(window.localStorage.getItem('contras.hideWeakPasswordWarnings') === 'true')
     }
     window.addEventListener('contras:weak-passwords-toggled', handleToggle)
-    return () => window.removeEventListener('contras:weak-passwords-toggled', handleToggle)
+    const handleAutopilotOpen = () => setShowAutopilotModal(true)
+    window.addEventListener('contras:open-autopilot', handleAutopilotOpen)
+    return () => {
+      window.removeEventListener('contras:weak-passwords-toggled', handleToggle)
+      window.removeEventListener('contras:open-autopilot', handleAutopilotOpen)
+    }
   }, [])
 
   const renderLocalVaultItemCard = (item: LocalVaultItem, index: number) => {
@@ -431,6 +439,16 @@ export const MainArea = memo(function MainArea({
                           : 'Selecciona una identidad para ver todas las plataformas y cuentas vinculadas.'}
                       </p>
                     </div>
+                    <button
+                      type="button"
+                      onClick={() => setShowAutopilotModal(true)}
+                      className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-2xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/20 px-4 text-xs font-bold text-emerald-700 dark:text-emerald-300 transition-all hover:-translate-y-0.5 active:scale-95 self-start md:self-center mr-2"
+                    >
+                      <svg className="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                        <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+                      </svg>
+                      <span>Autopilot</span>
+                    </button>
                     <button
                       type="button"
                       onClick={() => onCreate()}
@@ -743,6 +761,19 @@ export const MainArea = memo(function MainArea({
             <span className="hidden sm:block">Compartir</span>
           </button>
         )}
+        {(identity || groupMode === 'platform') && !localCategory && (
+          <button
+            type="button"
+            title="Autopilot y Auditoría"
+            onClick={() => setShowAutopilotModal(true)}
+            className="vault-control flex items-center gap-1.5 rounded-2xl px-3 py-2 text-sm font-bold text-emerald-700 bg-emerald-500/10 hover:bg-emerald-500/20 dark:text-emerald-300 dark:bg-emerald-950/30 transition-all hover:-translate-y-0.5 active:scale-95"
+          >
+            <svg className="h-4 w-4 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+              <path strokeLinecap="round" strokeLinejoin="round" d="M3.75 13.5l10.5-11.25L12 10.5h8.25L9.75 21.75 12 13.5H3.75z" />
+            </svg>
+            <span className="hidden sm:block">Autopilot</span>
+          </button>
+        )}
         {(localCategory || identity || groupMode === 'platform') && (
           <button
             type="button"
@@ -987,6 +1018,21 @@ export const MainArea = memo(function MainArea({
                             {platform?.twoFactorAuth && (
                               <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
                                 2FA
+                              </span>
+                            )}
+                            {isOrphanAccount(platform) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                                <span>⚠️ Falta Contraseña</span>
+                              </span>
+                            )}
+                            {platform.autoVerified && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400" title={platform.autoVerificationLog || 'Auto-verificado por Autopilot'}>
+                                <span>✓ Auto-confirmado {formatRelativeTime(platform.autoVerifiedAt || platform.lastVerifiedAt)}</span>
+                              </span>
+                            )}
+                            {platform.requiresManualVerification && isAccountUnverified(platform) && (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-400" title={platform.autoVerificationLog || 'Requiere intervención manual'}>
+                                <span>⚠️ Manual: {platform.manualVerificationReason || 'Atención'}</span>
                               </span>
                             )}
                           </span>
@@ -1313,6 +1359,21 @@ export const MainArea = memo(function MainArea({
                             {platform.apiKeys.length} API
                           </span>
                         ) : null}
+                        {isOrphanAccount(platform) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-amber-500/15 border border-amber-500/30 px-2 py-0.5 text-[10px] font-black uppercase tracking-wider text-amber-700 dark:text-amber-400">
+                            <span>⚠️ Falta Contraseña</span>
+                          </span>
+                        )}
+                        {platform.autoVerified && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400" title={platform.autoVerificationLog || 'Auto-verificado por Autopilot'}>
+                            <span>✓ Auto-confirmado {formatRelativeTime(platform.autoVerifiedAt || platform.lastVerifiedAt)}</span>
+                          </span>
+                        )}
+                        {platform.requiresManualVerification && isAccountUnverified(platform) && (
+                          <span className="inline-flex items-center gap-1 rounded-full bg-rose-500/15 border border-rose-500/30 px-2 py-0.5 text-[10px] font-bold text-rose-700 dark:text-rose-400" title={platform.autoVerificationLog || 'Requiere intervención manual'}>
+                            <span>⚠️ Manual: {platform.manualVerificationReason || 'Atención'}</span>
+                          </span>
+                        )}
                       </span>
                     </span>
                     </div>
@@ -1544,6 +1605,23 @@ export const MainArea = memo(function MainArea({
           <ShareModal
             payload={showShareModal}
             onClose={() => setShowShareModal(null)}
+          />
+        )}
+
+        {showAutopilotModal && (
+          <AutopilotModal
+            isOpen={showAutopilotModal}
+            onClose={() => setShowAutopilotModal(false)}
+            onEditPlatform={(platform, identityId, identityEmail) => {
+              const targetId = identityId || identity?.id || identities[0]?.id || ''
+              const targetEmail = identityEmail || identity?.email || identities[0]?.email || ''
+              setEditingPlatform({
+                identityId: targetId,
+                identityEmail: targetEmail,
+                platform,
+              })
+              setView('edit')
+            }}
           />
         )}
 

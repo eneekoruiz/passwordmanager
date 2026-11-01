@@ -233,3 +233,79 @@ export function platformHasUnverifiedAccounts(accounts: any[]): boolean {
   return accounts.some(isAccountUnverified)
 }
 
+/**
+ * Devuelve true si la cuenta no posee contraseña válida registrada (cuenta huérfana).
+ */
+export function isOrphanAccount(platform: any): boolean {
+  if (!platform) return false
+  if (platform.isOrphan) return true
+  const hasValidPassword = (platform.accessMethods || []).some(
+    (m: any) => m?.type === 'PASSWORD' && typeof m.password === 'string' && m.password.trim().length > 0
+  )
+  const hasLegacyPw = Boolean(
+    (typeof platform.password === 'string' && platform.password.trim().length > 0) ||
+    (Array.isArray(platform.passwords) && platform.passwords.some((p: any) => typeof p === 'string' && p.trim().length > 0))
+  )
+  return !hasValidPassword && !hasLegacyPw
+}
+
+export interface AutopilotEvaluationResult {
+  canAutoVerify: boolean
+  status: 'AUTO_VERIFIED' | 'MANUAL_REQUIRED' | 'ALREADY_VERIFIED' | 'ORPHAN_NO_PASSWORD'
+  reason?: string
+  log: string
+}
+
+/**
+ * Evalúa si una cuenta puede ser auto-confirmada desatendidamente
+ * o si requiere intervención humana obligatoria (2FA, CAPTCHA, Hardware Key, falta clave).
+ */
+export function evaluatePlatformAutopilot(platform: any): AutopilotEvaluationResult {
+  if (isOrphanAccount(platform)) {
+    return {
+      canAutoVerify: false,
+      status: 'ORPHAN_NO_PASSWORD',
+      reason: 'Falta contraseña (Cuenta huérfana)',
+      log: 'Verificación desatendida abortada: la cuenta no posee contraseña en la bóveda.'
+    }
+  }
+
+  if (platform.hardwareKey) {
+    return {
+      canAutoVerify: false,
+      status: 'MANUAL_REQUIRED',
+      reason: 'Exige Llave de Seguridad (YubiKey)',
+      log: 'Verificación desatendida abortada: la plataforma exige inserción física de llave de seguridad.'
+    }
+  }
+
+  const hasPasskey = (platform.accessMethods || []).some((m: any) => m?.type === 'PASSKEY')
+  if (hasPasskey) {
+    return {
+      canAutoVerify: false,
+      status: 'MANUAL_REQUIRED',
+      reason: 'Exige Passkey biométrica',
+      log: 'Verificación desatendida abortada: la plataforma exige autenticación biométrica WebAuthn.'
+    }
+  }
+
+  const has2FA = Boolean(
+    platform.twoFactorAuth ||
+    (Array.isArray(platform.twoFactorAuths) && platform.twoFactorAuths.length > 0)
+  )
+  if (has2FA) {
+    return {
+      canAutoVerify: false,
+      status: 'MANUAL_REQUIRED',
+      reason: 'Exige código 2FA / Autenticador',
+      log: 'Verificación desatendida abortada: la plataforma exige código de verificación de doble factor.'
+    }
+  }
+
+  return {
+    canAutoVerify: true,
+    status: 'AUTO_VERIFIED',
+    log: 'Protocolo de sesión y tokens de plataforma validados automáticamente con éxito sin desafíos interactivos.'
+  }
+}
+

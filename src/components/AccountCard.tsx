@@ -8,6 +8,7 @@ import { useToast } from './ui/ToastProvider'
 import { cn } from './ui/BottomSheet' // Using our new cn utility
 import { isAccountUnverified } from '../utils/security'
 import { getPlatformUrl } from '../utils/platformUtils'
+import { formatRelativeTime } from '../utils/time'
 
 interface AccountCardProps {
   account: Platform
@@ -160,7 +161,40 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
 
           {isOrphan && (
             <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase tracking-wider shadow-sm">
-              <span>⚠️ FALTA CONTRASEÑA - CUENTA HUÉRFANA</span>
+              <div className="flex items-center gap-1.5">
+                <svg className="w-3.5 h-3.5 shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" />
+                </svg>
+                <span>FALTA CONTRASEÑA - CUENTA HUÉRFANA</span>
+              </div>
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation()
+                  onEdit()
+                }}
+                className="ml-1 inline-flex items-center gap-1 rounded px-1.5 py-0.5 bg-amber-500/20 hover:bg-amber-500/30 text-amber-800 dark:text-amber-200 text-[10px] font-black tracking-normal transition-all hover:scale-105 active:scale-95"
+              >
+                + AÑADIR
+              </button>
+            </div>
+          )}
+
+          {account.autoVerified && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-emerald-500/15 border border-emerald-500/30 text-emerald-700 dark:text-emerald-400 text-[11px] font-bold shadow-sm" title={account.autoVerificationLog || 'Verificado automáticamente por Autopilot'}>
+              <svg className="w-3.5 h-3.5 shrink-0 text-emerald-600 dark:text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>Confirmado automáticamente {formatRelativeTime(account.autoVerifiedAt || account.lastVerifiedAt)}</span>
+            </div>
+          )}
+
+          {account.requiresManualVerification && isAccountUnverified(account) && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-rose-500/15 border border-rose-500/30 text-rose-700 dark:text-rose-400 text-[11px] font-bold shadow-sm" title={account.autoVerificationLog || 'Requiere intervención manual obligatoria'}>
+              <svg className="w-3.5 h-3.5 shrink-0 text-rose-600 dark:text-rose-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" />
+              </svg>
+              <span>Atención manual: {account.manualVerificationReason || 'Confirmación requerida'}</span>
             </div>
           )}
 
