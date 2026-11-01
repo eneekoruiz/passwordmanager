@@ -155,6 +155,8 @@ export interface AccountVaultItem extends BaseVaultItem {
   lastUpdatedDate?: string
   exposedBreachCount?: number | null
   lastExposedCheckAt?: string
+  isOrphan?: boolean
+  orphanReason?: string
 }
 
 /** Plataforma concreta dentro de una identidad: Amazon, Netflix, GitHub, etc. */

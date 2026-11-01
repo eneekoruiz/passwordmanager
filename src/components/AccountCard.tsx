@@ -19,6 +19,11 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
 
+  const hasValidPassword = (account?.accessMethods || []).some(
+    (method) => method?.type === 'PASSWORD' && typeof method.password === 'string' && method.password.trim().length > 0
+  )
+  const isOrphan = Boolean(account?.isOrphan || !hasValidPassword)
+
   // Swipe mechanics
   const x = useMotionValue(0)
   const copyOpacity = useTransform(x, [0, 80], [0, 1])
@@ -152,6 +157,12 @@ export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
               <p className="text-[13px] text-text-tertiary truncate font-medium">{account.fullName}</p>
             )}
           </div>
+
+          {isOrphan && (
+            <div className="mt-2 inline-flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-amber-500/15 border border-amber-500/30 text-amber-600 dark:text-amber-400 text-[11px] font-black uppercase tracking-wider shadow-sm">
+              <span>⚠️ FALTA CONTRASEÑA - CUENTA HUÉRFANA</span>
+            </div>
+          )}
 
           {account.tags && account.tags.length > 0 && (
             <div className="mt-2.5 flex flex-wrap gap-1.5">
