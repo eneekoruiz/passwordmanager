@@ -767,6 +767,16 @@ export function AccountForm({
       lastUpdatedDate: updatedDate,
       lastVerifiedDate: verifiedDate,
       lastVerifiedAt: verifiedDate,
+      isOrphan: Boolean(passwordEnabled && nextPassword && nextPassword.trim().length > 0) ? false : account.isOrphan,
+      orphanReason: Boolean(passwordEnabled && nextPassword && nextPassword.trim().length > 0) ? undefined : account.orphanReason,
+      requiresManualVerification:
+        Boolean(passwordEnabled && nextPassword && nextPassword.trim().length > 0) && account.manualVerificationReason === 'Falta contraseña'
+          ? false
+          : account.requiresManualVerification,
+      manualVerificationReason:
+        Boolean(passwordEnabled && nextPassword && nextPassword.trim().length > 0) && account.manualVerificationReason === 'Falta contraseña'
+          ? undefined
+          : account.manualVerificationReason,
     }
 
     let finalBreachCount = exposedCheckCount

@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import type { Identity, Platform } from '../types'
 import { useVault } from '../context/VaultContext'
 import { useToast } from './ui/ToastProvider'
@@ -86,9 +86,17 @@ export function AutopilotModal({ isOpen, onClose, onEditPlatform }: AutopilotMod
     }
   }
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose()
+    }
+    window.addEventListener('keydown', handleKeyDown)
+    return () => window.removeEventListener('keydown', handleKeyDown)
+  }, [onClose])
+
   return (
-    <div className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md animate-vault-morph">
-      <div className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-3xl border border-border-subtle bg-white p-6 text-left shadow-2xl dark:border-white/10 dark:bg-[#1c1c1e]">
+    <div onClick={onClose} className="fixed inset-0 z-[60] flex items-center justify-center bg-slate-950/40 p-4 backdrop-blur-md animate-vault-morph cursor-pointer">
+      <div onClick={(e) => e.stopPropagation()} className="flex max-h-[88vh] w-full max-w-3xl flex-col rounded-3xl border border-border-subtle bg-white p-6 text-left shadow-2xl dark:border-white/10 dark:bg-[#1c1c1e] cursor-default">
         {/* Header */}
         <div className="mb-5 flex items-start justify-between gap-4 border-b border-border-subtle dark:border-white/10 pb-4">
           <div>
