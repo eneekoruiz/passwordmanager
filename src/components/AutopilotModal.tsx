@@ -105,9 +105,12 @@ export function AutopilotModal({ isOpen, onClose, onEditPlatform }: AutopilotMod
               <h2 className="text-xl font-black tracking-tight text-text-primary dark:text-white">
                 Autopilot: Verificación y Auditoría de Cuentas
               </h2>
+              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-500/15 border border-emerald-500/30 px-2.5 py-0.5 text-[10px] font-bold text-emerald-700 dark:text-emerald-400">
+                ⚡ Auto-run activo al entrar
+              </span>
             </div>
             <p className="mt-1 text-xs text-text-secondary leading-relaxed max-w-xl">
-              Motor inteligente de confirmación desatendida. Verifica accesos automáticamente y retiene advertencias solo cuando se exige intervención humana (2FA, CAPTCHA) o falta contraseña.
+              Motor inteligente de confirmación desatendida. Se ejecuta automáticamente cada vez que accedes a la aplicación, validando accesos y reteniendo advertencias solo ante intervención humana (2FA, CAPTCHA) o falta de contraseña.
             </p>
           </div>
           <button

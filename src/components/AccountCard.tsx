@@ -1,3 +1,4 @@
+import { useState, useEffect } from 'react'
 import { motion, useMotionValue, useTransform } from 'framer-motion'
 import type { Platform } from '../types'
 import { accountDisplayName } from '../utils/account'
@@ -19,6 +20,14 @@ interface AccountCardProps {
 export function AccountCard({ account, onEdit, onShare }: AccountCardProps) {
   const { authorizeSensitiveAction } = useVault()
   const { showToast } = useToast()
+
+  // Auto-refresh relative time every 30 seconds
+  const [, setTimeTick] = useState(0)
+  useEffect(() => {
+    if (!account?.autoVerifiedAt && !account?.lastVerifiedAt) return
+    const timer = setInterval(() => setTimeTick((t) => t + 1), 30000)
+    return () => clearInterval(timer)
+  }, [account?.autoVerifiedAt, account?.lastVerifiedAt])
 
   const hasValidPassword = (account?.accessMethods || []).some(
     (method) => method?.type === 'PASSWORD' && typeof method.password === 'string' && method.password.trim().length > 0

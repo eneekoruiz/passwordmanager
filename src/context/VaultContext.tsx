@@ -2097,8 +2097,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const now = new Date().toISOString()
 
     const updatedIdentities: Identity[] = []
+    const sourceIdentities = identitiesRef.current.length > 0 ? identitiesRef.current : identities
 
-    for (const identity of identities) {
+    for (const identity of sourceIdentities) {
       let identityModified = false
       const updatedPlatforms = identity.platforms.map((platform) => {
         totalEvaluated++
@@ -2285,6 +2286,55 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     },
     [currentProfileId, refreshVaultData, triggerCloudSync],
   )
+
+  const autoPilotSessionRunRef = useRef<string | null>(null)
+  const isAutoPilotRunningRef = useRef(false)
+
+  // Ejecución automática de Autopilot cada vez que se entra / desbloquea la aplicación
+  useEffect(() => {
+    if (!isUnlocked) {
+      autoPilotSessionRunRef.current = null
+      return
+    }
+
+    if (isVaultLoaded && currentProfileId && identities.length > 0) {
+      if (autoPilotSessionRunRef.current === currentProfileId || isAutoPilotRunningRef.current) {
+        return
+      }
+
+      autoPilotSessionRunRef.current = currentProfileId
+      isAutoPilotRunningRef.current = true
+
+      const timer = window.setTimeout(() => {
+        void (async () => {
+          try {
+            // Inyectar plataformas huérfanas si aún no se han sincronizado en este perfil
+            const orphanKey = `contras.orphanInjected.${currentProfileId}`
+            if (typeof window !== 'undefined' && !window.localStorage.getItem(orphanKey)) {
+              await injectOrphanAuditPlatforms()
+              window.localStorage.setItem(orphanKey, 'true')
+            }
+
+            // Ejecutar Autopilot en todas las plataformas de la bóveda
+            const result = await runAutopilot()
+            if (result.autoVerifiedCount > 0) {
+              showToast(
+                `🤖 Autopilot: ${result.autoVerifiedCount} plataformas verificadas automáticamente`,
+                'success',
+                { durationMs: 4000 }
+              )
+            }
+          } catch (err) {
+            console.error('Error al autoejecutar Autopilot en inicio:', err)
+          } finally {
+            isAutoPilotRunningRef.current = false
+          }
+        })()
+      }, 700)
+
+      return () => window.clearTimeout(timer)
+    }
+  }, [isUnlocked, isVaultLoaded, currentProfileId, identities.length, runAutopilot, injectOrphanAuditPlatforms, showToast])
 
   const value = useMemo<VaultContextValue>(
     () => ({
