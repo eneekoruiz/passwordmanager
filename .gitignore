@@ -39,3 +39,6 @@ Thumbs.db
 desktop.ini
 
 .vercel
+
+*.png
+whatsapp-qr*
