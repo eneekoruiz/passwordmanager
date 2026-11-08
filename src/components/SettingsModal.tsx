@@ -2,7 +2,7 @@ import { useState, useEffect, useMemo, useRef, type FormEvent }
  from 'react'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import type { Identity, LocalVaultItem } from '../types'
-import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip } from '../utils/exportVault'
+import { buildPlaintextCsv, buildPlaintextJson, downloadPlaintextFile, downloadPlaintextZip, buildAgentVaultJson } from '../utils/exportVault'
 import { passwordStrengthIssue, evaluatePassword, hasExposedPassword, isAccountUnverified } from '../utils/security'
 import { useToast } from './ui/ToastProvider'
 import { ThemeToggle } from './ui/ThemeToggle'
@@ -11,7 +11,7 @@ import { ReusedPasswordsModal } from './ReusedPasswordsModal'
 import { OldPasswordsModal } from './OldPasswordsModal'
 import { SecurityReviewHub } from './SecurityReviewHub'
 
-type PlaintextExportFormat = 'csv' | 'json' | 'zip'
+type PlaintextExportFormat = 'csv' | 'json' | 'zip' | 'agent'
 
 const checkboxClassName =
   'h-5 w-5 shrink-0 cursor-pointer rounded-md border border-black/15 bg-white accent-slate-950 shadow-sm transition-transform duration-150 checked:scale-105 focus:outline-none focus:ring-4 focus:ring-black/[0.06]'
@@ -298,6 +298,9 @@ export function SettingsModal({
         downloadPlaintextFile(plaintext, `contras_export_${date}.csv`, 'text/csv;charset=utf-8')
       } else if (plaintextFormat === 'zip') {
         await downloadPlaintextZip(selectedIdentities, selectedIdentityIds.length === 0 ? localItems : [])
+      } else if (plaintextFormat === 'agent') {
+        const store = buildAgentVaultJson(selectedIdentities)
+        downloadPlaintextFile(JSON.stringify(store, null, 2), 'agent-credentials.json', 'application/json;charset=utf-8')
       } else {
         plaintext = buildPlaintextJson(selectedIdentities, selectedIdentityIds.length === 0 ? localItems : [])
         downloadPlaintextFile(plaintext, `contras_export_${date}.json`, 'application/json;charset=utf-8')
@@ -946,22 +949,27 @@ export function SettingsModal({
                 Genera CSV compatible con gestores de contraseñas o JSON completo con todos los metadatos.
               </p>
               <form onSubmit={handlePlaintextExport} className="space-y-3">
-                <div className="grid grid-cols-3 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
-                  {(['csv', 'json', 'zip'] as PlaintextExportFormat[]).map((format) => (
+                <div className="grid grid-cols-4 gap-2 rounded-xl border border-border-subtle bg-surface p-1">
+                  {(['csv', 'json', 'zip', 'agent'] as PlaintextExportFormat[]).map((format) => (
                     <button
                       key={format}
                       type="button"
                       onClick={() => setPlaintextFormat(format)}
-                      className={`rounded-lg px-3 py-2 text-xs font-bold transition-all ${
+                      className={`rounded-lg px-2 py-2 text-xs font-bold transition-all ${
                         plaintextFormat === format
                           ? 'bg-text-primary text-white shadow-sm'
                           : 'text-text-secondary hover:bg-surface-hover'
                       }`}
                     >
-                      {format.toUpperCase()}
+                      {format === 'agent' ? '🤖 Agentes' : format.toUpperCase()}
                     </button>
                   ))}
                 </div>
+                {plaintextFormat === 'agent' && (
+                  <p className="text-[11px] font-medium text-emerald-600 dark:text-emerald-400 bg-emerald-50 dark:bg-emerald-950/30 p-2.5 rounded-xl border border-emerald-200 dark:border-emerald-800">
+                    ⚡ Formato optimizado para Claude, Codex y Antigravity. Exporta credenciales de desarrollo y API keys para sincronizar directamente con <code>~/.contras-vault/</code>.
+                  </p>
+                )}
 
                 <div className="rounded-xl border border-border-subtle bg-white/70 p-3">
                   <div className="mb-2 flex items-center justify-between gap-2">

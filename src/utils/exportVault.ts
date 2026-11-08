@@ -82,6 +82,42 @@ export function buildPlaintextCsv(identities: Identity[]): string {
   return [CSV_HEADERS.join(','), ...rows.map((row) => row.map(csvEscape).join(','))].join('\r\n')
 }
 
+
+export function buildAgentVaultJson(identities: Identity[]): Record<string, Record<string, string>> {
+  const store: Record<string, Record<string, string>> = {}
+
+  for (const identity of identities) {
+    for (const platform of identity.platforms) {
+      const pName = platform.name.trim().toLowerCase()
+      // 1. Process explicit apiKeys
+      if (platform.apiKeys && platform.apiKeys.length > 0) {
+        if (!store[pName]) store[pName] = {}
+        for (const k of platform.apiKeys) {
+          const keyProp = k.nombre.trim().toLowerCase().replace(/[^a-z0-9_]/g, '_') || 'api_key'
+          store[pName][keyProp] = k.valor
+        }
+      }
+      // 2. If it's a known developer service with password acting as token/key:
+      const devServices = ['neon', 'openai', 'anthropic', 'github', 'vercel', 'huggingface', 'figma', 'supabase', 'aws', 'stripe']
+      if (devServices.includes(pName)) {
+        const pwd = passwordFor(platform)
+        if (pwd && (!store[pName] || Object.keys(store[pName]).length === 0)) {
+          if (!store[pName]) store[pName] = {}
+          const keyField = (pName === 'github' || pName === 'vercel' || pName === 'figma') ? 'token' : 'api_key'
+          store[pName][keyField] = pwd
+        }
+      }
+    }
+  }
+
+  return store
+}
+
+export function downloadAgentVaultFile(store: Record<string, Record<string, string>>): void {
+  const content = JSON.stringify(store, null, 2)
+  downloadPlaintextFile(content, 'agent-credentials.json', 'application/json')
+}
+
 export function buildPlaintextJson(identities: Identity[], localItems: LocalVaultItem[]): string {
   return JSON.stringify(
     {
