@@ -1,28 +1,46 @@
 # Password Manager
 
-Gestor de contraseñas offline-first desarrollado con React, TypeScript y Vite.
+Offline-first password manager and 2FA authenticator with client-side encryption and optional remote backup.
 
-El proyecto implementa un almacén de contraseñas local con cifrado en el navegador y sincronización remota opcional mediante Firebase.
+## Tech Stack
 
-## Características
+- **Frontend:** React 18, TypeScript, Vite, Tailwind CSS, Framer Motion
+- **Cryptography:** Web Crypto API (PBKDF2 key derivation, AES-GCM 256-bit encryption)
+- **Persistence & PWA:** IndexedDB (`idb`), Vite Plugin PWA
+- **Utilities:** OTPAuth (TOTP 2FA code generation), JSZip (encrypted vault backup/export), Firebase SDK (optional sync)
+- **Testing:** Vitest
 
-- Almacén local cifrado mediante Web Crypto API (PBKDF2 para derivación de clave y AES-GCM para datos).
-- Flujo de desbloqueo mediante contraseña maestra sin persistencia de credenciales en texto plano.
-- Gestión de cuentas, contraseñas y notas seguras.
-- Exportación e importación de copias de seguridad cifradas en JSON / ZIP.
-- Sincronización en la nube opcional mediante Firebase Firestore.
+## Architecture & Key Decisions
 
-## Stack técnico
+- **Zero-Knowledge Client-Side Encryption:** All vault entries are encrypted and decrypted in the browser using AES-GCM with 256-bit keys. The master password never leaves the browser.
+- **Key Derivation:** Master key is derived using PBKDF2 with SHA-256 and a random salt stored in IndexedDB.
+- **Offline-First Storage:** Local credentials and metadata are stored in IndexedDB, allowing full offline access and fast lookup.
+- **Integrated TOTP Authenticator:** Generates RFC 6238-compliant one-time passwords with real-time progress countdowns directly alongside stored credentials.
+- **Encrypted Export & Import:** Exports the full vault as an encrypted JSON archive (AES-GCM) with JSZip, ensuring portability without plaintext risk.
 
-- **Frontend:** React, TypeScript, Vite, Tailwind CSS.
-- **Criptografía y persistencia:** Web Crypto API, IndexedDB (idb).
-- **Backend opcional:** Firebase Auth y Firestore.
+## Local Setup
 
-## Ejecución local
+### Prerequisites
+
+- Node.js 18+
+
+### Installation
 
 ```bash
+git clone https://github.com/eneekoruiz/passwordmanager.git
+cd passwordmanager
 npm install
-npm run dev
 ```
 
-Las credenciales de Firebase se configuran opcionalmente en variables de entorno `VITE_FIREBASE_*`.
+### Development & Build
+
+```bash
+# Start local development server
+npm run dev
+
+# Run unit tests
+npm test
+
+# Build production bundle
+npm run build
+```
