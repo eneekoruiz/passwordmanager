@@ -42,3 +42,8 @@ desktop.ini
 
 *.png
 whatsapp-qr*
+
+.env*
+
+test-results/
+playwright-report/

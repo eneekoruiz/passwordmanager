@@ -1312,9 +1312,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     const provider = new GoogleAuthProvider()
     provider.setCustomParameters({ prompt: 'select_account' })
 
-    // Force persistence before popup
-    return setPersistence(authClient, browserLocalPersistence)
-      .then(() => signInWithPopup(authClient, provider))
+    // Invocacion directa y sincronica para conservar el user gesture del navegador.
+    // La persistencia ya esta inicializada en initAuth (browserLocalPersistence). Anyadir
+    // awaits o setPersistence aqui degrada la llamada a microtask, provocando que Safari/Chrome
+    // detecten un popup no solicitado y lancen auth/popup-blocked.
+    return signInWithPopup(authClient, provider)
       .then(async (credential) => {
         firebaseUserRef.current = credential.user
         setCloudSyncStatus('syncing')

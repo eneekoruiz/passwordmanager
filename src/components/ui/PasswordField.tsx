@@ -105,10 +105,10 @@ export function PasswordField({
   const prClassName = showGenerator ? 'pr-36' : 'pr-24'
 
   return (
-    <label className="block relative">
-      <span className="mb-1.5 block text-xs font-semibold text-text-secondary">
+    <div className="block relative">
+      <label className="mb-1.5 block text-xs font-semibold text-text-secondary">
         {label}
-      </span>
+      </label>
       <div className="relative flex items-stretch">
         <input
           ref={inputRef}
@@ -353,6 +353,6 @@ export function PasswordField({
           </div>
         </>
       )}
-    </label>
+    </div>
   )
 }

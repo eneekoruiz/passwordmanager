@@ -177,7 +177,7 @@ function NativeIdentityStep({
               variant="primary"
               size="lg"
               className="w-full min-h-10 text-xs"
-              disabled={loading || !email || (mode !== 'forgot_password' && !password) || (mode === 'register' && password !== confirmPassword)}
+              disabled={loading || !email || (mode !== 'forgot_password' && !password) || (mode === 'register' && !confirmPassword)}
             >
               {loading
                 ? mode === 'login'
