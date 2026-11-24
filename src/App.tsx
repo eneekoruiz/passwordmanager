@@ -889,7 +889,11 @@ function VaultApp() {
       setLocalSearchTerm('')
       setSelectedId(null)
       setSelectedPlatformName(null)
-      setSelectedLocalCategory(null)
+      setSelectedLocalCategory(
+        mode === 'local'
+          ? { id: 'all', label: 'Todas las notas locales', type: 'SECURE_NOTE', custom: false }
+          : null,
+      )
     })
   }
 

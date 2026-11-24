@@ -169,6 +169,11 @@ export const MainArea = memo(function MainArea({
         <span className="mt-2 block truncate text-sm font-semibold text-text-primary dark:text-white">
           {vaultItemDisplayName(item)}
         </span>
+        {item.type === 'SECURE_NOTE' && item.markdown && (
+          <p className="mt-1 line-clamp-2 text-xs text-text-tertiary dark:text-slate-400 leading-relaxed">
+            {item.markdown}
+          </p>
+        )}
         <span className="mt-3 inline-flex gap-1.5 flex-wrap">
           <span className="rounded-full bg-surface px-2 py-0.5 text-[10px] font-semibold text-text-secondary">
             Cifrado local
@@ -202,6 +207,9 @@ export const MainArea = memo(function MainArea({
         const cid = localCategory.id === 'all' ? undefined : localCategory.id
         const clabel = localCategory.id === 'all' ? undefined : localCategory.label
         setEditingLocalItem(createLocalVaultItem(localCategory.type, cid, clabel))
+        setView('create')
+      } else if (groupMode === 'local') {
+        setEditingLocalItem(createLocalVaultItem('SECURE_NOTE', undefined, undefined))
         setView('create')
       } else if (targetIdentity) {
         setEditingPlatform({
@@ -599,16 +607,19 @@ export const MainArea = memo(function MainArea({
                           </div>
                         ))}
                       </div>
-                    ) : (
-                      <div className="vault-panel flex flex-col items-center justify-center rounded-[28px] border-dashed py-12 text-center">
-                        <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-white shadow-sm ring-1 ring-black/5 dark:bg-slate-700 dark:ring-white/10 text-text-secondary dark:text-slate-300">
-                          <svg className="h-6 w-6 text-text-secondary" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-                            <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
-                          </svg>
-                        </div>
-                        <h3 className="text-base font-bold text-text-primary">Selecciona una categoría</h3>
-                        <p className="mt-1 max-w-sm text-sm text-text-secondary">Elige una categoría de la bóveda local en la barra lateral para ver o añadir secretos.</p>
+                    ) : localItems.length > 0 ? (
+                      <div className="grid grid-cols-1 gap-4 pr-1 sm:grid-cols-2 xl:grid-cols-3">
+                        {localItems.map((item, index) => renderLocalVaultItemCard(item, index))}
                       </div>
+                    ) : (
+                      renderProactiveEmptyState({
+                        description: 'Guarda notas seguras, redes Wi-Fi, tarjetas o licencias privadas en tu dispositivo.',
+                        actionLabel: 'Crear tu primera nota segura',
+                        onAction: () => {
+                          setEditingLocalItem(createLocalVaultItem('SECURE_NOTE', undefined, undefined))
+                          setView('create')
+                        },
+                      })
                     )
                   ) : identities.length > 0 ? (
                     <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

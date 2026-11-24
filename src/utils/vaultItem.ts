@@ -178,7 +178,7 @@ export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
         categoryId,
         categoryLabel,
         title: (item.title || 'Nota segura').trim(),
-        markdown: item.markdown.trim(),
+        markdown: (item.markdown || '').trim(),
         customFields: customFields.length > 0 ? customFields : undefined,
         updatedAt,
       }
@@ -254,8 +254,18 @@ export function vaultItemDisplayName(item: VaultItem): string {
   if (item.type === 'FINANCE') return item.title || 'Tarjeta'
   if (item.type === 'DOCUMENT') return item.title || 'Documento'
   if (item.type === 'PAPERWORK') return item.title || 'Trámite / Solicitud'
-  if (item.type === 'INVOICE') return item.title || 'Factura / Ticket'
-  return item.title || 'Nota segura'
+  if (item.type === 'INVOICE') return item.title || item.vendor || 'Factura / Ticket'
+  if (item.type === 'SECURE_NOTE') {
+    if (item.title && item.title.trim() && item.title !== 'Nota segura') {
+      return item.title.trim()
+    }
+    if (item.markdown && item.markdown.trim()) {
+      const firstLine = item.markdown.trim().split('\n')[0].replace(/^[#*\s-]+/, '').trim()
+      if (firstLine) return firstLine.slice(0, 40)
+    }
+    return item.title || 'Nota segura'
+  }
+  return 'Elemento'
 }
 
 export const WIFI_SECURITY_OPTIONS: WifiSecurityType[] = ['WPA2', 'WPA3', 'WEP', 'OPEN', 'OTHER']
