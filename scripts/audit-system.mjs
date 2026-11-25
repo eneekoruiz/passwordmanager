@@ -147,6 +147,13 @@ function auditCodeSinks(trackedFiles) {
   } else {
     pass('Zero unsafe DOM sinks, tabnabbing opens, or weak PRNG in crypto modules')
   }
+
+  const biometricCode = readText('src/crypto/biometric.ts')
+  if (/localStorage\.setItem|sessionStorage\.setItem/.test(biometricCode)) {
+    fail('Biometric module writes wrapping key material to Web Storage', 'src/crypto/biometric.ts')
+  } else {
+    pass('Biometric module requires WebAuthn PRF without localStorage key fallback')
+  }
 }
 
 // 4. Headers, Gitignore & Workspace Hygiene

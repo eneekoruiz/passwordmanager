@@ -2044,6 +2044,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     await storeRef.current.deleteBiometricBundle(currentProfileId)
     localStorage.removeItem(`contras.biometricRegistered.${currentProfileId}`)
     localStorage.removeItem(`contras.biometricBundleBackup.${currentProfileId}`)
+    localStorage.removeItem(`contras.biometric.insecurePrfKey.${currentProfileId}`)
     setBiometricRegistered(false)
   }, [currentProfileId])
 
@@ -2073,7 +2074,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       await deleteVaultDb()
       if (typeof window !== 'undefined') {
         for (const key of Object.keys(window.localStorage)) {
-          if (key.startsWith(`contras.lastCloudSyncAt.${user.uid}.`) || key.startsWith('contras.localMutationAt.')) {
+          if (
+            key.startsWith(`contras.lastCloudSyncAt.${user.uid}.`) ||
+            key.startsWith('contras.localMutationAt.') ||
+            key.startsWith('contras.biometric.insecurePrfKey.')
+          ) {
             window.localStorage.removeItem(key)
           }
         }

@@ -748,6 +748,20 @@ export class VaultStore {
     }
 
     const db = await getVaultDb()
+    const existingProfile = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
+    let localReadKey: CryptoKey = key
+    if (existingProfile?.salt && existingProfile.salt !== backup.salt) {
+      try {
+        localReadKey = await CryptoVault.deriveKey(masterPassword, base64ToBytes(existingProfile.salt))
+      } catch {
+        localReadKey = key
+      }
+    }
+
+    const { localOnlyEntries, localOnlyPlatformsByIdentity } = await this.collectLocalOnlyRecords(
+      profileId,
+      this.vault.isUnlocked() ? undefined : localReadKey,
+    )
 
     // Registrar los metadatos del perfil en la tabla meta
     const restoredProfile: ProfileRecord = {
@@ -761,35 +775,41 @@ export class VaultStore {
     }
     await db.put('meta', restoredProfile, `profile_${profileId}`)
 
-    // Limpiar las plataformas actuales de este perfil (si existieran)
-    const txDelete = db.transaction('platforms', 'readwrite')
-    const allKeys = await txDelete.store.getAllKeys()
-    const prefix = `${profileId}_`
-    for (const key of allKeys) {
-      if (key.startsWith(prefix)) {
-        await txDelete.store.delete(key)
-      }
-    }
-    await txDelete.done
+    await this.writeRestoredRecordsPreservingLocalOnly(
+      db,
+      profileId,
+      importedRecords,
+      localOnlyEntries,
+      localOnlyPlatformsByIdentity,
+      key,
+    )
+  }
 
-    // Registrar todas las plataformas importadas
-    const txWrite = db.transaction('platforms', 'readwrite')
-    for (const record of importedRecords) {
-      await txWrite.store.put(record.payload, `${profileId}_${record.id}`)
+  private async decryptRecordWithKey<T>(payload: EncryptedPayload, explicitKey?: CryptoKey): Promise<T> {
+    if (explicitKey) {
+      const bytes = await CryptoVault.decryptBytes(payload, explicitKey)
+      return JSON.parse(bytesToString(bytes)) as T
     }
-    await txWrite.done
+    return this.vault.decryptJson<T>(payload)
+  }
+
+  private async encryptRecordWithKey(data: unknown, explicitKey?: CryptoKey): Promise<EncryptedPayload> {
+    if (explicitKey) {
+      return CryptoVault.encryptBytes(stringToBytes(JSON.stringify(data)), explicitKey)
+    }
+    return this.vault.encryptJson(data)
   }
 
   /**
    * Lee y preserva los registros marcados como isLocalOnly antes de reemplazar el perfil desde la nube.
    */
-  private async collectLocalOnlyRecords(profileId: string): Promise<{
-    localOnlyEntries: { key: string; payload: EncryptedPayload }[]
+  private async collectLocalOnlyRecords(profileId: string, explicitKey?: CryptoKey): Promise<{
+    localOnlyEntries: { key: string; decrypted: unknown; payload: EncryptedPayload }[]
     localOnlyPlatformsByIdentity: Map<string, any[]>
   }> {
-    const localOnlyEntries: { key: string; payload: EncryptedPayload }[] = []
+    const localOnlyEntries: { key: string; decrypted: unknown; payload: EncryptedPayload }[] = []
     const localOnlyPlatformsByIdentity = new Map<string, any[]>()
-    if (!this.vault.isUnlocked()) {
+    if (!explicitKey && !this.vault.isUnlocked()) {
       return { localOnlyEntries, localOnlyPlatformsByIdentity }
     }
 
@@ -804,16 +824,16 @@ export class VaultStore {
       if (!payload) continue
       try {
         if (key.includes(LOCAL_ITEM_KEY_SEGMENT) || key.includes(LOCAL_CATEGORY_KEY_SEGMENT)) {
-          const item = await this.vault.decryptJson<{ isLocalOnly?: boolean }>(payload)
+          const item = await this.decryptRecordWithKey<{ isLocalOnly?: boolean }>(payload, explicitKey)
           if (item?.isLocalOnly) {
-            localOnlyEntries.push({ key, payload })
+            localOnlyEntries.push({ key, decrypted: item, payload })
           }
           continue
         }
 
-        const identity = await this.vault.decryptJson<Identity>(payload)
+        const identity = await this.decryptRecordWithKey<Identity>(payload, explicitKey)
         if (identity?.email === LOCAL_IDENTITY_EMAIL) {
-          localOnlyEntries.push({ key, payload })
+          localOnlyEntries.push({ key, decrypted: identity, payload })
           continue
         }
         const localOnlyPlatforms = (identity?.platforms || []).filter((p) => p?.isLocalOnly)
@@ -827,6 +847,57 @@ export class VaultStore {
     await tx.done
 
     return { localOnlyEntries, localOnlyPlatformsByIdentity }
+  }
+
+  private async writeRestoredRecordsPreservingLocalOnly(
+    db: Awaited<ReturnType<typeof getVaultDb>>,
+    profileId: string,
+    importedRecords: Array<{ id: string; payload: EncryptedPayload }>,
+    localOnlyEntries: { key: string; decrypted: unknown; payload: EncryptedPayload }[],
+    localOnlyPlatformsByIdentity: Map<string, any[]>,
+    writeKey?: CryptoKey,
+  ): Promise<void> {
+    const tx = db.transaction(['platforms'], 'readwrite')
+    const platformsStore = tx.objectStore('platforms')
+
+    const allKeys = await platformsStore.getAllKeys()
+    const prefix = `${profileId}_`
+    for (const key of allKeys) {
+      if (key.startsWith(prefix)) {
+        await platformsStore.delete(key)
+      }
+    }
+
+    for (const record of importedRecords) {
+      if (
+        localOnlyPlatformsByIdentity.has(record.id) &&
+        !String(record.id).startsWith(LOCAL_ITEM_KEY_SEGMENT.slice(1)) &&
+        !String(record.id).startsWith(LOCAL_CATEGORY_KEY_SEGMENT.slice(1))
+      ) {
+        const decryptedIdentity = normalizeIdentityRecord(
+          await this.decryptRecordWithKey<unknown>(record.payload, writeKey),
+        )
+        const preservedPlatforms = localOnlyPlatformsByIdentity.get(record.id) || []
+        const existingIds = new Set(decryptedIdentity.platforms.map((p) => p.id))
+        const mergedIdentity: Identity = {
+          ...decryptedIdentity,
+          platforms: [...decryptedIdentity.platforms, ...preservedPlatforms.filter((p) => !existingIds.has(p.id))],
+        }
+        await platformsStore.put(
+          await this.encryptRecordWithKey(mergedIdentity, writeKey),
+          `${profileId}_${record.id}`,
+        )
+      } else {
+        await platformsStore.put(record.payload, `${profileId}_${record.id}`)
+      }
+    }
+
+    for (const entry of localOnlyEntries) {
+      const serialized = writeKey ? await this.encryptRecordWithKey(entry.decrypted, writeKey) : entry.payload
+      await platformsStore.put(serialized, entry.key)
+    }
+
+    await tx.done
   }
 
   /**
@@ -926,45 +997,14 @@ export class VaultStore {
       asymmetricKeys: databaseDump.meta.asymmetricKeys ?? backup.asymmetricKeys ?? profileRecord.asymmetricKeys,
       createdAt: databaseDump.meta.createdAt || profileRecord.createdAt,
     }
-    const tx = db.transaction(['meta', 'platforms'], 'readwrite')
-    const metaStore = tx.objectStore('meta')
-    const platformsStore = tx.objectStore('platforms')
-
-    await metaStore.put(restoredProfile, `profile_${profileId}`)
-
-    const allKeys = await platformsStore.getAllKeys()
-    const prefix = `${profileId}_`
-    for (const key of allKeys) {
-      if (key.startsWith(prefix)) {
-        await platformsStore.delete(key)
-      }
-    }
-
-    for (const record of importedRecords) {
-      if (
-        localOnlyPlatformsByIdentity.has(record.id) &&
-        !String(record.id).startsWith(LOCAL_ITEM_KEY_SEGMENT.slice(1)) &&
-        !String(record.id).startsWith(LOCAL_CATEGORY_KEY_SEGMENT.slice(1))
-      ) {
-        const decryptedIdentity = normalizeIdentityRecord(await this.vault.decryptJson<unknown>(record.payload))
-        const preservedPlatforms = localOnlyPlatformsByIdentity.get(record.id) || []
-        const existingIds = new Set(decryptedIdentity.platforms.map((p) => p.id))
-        const mergedIdentity: Identity = {
-          ...decryptedIdentity,
-          platforms: [...decryptedIdentity.platforms, ...preservedPlatforms.filter((p) => !existingIds.has(p.id))],
-        }
-        await platformsStore.put(await this.vault.encryptJson(mergedIdentity), `${profileId}_${record.id}`)
-      } else {
-        await platformsStore.put(record.payload, `${profileId}_${record.id}`)
-      }
-    }
-
-    // Re-escribir registros marcados como solo locales sin sobreescribir con nube
-    for (const entry of localOnlyEntries) {
-      await platformsStore.put(entry.payload, entry.key)
-    }
-
-    await tx.done
+    await db.put('meta', restoredProfile, `profile_${profileId}`)
+    await this.writeRestoredRecordsPreservingLocalOnly(
+      db,
+      profileId,
+      importedRecords,
+      localOnlyEntries,
+      localOnlyPlatformsByIdentity,
+    )
   }
 
   async inspectAndDecryptCloudPayload(payloadJson: string): Promise<{

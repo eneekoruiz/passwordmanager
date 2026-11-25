@@ -47,5 +47,17 @@ describe('VaultStore isLocalOnly preservation', { timeout: 90_000 }, () => {
     expect(restoredItems.some((item) => item.id === syncedNote.id)).toBe(true)
     expect(restoredItems.some((item) => item.id === localOnlyNote.id && item.isLocalOnly === true)).toBe(true)
     expect(restoredCats.some((cat) => cat.id === localOnlyCat.id && cat.isLocalOnly === true)).toBe(true)
+
+    // Also verify locked restoreCloudPayload preserves local-only items and categories
+    vault.lock()
+    await store.restoreCloudPayload(profileId, cloudBlob, masterPassword)
+    expect(await store.unlockProfile(profileId, masterPassword)).toBe(true)
+
+    const unlockedAfterLockedRestore = await store.loadLocalItems(profileId)
+    const catsAfterLockedRestore = await store.loadLocalCategories(profileId)
+    expect(unlockedAfterLockedRestore.some((item) => item.id === localOnlyNote.id && item.isLocalOnly === true)).toBe(
+      true,
+    )
+    expect(catsAfterLockedRestore.some((cat) => cat.id === localOnlyCat.id && cat.isLocalOnly === true)).toBe(true)
   })
 })
