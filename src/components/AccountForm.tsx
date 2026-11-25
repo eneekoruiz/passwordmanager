@@ -9,7 +9,7 @@ import { PasswordField } from './ui/PasswordField'
 import { copyToClipboard } from '../utils/clipboard'
 import { getFriendlyErrorMessage } from '../utils/errors'
 import { evaluatePassword, isAccountVerified, isAccountUnverified } from '../utils/security'
-import { getPlatformUrl } from '../utils/platformUtils'
+import { openExternalUrl } from '../utils/platformUtils'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { Combobox } from './ui/Combobox'
 import { POPULAR_SERVICES } from '../data/popularServices'
@@ -1103,7 +1103,7 @@ export function AccountForm({
                       await copyToClipboard(passwordMethod.password)
                       showToast('Contraseña copiada al portapapeles', 'success')
                     }
-                    window.open(getPlatformUrl(account.name), '_blank')
+                    openExternalUrl(account.name)
                   }}
                   className="inline-flex items-center gap-1.5 rounded-xl border border-amber-300/80 bg-white/95 px-3.5 py-2 text-xs font-bold text-amber-950 shadow-sm transition-all hover:bg-white hover:border-amber-400 hover:shadow active:scale-95 dark:border-amber-500/30 dark:bg-slate-800 dark:text-amber-200 dark:hover:bg-slate-700"
                   title="Copiar contraseña y abrir enlace oficial de la plataforma"

@@ -6,9 +6,11 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build --configLoader runner",
-    "preview": "vite preview",
+    "preview": "vite preview --configLoader runner",
     "test": "vitest run src",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "audit:system": "node scripts/audit-system.mjs",
+    "audit:all": "npm run audit:system && npm run build && npm test && npm run test:e2e"
   },
   "dependencies": {
     "@types/jszip": "^3.4.0",

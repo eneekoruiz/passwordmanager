@@ -8,7 +8,7 @@ import { AccountForm, type UnsavedFormActions } from './AccountForm'
 import { EmptyState } from './EmptyState'
 import { PlatformLogo } from './ui/PlatformLogo'
 import { VaultItemForm } from './VaultItemForm'
-import { getCanonicalPlatformName, getPlatformUrl } from '../utils/platformUtils'
+import { getCanonicalPlatformName, getPlatformUrl, openExternalUrl } from '../utils/platformUtils'
 import { WeakPasswordWarningPopover } from './ui/WeakPasswordWarningPopover'
 import { ExposedPasswordWarningPopover } from './ui/ExposedPasswordWarningPopover'
 import { ShareModal, type SharePayload } from './ShareModal'
@@ -1145,7 +1145,7 @@ export const MainArea = memo(function MainArea({
                                       await navigator.clipboard.writeText(pwMethod.password)
                                       setQuickTravelCopied(`${identityId}-${platform.id}-travel`)
                                       setTimeout(() => setQuickTravelCopied(null), 2000)
-                                      window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                      openExternalUrl((platform as any).url || platform.name)
                                     } catch {}
                                   }, `${identityId}-${platform.id}`)
                                 }}
@@ -1169,7 +1169,7 @@ export const MainArea = memo(function MainArea({
                                   handleRequireAuth(async () => {
                                     try {
                                       await navigator.clipboard.writeText(pwMethod.password)
-                                      window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                      openExternalUrl((platform as any).url || platform.name)
                                       setTestPasswordModalOpen({ identityId, platform })
                                     } catch {}
                                   }, `${identityId}-${platform.id}`)
@@ -1187,7 +1187,7 @@ export const MainArea = memo(function MainArea({
                               title="Abrir enlace"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                openExternalUrl((platform as any).url || platform.name)
                               }}
                               className="p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400"
                             >
@@ -1484,7 +1484,7 @@ export const MainArea = memo(function MainArea({
                                       await navigator.clipboard.writeText(pwMethod.password)
                                       setQuickTravelCopied(`${identity?.id}-${platform.id}-travel`)
                                       setTimeout(() => setQuickTravelCopied(null), 2000)
-                                      window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                      openExternalUrl((platform as any).url || platform.name)
                                     } catch {}
                                   }, `${identity?.id}-${platform.id}`)
                                 }}
@@ -1508,7 +1508,7 @@ export const MainArea = memo(function MainArea({
                                   handleRequireAuth(async () => {
                                     try {
                                       await navigator.clipboard.writeText(pwMethod.password)
-                                      window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                      openExternalUrl((platform as any).url || platform.name)
                                       setTestPasswordModalOpen({ identityId: identity?.id ?? '', platform })
                                     } catch {}
                                   }, `${identity?.id}-${platform.id}`)
@@ -1526,7 +1526,7 @@ export const MainArea = memo(function MainArea({
                               title="Abrir enlace"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                window.open(getPlatformUrl((platform as any).url || platform.name), '_blank')
+                                openExternalUrl((platform as any).url || platform.name)
                               }}
                               className="p-1.5 rounded-lg text-xs font-bold shadow-sm border transition-all bg-white/95 dark:bg-slate-800 text-text-secondary dark:text-slate-400 border-black/10 dark:border-white/10 hover:text-indigo-600 dark:hover:text-indigo-400"
                             >
@@ -1584,6 +1584,7 @@ export const MainArea = memo(function MainArea({
 
         {view === 'create' && editingLocalItem && (
           <VaultItemForm
+            mode="create"
             item={editingLocalItem}
             onSave={async (item) => {
               await onSaveLocalItem(item)
@@ -1597,6 +1598,7 @@ export const MainArea = memo(function MainArea({
 
         {view === 'edit' && editingLocalItem && (
           <VaultItemForm
+            mode="edit"
             item={editingLocalItem}
             onSave={async (item) => {
               await onSaveLocalItem(item)

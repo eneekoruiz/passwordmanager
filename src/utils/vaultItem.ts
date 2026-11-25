@@ -118,9 +118,14 @@ export function createLocalVaultItem(
   }
 }
 
-export function normalizeLocalVaultItem(item: LocalVaultItem): LocalVaultItem {
-  const updatedAt = new Date().toISOString()
-  const categoryId = item.categoryId ?? item.type
+export function normalizeLocalVaultItem(
+  item: LocalVaultItem,
+  options?: { preserveUpdatedAt?: boolean },
+): LocalVaultItem {
+  const updatedAt =
+    options?.preserveUpdatedAt && item.updatedAt ? item.updatedAt : new Date().toISOString()
+  const rawCategoryId = typeof item.categoryId === 'string' ? item.categoryId.trim() : ''
+  const categoryId = rawCategoryId || item.type
   const categoryLabel = item.categoryLabel?.trim() || LOCAL_ITEM_LABELS[item.type]
 
   const customFields =

@@ -780,6 +780,107 @@ export class VaultStore {
     await txWrite.done
   }
 
+  /**
+   * Lee y preserva los registros marcados como isLocalOnly antes de reemplazar el perfil desde la nube.
+   */
+  private async collectLocalOnlyRecords(profileId: string): Promise<{
+    localOnlyEntries: { key: string; payload: EncryptedPayload }[]
+    localOnlyPlatformsByIdentity: Map<string, any[]>
+  }> {
+    const localOnlyEntries: { key: string; payload: EncryptedPayload }[] = []
+    const localOnlyPlatformsByIdentity = new Map<string, any[]>()
+    if (!this.vault.isUnlocked()) {
+      return { localOnlyEntries, localOnlyPlatformsByIdentity }
+    }
+
+    const db = await getVaultDb()
+    const tx = db.transaction('platforms', 'readonly')
+    const allKeys = await tx.store.getAllKeys()
+    const prefix = `${profileId}_`
+
+    for (const key of allKeys) {
+      if (!key.startsWith(prefix)) continue
+      const payload = await tx.store.get(key)
+      if (!payload) continue
+      try {
+        if (key.includes(LOCAL_ITEM_KEY_SEGMENT) || key.includes(LOCAL_CATEGORY_KEY_SEGMENT)) {
+          const item = await this.vault.decryptJson<{ isLocalOnly?: boolean }>(payload)
+          if (item?.isLocalOnly) {
+            localOnlyEntries.push({ key, payload })
+          }
+          continue
+        }
+
+        const identity = await this.vault.decryptJson<Identity>(payload)
+        if (identity?.email === LOCAL_IDENTITY_EMAIL) {
+          localOnlyEntries.push({ key, payload })
+          continue
+        }
+        const localOnlyPlatforms = (identity?.platforms || []).filter((p) => p?.isLocalOnly)
+        if (localOnlyPlatforms.length > 0) {
+          localOnlyPlatformsByIdentity.set(identity.id, localOnlyPlatforms)
+        }
+      } catch {
+        // Ignorar registros ilegibles para no bloquear restauracion
+      }
+    }
+    await tx.done
+
+    return { localOnlyEntries, localOnlyPlatformsByIdentity }
+  }
+
+  /**
+   * Reemplaza los registros sincronizados de un perfil en IndexedDB preservando siempre los isLocalOnly.
+   */
+  async replaceProfileRecordsPreservingLocalOnly(
+    profileId: string,
+    identities: Identity[],
+    localItems: LocalVaultItem[],
+    localCategories: LocalCategory[],
+    extraLocalOnlyItems: LocalVaultItem[] = [],
+    extraLocalOnlyCategories: LocalCategory[] = [],
+  ): Promise<void> {
+    if (!this.vault.isUnlocked()) {
+      throw new Error('La bóveda debe estar desbloqueada para actualizar los datos locales.')
+    }
+
+    const { localOnlyEntries, localOnlyPlatformsByIdentity } = await this.collectLocalOnlyRecords(profileId)
+    const db = await getVaultDb()
+    const tx = db.transaction(['platforms'], 'readwrite')
+    const platformsStore = tx.objectStore('platforms')
+
+    const allKeys = await platformsStore.getAllKeys()
+    const prefix = `${profileId}_`
+    for (const key of allKeys) {
+      if (key.startsWith(prefix)) {
+        await platformsStore.delete(key)
+      }
+    }
+
+    for (const idn of identities) {
+      const preservedPlatforms = localOnlyPlatformsByIdentity.get(idn.id) || []
+      const existingIds = new Set((idn.platforms || []).map((p) => p.id))
+      const combined = preservedPlatforms.length > 0
+        ? { ...idn, platforms: [...(idn.platforms || []), ...preservedPlatforms.filter((p) => !existingIds.has(p.id))] }
+        : idn
+      await platformsStore.put(await this.vault.encryptJson(combined), `${profileId}_${idn.id}`)
+    }
+
+    for (const entry of localOnlyEntries) {
+      await platformsStore.put(entry.payload, entry.key)
+    }
+
+    for (const item of [...localItems, ...extraLocalOnlyItems]) {
+      await platformsStore.put(await this.vault.encryptJson(item), `${profileId}${LOCAL_ITEM_KEY_SEGMENT}${item.id}`)
+    }
+
+    for (const cat of [...localCategories, ...extraLocalOnlyCategories]) {
+      await platformsStore.put(await this.vault.encryptJson(cat), `${profileId}${LOCAL_CATEGORY_KEY_SEGMENT}${cat.id}`)
+    }
+
+    await tx.done
+  }
+
   async restoreCloudPayloadWithActiveSession(profileId: string, payloadJson: string): Promise<void> {
     if (!this.vault.isUnlocked()) {
       throw new Error('La bóveda debe estar desbloqueada para restaurar desde la nube.')
@@ -800,6 +901,8 @@ export class VaultStore {
     if (!databaseDump.meta || !importedRecords) {
       throw new Error('El contenido descargado de la nube no tiene el formato correcto.')
     }
+
+    const { localOnlyEntries, localOnlyPlatformsByIdentity } = await this.collectLocalOnlyRecords(profileId)
 
     const db = await getVaultDb()
     let profileRecord = (await db.get('meta', `profile_${profileId}`)) as ProfileRecord | undefined
@@ -838,7 +941,27 @@ export class VaultStore {
     }
 
     for (const record of importedRecords) {
-      await platformsStore.put(record.payload, `${profileId}_${record.id}`)
+      if (
+        localOnlyPlatformsByIdentity.has(record.id) &&
+        !String(record.id).startsWith(LOCAL_ITEM_KEY_SEGMENT.slice(1)) &&
+        !String(record.id).startsWith(LOCAL_CATEGORY_KEY_SEGMENT.slice(1))
+      ) {
+        const decryptedIdentity = normalizeIdentityRecord(await this.vault.decryptJson<unknown>(record.payload))
+        const preservedPlatforms = localOnlyPlatformsByIdentity.get(record.id) || []
+        const existingIds = new Set(decryptedIdentity.platforms.map((p) => p.id))
+        const mergedIdentity: Identity = {
+          ...decryptedIdentity,
+          platforms: [...decryptedIdentity.platforms, ...preservedPlatforms.filter((p) => !existingIds.has(p.id))],
+        }
+        await platformsStore.put(await this.vault.encryptJson(mergedIdentity), `${profileId}_${record.id}`)
+      } else {
+        await platformsStore.put(record.payload, `${profileId}_${record.id}`)
+      }
+    }
+
+    // Re-escribir registros marcados como solo locales sin sobreescribir con nube
+    for (const entry of localOnlyEntries) {
+      await platformsStore.put(entry.payload, entry.key)
     }
 
     await tx.done

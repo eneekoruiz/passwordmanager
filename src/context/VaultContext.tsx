@@ -31,7 +31,7 @@ import {
   resetFirebaseAuthSession,
 } from '../services/firebase'
 import { VaultStore } from '../storage/VaultStore'
-import { deleteVaultDb, isInMemoryFallbackActive, getVaultDb } from '../storage/vaultDb'
+import { deleteVaultDb, isInMemoryFallbackActive } from '../storage/vaultDb'
 import type { Identity, LocalCategory, LocalVaultItem, Platform } from '../types'
 import {
   FIREBASE_AUTH_RECOVERY_MESSAGE,
@@ -42,9 +42,10 @@ import {
 import { createIdentity, createPlatform, identityMatchesEmail, LOCAL_IDENTITY_EMAIL } from '../utils/identity'
 import { evaluatePlatformAutopilot, isOrphanAccount } from '../utils/security'
 import { AUDITED_ORPHAN_PLATFORMS } from '../data/popularServices'
-import { normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
+import { LOCAL_ITEM_LABELS, normalizeLocalCategory, normalizeLocalVaultItem } from '../utils/vaultItem'
 import { useToast } from '../components/ui/ToastProvider'
 import { payloadsAreIdentical } from '../utils/hash'
+import { buildAutoBootResolutions, decideCloudSyncAction } from '../utils/syncPolicy'
 import {
   isBiometricAvailable,
   isMissingBiometricCredentialError,
@@ -205,6 +206,34 @@ function isAppleMobileAuthContext(): boolean {
     window.matchMedia?.('(display-mode: standalone)').matches ||
     Boolean((navigator as Navigator & { standalone?: boolean }).standalone)
   return isAppleMobile || isWebKit || isStandalone
+}
+
+function getLastSyncedCloudAt(uid: string, profileId: string): number {
+  if (typeof window === 'undefined') return 0
+  const raw = window.localStorage.getItem(`contras.lastCloudSyncAt.${uid}.${profileId}`)
+  const parsed = raw ? Number(raw) || Date.parse(raw) : 0
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function setLastSyncedCloudAt(uid: string, profileId: string, timestampIsoOrMs: string | number): void {
+  if (typeof window === 'undefined') return
+  const ms = typeof timestampIsoOrMs === 'number' ? timestampIsoOrMs : Date.parse(timestampIsoOrMs)
+  if (Number.isFinite(ms) && ms > 0) {
+    window.localStorage.setItem(`contras.lastCloudSyncAt.${uid}.${profileId}`, String(ms))
+  }
+}
+
+function getLastLocalMutationAt(profileId: string): number {
+  if (typeof window === 'undefined') return 0
+  const raw = window.localStorage.getItem(`contras.localMutationAt.${profileId}`)
+  const parsed = raw ? Number(raw) : 0
+  return Number.isFinite(parsed) ? parsed : 0
+}
+
+function recordLocalMutationAt(profileId: string): void {
+  if (typeof window !== 'undefined') {
+    window.localStorage.setItem(`contras.localMutationAt.${profileId}`, String(Date.now()))
+  }
 }
 
 export function VaultProvider({ children }: { children: ReactNode }) {
@@ -502,11 +531,14 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       ...localCategories.flatMap((category) => [category.updatedAt ?? '', category.createdAt ?? '']),
     ].filter(Boolean)
 
-    return timestamps.reduce((latest, value) => {
+    const latestRecordTime = timestamps.reduce((latest, value) => {
       const time = Date.parse(value)
       return Number.isFinite(time) ? Math.max(latest, time) : latest
     }, 0)
-  }, [identities, localCategories, localItems])
+
+    const mutationTime = currentProfileId ? getLastLocalMutationAt(currentProfileId) : 0
+    return Math.max(latestRecordTime, mutationTime)
+  }, [currentProfileId, identities, localCategories, localItems])
 
   const getLocalVaultCounts = useCallback(() => ({
     identityCount: identities.length,
@@ -581,18 +613,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
         const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
 
+        const extraLocalOnlyItems: LocalVaultItem[] = []
         const mergedLocalItems = [...(decryptedCloud.localItems || [])]
         for (const localItem of localItemsDb) {
           const index = mergedLocalItems.findIndex(i => i.id === localItem.id)
+          const resolution = resolutions?.[localItem.id]
           if (index >= 0) {
-            const resolution = resolutions?.[localItem.id]
             if (resolution === 'local') {
               mergedLocalItems[index] = localItem
               localWinsExist = true
             } else if (resolution === 'local_only') {
-              // Si eligió 'local_only', forzamos a que tenga `isLocalOnly: true`
-              // Lo guardamos en store, pero NO lo metemos en merged (porque no queremos subirlo a la nube)
-              await storeRef.current.saveLocalItem(currentProfileId, { ...localItem, isLocalOnly: true })
+              mergedLocalItems.splice(index, 1)
+              extraLocalOnlyItems.push({ ...localItem, isLocalOnly: true })
             } else if (resolution !== 'cloud') {
               const localDate = new Date(localItem.updatedAt || 0).getTime()
               const cloudDate = new Date(mergedLocalItems[index].updatedAt || 0).getTime()
@@ -602,9 +634,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               }
             }
           } else {
-            const resolution = resolutions?.[localItem.id]
             if (resolution === 'local_only') {
-              await storeRef.current.saveLocalItem(currentProfileId, { ...localItem, isLocalOnly: true })
+              extraLocalOnlyItems.push({ ...localItem, isLocalOnly: true })
             } else if (resolution !== 'cloud') {
               mergedLocalItems.push(localItem)
               localWinsExist = true
@@ -612,16 +643,18 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
+        const extraLocalOnlyCategories: LocalCategory[] = []
         const mergedCats = [...(decryptedCloud.localCategories || [])]
         for (const localCat of localCatsDb) {
           const index = mergedCats.findIndex(i => i.id === localCat.id)
+          const resolution = resolutions?.[localCat.id]
           if (index >= 0) {
-            const resolution = resolutions?.[localCat.id]
             if (resolution === 'local') {
               mergedCats[index] = localCat
               localWinsExist = true
             } else if (resolution === 'local_only') {
-              await storeRef.current.saveLocalCategory(currentProfileId, { ...localCat, isLocalOnly: true })
+              mergedCats.splice(index, 1)
+              extraLocalOnlyCategories.push({ ...localCat, isLocalOnly: true })
             } else if (resolution !== 'cloud') {
               const localDate = new Date(localCat.updatedAt || 0).getTime()
               const cloudDate = new Date(mergedCats[index].updatedAt || 0).getTime()
@@ -631,9 +664,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               }
             }
           } else {
-            const resolution = resolutions?.[localCat.id]
             if (resolution === 'local_only') {
-              await storeRef.current.saveLocalCategory(currentProfileId, { ...localCat, isLocalOnly: true })
+              extraLocalOnlyCategories.push({ ...localCat, isLocalOnly: true })
             } else if (resolution !== 'cloud') {
               mergedCats.push(localCat)
               localWinsExist = true
@@ -641,56 +673,46 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        // Rebuild/Restore using solved items
-        const db = await getVaultDb()
-        const tx = db.transaction(['platforms'], 'readwrite')
-        const platformsStore = tx.objectStore('platforms')
-
-        // Clear old profile platforms
-        const allKeys = await platformsStore.getAllKeys()
-        const prefix = `${currentProfileId}_`
-        for (const key of allKeys) {
-          if (key.startsWith(prefix)) {
-            await platformsStore.delete(key)
-          }
-        }
-
-        // Put all resolved/merged identities
-        for (const idn of mergedIdns) {
-          const encrypted = await vaultRef.current.encryptJson(idn)
-          await platformsStore.put(encrypted, `${currentProfileId}_${idn.id}`)
-        }
-        for (const item of mergedLocalItems) {
-          const encrypted = await vaultRef.current.encryptJson(item)
-          await platformsStore.put(encrypted, `${currentProfileId}_item_${item.id}`)
-        }
-        for (const cat of mergedCats) {
-          const encrypted = await vaultRef.current.encryptJson(cat)
-          await platformsStore.put(encrypted, `${currentProfileId}_category_${cat.id}`)
-        }
-        await tx.done
+        await storeRef.current.replaceProfileRecordsPreservingLocalOnly(
+          currentProfileId,
+          mergedIdns,
+          mergedLocalItems,
+          mergedCats,
+          extraLocalOnlyItems,
+          extraLocalOnlyCategories,
+        )
 
         await refreshVaultData()
 
         // If local version won some conflicts, upload the final resolved payload to Google Cloud to prevent data loss
+        const cloudUpdatedIso = String(snapshot.data()?.updated_at ?? '')
+        if (cloudUpdatedIso) {
+          setLastSyncedCloudAt(user.uid, currentProfileId, cloudUpdatedIso)
+        }
         if (localWinsExist) {
           try {
             const newEncryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
+            const nextUpdatedAt = new Date().toISOString()
             await withTimeout(
               setDoc(vaultRefDoc, {
                 encrypted_vault_blob: newEncryptedBlob,
-                updated_at: new Date().toISOString(),
+                updated_at: nextUpdatedAt,
               }),
               10000,
               'Error al subir bóveda resuelta a Google Cloud.'
             )
+            setLastSyncedCloudAt(user.uid, currentProfileId, nextUpdatedAt)
           } catch (uploadErr) {
             console.error('Failed to upload resolved payload', uploadErr)
           }
         }
       } else {
-        // Standard restore
+        // Standard restore (preserving existing isLocalOnly items/categories/platforms)
         await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+        const cloudUpdatedIso = String(snapshot.data()?.updated_at ?? '')
+        if (cloudUpdatedIso) {
+          setLastSyncedCloudAt(user.uid, currentProfileId, cloudUpdatedIso)
+        }
       }
 
       await refreshVaultData()
@@ -764,6 +786,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           : false
 
         if (isIdentical) {
+          const cloudUpdatedIso = String(snapshot.data()?.updated_at ?? '')
+          if (cloudUpdatedIso) setLastSyncedCloudAt(user.uid, currentProfileId, cloudUpdatedIso)
           setCloudVaultExists(true)
           setHasUnsyncedChanges(false)
           setCloudSyncStatus('synced')
@@ -774,28 +798,50 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
         const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
         const localIdnsDb = await storeRef.current.loadAllIdentities(currentProfileId)
-        const localDbPlatformCount = localIdnsDb.reduce((total, idn) => total + (idn.platforms?.length || 0), 0)
+        const filterLocalSyncable = <T extends { isLocalOnly?: boolean }>(items: T[]) =>
+          items.filter((i) => !i.isLocalOnly)
+        const syncableLocalItems = filterLocalSyncable(localItemsDb)
+        const syncableLocalCats = filterLocalSyncable(localCatsDb)
+        const syncableLocalDbPlatformCount = localIdnsDb.reduce(
+          (total, idn) => total + (idn.platforms || []).filter((p) => p && !p.isLocalOnly).length,
+          0,
+        )
 
         const localHasVaultData =
-          localDbPlatformCount > 0 ||
-          localItemsDb.length > 0 ||
-          localCatsDb.length > 0
+          syncableLocalDbPlatformCount > 0 ||
+          syncableLocalItems.length > 0 ||
+          syncableLocalCats.length > 0
         const cloudHasVaultData =
           cloudSummary.platformCount > 0 ||
           cloudSummary.localItemCount > 0 ||
           cloudSummary.localCategoryCount > 0
-        const cloudLooksNewer = cloudUpdatedAt > localUpdatedAt + 1000
-        const localLooksEmpty = !localHasVaultData && cloudHasVaultData
         const cloudHasMoreData =
-          cloudSummary.platformCount > localDbPlatformCount ||
-          cloudSummary.localItemCount > localItemsDb.length ||
-          cloudSummary.localCategoryCount > localCatsDb.length
+          cloudSummary.platformCount > syncableLocalDbPlatformCount ||
+          cloudSummary.localItemCount > syncableLocalItems.length ||
+          cloudSummary.localCategoryCount > syncableLocalCats.length
 
-        if (localLooksEmpty) {
-          // Descarga silenciosa automática si el local está vacío y hay datos en la nube
+        const lastSyncedCloudAt = getLastSyncedCloudAt(user.uid, currentProfileId)
+        const lastLocalMutationAt = getLastLocalMutationAt(currentProfileId)
+
+        const preDecision = decideCloudSyncAction({
+          isIdentical,
+          localHasVaultData,
+          cloudHasVaultData,
+          cloudUpdatedAt,
+          localUpdatedAt,
+          lastSyncedCloudAt,
+          lastLocalMutationAt,
+          cloudHasMoreData,
+        })
+
+        if (preDecision.action === 'auto_download') {
+          // Descarga silenciosa automática si el local está vacío y no hubo borrado local posterior a la nube
           await storeRef.current.restoreCloudPayloadWithActiveSession(currentProfileId, cloudBlob)
+          const cloudUpdatedIso = String(snapshot.data()?.updated_at ?? '')
+          if (cloudUpdatedIso) setLastSyncedCloudAt(user.uid, currentProfileId, cloudUpdatedIso)
           await refreshVaultData()
           setCloudVaultExists(true)
+          setHasUnsyncedChanges(false)
           setCloudSyncStatus('synced')
           const msg = `Sincronización completada. Se descargaron ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''} y ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} de forma automática.`
           return {
@@ -814,10 +860,8 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (cloudLooksNewer || cloudHasMoreData || !isIdentical) {
+        if (preDecision.action === 'diff_required') {
           const decryptedCloud = await storeRef.current.inspectAndDecryptCloudPayload(cloudBlob)
-          const localIdns = await storeRef.current.loadAllIdentities(currentProfileId)
-
           const filterIdentities = (idns: any[]) => {
             return (idns || [])
               .map((idn) => ({
@@ -827,7 +871,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               .filter((idn) => idn.platforms.length > 0)
           }
 
-          const filteredLocalIdns = filterIdentities(localIdns)
+          const filteredLocalIdns = filterIdentities(localIdnsDb)
           const filteredCloudIdns = filterIdentities(decryptedCloud.identities)
 
           let computeSyncDiff: any
@@ -850,17 +894,28 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             throw err
           }
 
-          const localItemsDb = await storeRef.current.loadLocalItems(currentProfileId)
-          const localCatsDb = await storeRef.current.loadLocalCategories(currentProfileId)
-
-          const filterLocal = (items: any[]) => items.filter((i) => !i.isLocalOnly)
-
           const diffResult = computeSyncDiff(
-            filteredLocalIdns, filterLocal(localItemsDb), filterLocal(localCatsDb),
+            filteredLocalIdns, syncableLocalItems, syncableLocalCats,
             filteredCloudIdns, decryptedCloud.localItems || [], decryptedCloud.localCategories || []
           )
 
-          if (!diffResult.hasChanges) {
+          const finalDecision = decideCloudSyncAction(
+            {
+              isIdentical,
+              localHasVaultData,
+              cloudHasVaultData,
+              cloudUpdatedAt,
+              localUpdatedAt,
+              lastSyncedCloudAt,
+              lastLocalMutationAt,
+              cloudHasMoreData,
+            },
+            () => diffResult,
+          )
+
+          if (finalDecision.action === 'synced') {
+            const cloudUpdatedIso = String(snapshot.data()?.updated_at ?? '')
+            if (cloudUpdatedIso) setLastSyncedCloudAt(user.uid, currentProfileId, cloudUpdatedIso)
             setCloudVaultExists(true)
             setHasUnsyncedChanges(false)
             setCloudSyncStatus('synced')
@@ -880,22 +935,24 @@ export function VaultProvider({ children }: { children: ReactNode }) {
             }
           }
 
-          setCloudVaultExists(true)
-          setCloudSyncStatus('idle')
-          return {
-            action: 'download_available',
-            message: `Detectadas ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''}, ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} y ${cloudSummary.localCategoryCount} sección${cloudSummary.localCategoryCount !== 1 ? 'es' : ''} en la nube. Descárgalas para traer al dispositivo lo que guardaste en otro sitio.`,
-            cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
-            localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
-            cloudIdentityCount: cloudSummary.identityCount,
-            cloudPlatformCount: cloudSummary.platformCount,
-            cloudLocalItemCount: cloudSummary.localItemCount,
-            cloudLocalCategoryCount: cloudSummary.localCategoryCount,
-            localIdentityCount: localCounts.identityCount,
-            localPlatformCount: localCounts.platformCount,
-            localLocalItemCount: localCounts.localItemCount,
-            localLocalCategoryCount: localCounts.localCategoryCount,
-            diffResult,
+          if (finalDecision.action === 'diff_required') {
+            setCloudVaultExists(true)
+            setCloudSyncStatus('idle')
+            return {
+              action: 'download_available',
+              message: `Detectadas ${cloudSummary.platformCount} contraseña${cloudSummary.platformCount !== 1 ? 's' : ''}, ${cloudSummary.localItemCount} secreto${cloudSummary.localItemCount !== 1 ? 's' : ''} local${cloudSummary.localItemCount !== 1 ? 'es' : ''} y ${cloudSummary.localCategoryCount} sección${cloudSummary.localCategoryCount !== 1 ? 'es' : ''} en la nube. Descárgalas para traer al dispositivo lo que guardaste en otro sitio.`,
+              cloudUpdatedAt: snapshot.data()?.updated_at ?? null,
+              localUpdatedAt: localUpdatedAt ? new Date(localUpdatedAt).toISOString() : null,
+              cloudIdentityCount: cloudSummary.identityCount,
+              cloudPlatformCount: cloudSummary.platformCount,
+              cloudLocalItemCount: cloudSummary.localItemCount,
+              cloudLocalCategoryCount: cloudSummary.localCategoryCount,
+              localIdentityCount: localCounts.identityCount,
+              localPlatformCount: localCounts.platformCount,
+              localLocalItemCount: localCounts.localItemCount,
+              localLocalCategoryCount: localCounts.localCategoryCount,
+              diffResult,
+            }
           }
         }
       }
@@ -904,10 +961,11 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       // no existe en la base de datos volátil.
       try {
         const encryptedBlob = await storeRef.current.exportCloudPayload(currentProfileId)
+        const nextUpdatedAt = new Date().toISOString()
         await withTimeout(
           setDoc(vaultRefDoc, {
             encrypted_vault_blob: encryptedBlob,
-            updated_at: new Date().toISOString(),
+            updated_at: nextUpdatedAt,
           }),
           10000,
           'La subida a Google Cloud excedió el tiempo límite (10s). Revisa tu conexión a internet.'
@@ -930,7 +988,9 @@ export function VaultProvider({ children }: { children: ReactNode }) {
           })
         }
 
+        setLastSyncedCloudAt(user.uid, currentProfileId, nextUpdatedAt)
         setCloudVaultExists(true)
+        setHasUnsyncedChanges(false)
         setCloudSyncStatus('synced')
         const msg = `Bóveda subida a la nube. ${localCounts.platformCount} contraseña${localCounts.platformCount !== 1 ? 's' : ''}.`
         return {
@@ -1005,7 +1065,10 @@ export function VaultProvider({ children }: { children: ReactNode }) {
               if (cancelled) return
 
               if (result.action === 'download_available') {
-                result = await downloadLatestCloudVault()
+                const autoResolutions = result.diffResult
+                  ? buildAutoBootResolutions(result.diffResult)
+                  : undefined
+                result = await downloadLatestCloudVault(autoResolutions)
                 if (cancelled) return
                 const followUp = await syncActiveProfileToCloud(true)
                 if (followUp.action !== 'idle' && followUp.action !== 'download_available') result = followUp
@@ -1080,6 +1143,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       try {
         const updated = { ...identity, updatedAt: new Date().toISOString() }
         await storeRef.current.saveIdentity(currentProfileId, updated)
+        recordLocalMutationAt(currentProfileId)
         await refreshVaultData()
         setHasUnsyncedChanges(true)
         triggerCloudSync()
@@ -1111,6 +1175,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     async (identityId: string) => {
       if (!currentProfileId) return
       await storeRef.current.deleteIdentity(currentProfileId, identityId)
+      recordLocalMutationAt(currentProfileId)
       await refreshVaultData()
       setHasUnsyncedChanges(true)
       triggerCloudSync()
@@ -1187,6 +1252,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         }
 
         await storeRef.current.saveMultipleIdentities(currentProfileId, Array.from(byEmail.values()))
+        recordLocalMutationAt(currentProfileId)
         await refreshVaultData()
         triggerCloudSync()
         return firstImportedIdentityId
@@ -1204,6 +1270,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
 
       try {
         await storeRef.current.saveLocalItem(currentProfileId, normalizeLocalVaultItem(item))
+        recordLocalMutationAt(currentProfileId)
         await refreshVaultData()
         setHasUnsyncedChanges(true)
         triggerCloudSync()
@@ -1220,6 +1287,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!currentProfileId) return
       try {
         await storeRef.current.deleteLocalItem(currentProfileId, itemId)
+        recordLocalMutationAt(currentProfileId)
         await refreshVaultData()
         setHasUnsyncedChanges(true)
         triggerCloudSync()
@@ -1236,6 +1304,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!currentProfileId) return
       try {
         await storeRef.current.saveLocalCategory(currentProfileId, normalizeLocalCategory(category))
+        recordLocalMutationAt(currentProfileId)
         await refreshVaultData()
         triggerCloudSync()
       } catch (error) {
@@ -1250,7 +1319,38 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     async (categoryId: string) => {
       if (!currentProfileId) return
       try {
+        // Desvincular notas/secretos y subcategorías huérfanas para que sigan visibles y editables
+        const [existingItems, existingCategories] = await Promise.all([
+          storeRef.current.loadLocalItems(currentProfileId),
+          storeRef.current.loadLocalCategories(currentProfileId),
+        ])
+        for (const orphanItem of existingItems) {
+          if (orphanItem.categoryId === categoryId) {
+            await storeRef.current.saveLocalItem(
+              currentProfileId,
+              normalizeLocalVaultItem({
+                ...orphanItem,
+                categoryId: orphanItem.type,
+                categoryLabel: LOCAL_ITEM_LABELS[orphanItem.type],
+              }),
+            )
+          }
+        }
+        for (const childCat of existingCategories) {
+          if (childCat.parentId === categoryId) {
+            await storeRef.current.saveLocalCategory(
+              currentProfileId,
+              normalizeLocalCategory({
+                ...childCat,
+                parentId: undefined,
+                updatedAt: new Date().toISOString(),
+              }),
+            )
+          }
+        }
+
         await storeRef.current.deleteLocalCategory(currentProfileId, categoryId)
+        recordLocalMutationAt(currentProfileId)
         await refreshVaultData()
         triggerCloudSync()
       } catch (error) {
@@ -1435,12 +1535,15 @@ export function VaultProvider({ children }: { children: ReactNode }) {
   }, [logoutProfile, reportCloudError])
 
   const restoreIntoDefaultProfile = useCallback(
-    async (blob: string, masterPassword: string, fallbackName: string) => {
+    async (blob: string, masterPassword: string, fallbackName: string, cloudUpdatedIso?: string) => {
       const targetProfileId = 'default'
       await storeRef.current.restoreCloudPayload(targetProfileId, blob, masterPassword)
       const success = await storeRef.current.unlockProfile(targetProfileId, masterPassword)
       if (!success) throw new Error('La contraseña maestra no coincide con la boveda cifrada.')
 
+      if (firebaseUserRef.current?.uid && cloudUpdatedIso) {
+        setLastSyncedCloudAt(firebaseUserRef.current.uid, targetProfileId, cloudUpdatedIso)
+      }
       setCurrentProfileId(targetProfileId)
       setCurrentProfileName(fallbackName)
       setIsUnlocked(true)
@@ -1471,7 +1574,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         )
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontró una bóveda válida en la nube.')
-        await restoreIntoDefaultProfile(blob, masterPassword, 'Bóveda Restaurada')
+        await restoreIntoDefaultProfile(blob, masterPassword, 'Bóveda Restaurada', String(snapshot.data()?.updated_at ?? ''))
       } catch (error) {
         setCloudSyncStatus('error')
         reportCloudError(error, 'No se pudo restaurar la bóveda.')
@@ -1496,7 +1599,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         )
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda valida en Google.')
-        await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Restaurada')
+        await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Restaurada', String(snapshot.data()?.updated_at ?? ''))
       } catch (error) {
         setCloudSyncStatus('error')
         reportCloudError(error, 'No se pudo restaurar la boveda desde Google.')
@@ -1539,10 +1642,12 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         setLocalCategories(defaultCategories)
 
         const encryptedBlob = await storeRef.current.exportCloudPayload(profileId)
+        const initialUpdatedAt = new Date().toISOString()
         await setDoc(doc(dbClient, 'vaults', user.uid), {
           encrypted_vault_blob: encryptedBlob,
-          updated_at: new Date().toISOString(),
+          updated_at: initialUpdatedAt,
         })
+        setLastSyncedCloudAt(user.uid, profileId, initialUpdatedAt)
 
         // Fase 2: Compartición segura (Subir Llave Pública y Directorio)
         const publicKey = await storeRef.current.getAsymmetricPublicKey(profileId)
@@ -1622,7 +1727,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         )
         const blob = snapshot.data()?.encrypted_vault_blob as string | undefined
         if (!snapshot.exists() || !blob) throw new Error('No se encontro una boveda en la nube.')
-        await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Principal')
+        await restoreIntoDefaultProfile(blob, masterPassword, 'Boveda Principal', String(snapshot.data()?.updated_at ?? ''))
       } catch (error) {
         setCloudSyncStatus('error')
         reportCloudError(error, 'No se pudo desbloquear ni restaurar la boveda.')
@@ -1957,9 +2062,22 @@ export function VaultProvider({ children }: { children: ReactNode }) {
     try {
       const { dbClient } = getFirebaseClients()
       await deleteDoc(doc(dbClient, 'vaults', user.uid))
+      await deleteDoc(doc(dbClient, 'publicKeys', user.uid)).catch(() => undefined)
+      if (user.email) {
+        const { hashEmailForDirectory } = await import('../utils/security')
+        const emailHash = await hashEmailForDirectory(user.email)
+        await deleteDoc(doc(dbClient, 'directory', emailHash)).catch(() => undefined)
+      }
       await deleteUser(user)
       vaultRef.current.lock()
       await deleteVaultDb()
+      if (typeof window !== 'undefined') {
+        for (const key of Object.keys(window.localStorage)) {
+          if (key.startsWith(`contras.lastCloudSyncAt.${user.uid}.`) || key.startsWith('contras.localMutationAt.')) {
+            window.localStorage.removeItem(key)
+          }
+        }
+      }
       firebaseUserRef.current = null
       setCloudUserEmail(null)
       setCloudVaultExists(null)
@@ -2157,12 +2275,13 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
     }
 
-    if (updatedIdentities.length > 0) {
-      await storeRef.current.saveMultipleIdentities(currentProfileId, updatedIdentities)
-      await refreshVaultData()
-      setHasUnsyncedChanges(true)
-      triggerCloudSync()
-    }
+      if (updatedIdentities.length > 0) {
+        await storeRef.current.saveMultipleIdentities(currentProfileId, updatedIdentities)
+        recordLocalMutationAt(currentProfileId)
+        await refreshVaultData()
+        setHasUnsyncedChanges(true)
+        triggerCloudSync()
+      }
 
     return {
       totalEvaluated,
@@ -2228,6 +2347,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       }
 
       await storeRef.current.saveIdentity(currentProfileId, updatedIdentity)
+      recordLocalMutationAt(currentProfileId)
       await refreshVaultData()
       setHasUnsyncedChanges(true)
       triggerCloudSync()
@@ -2273,6 +2393,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
         nextPassword,
         recoveryPhrase,
       )
+      recordLocalMutationAt(currentProfileId)
       await refreshVaultData()
       triggerCloudSync()
     },
@@ -2283,6 +2404,7 @@ export function VaultProvider({ children }: { children: ReactNode }) {
       if (!currentProfileId) throw new Error('No hay un perfil activo para restaurar datos.')
       await storeRef.current.importBackup(currentProfileId, backupJsonString, masterPassword)
       await storeRef.current.unlockProfile(currentProfileId, masterPassword)
+      recordLocalMutationAt(currentProfileId)
       await refreshVaultData()
       triggerCloudSync()
     },

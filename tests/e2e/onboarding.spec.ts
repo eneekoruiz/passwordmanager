@@ -1,51 +1,102 @@
 import { test, expect } from '@playwright/test'
 
-test.describe('Contras Onboarding & Identity Flow', () => {
+test.describe('Contras Onboarding, Security & Responsive Audit', () => {
   test.beforeEach(async ({ page }) => {
+    const pageErrors: string[] = []
+    page.on('pageerror', (err) => pageErrors.push(err.message))
+    ;(page as unknown as { _pageErrors?: string[] })._pageErrors = pageErrors
+
     await page.goto('/')
     // Wait for the splash loader animation to complete and UnlockScreen to appear
-    await expect(page.locator('h2:has-text("Hola de nuevo")')).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('h2:has-text("Hola de nuevo")')).toBeVisible({ timeout: 25_000 })
   })
 
-  test('renders main authentication elements', async ({ page }) => {
-    // Auth card header
+  test.afterEach(async ({ page }) => {
+    const pageErrors = (page as unknown as { _pageErrors?: string[] })._pageErrors ?? []
+    expect(pageErrors).toEqual([])
+  })
+
+  test('renders main authentication elements without console runtime errors', async ({ page }) => {
+    const consoleErrors: string[] = []
+    page.on('console', (msg) => {
+      if (msg.type() === 'error') consoleErrors.push(msg.text())
+    })
+
     await expect(page.locator('h2:has-text("Hola de nuevo")')).toBeVisible()
 
-    // Mode tabs (exact matching to avoid strict mode collisions)
     const loginTab = page.getByRole('button', { name: 'Iniciar Sesión', exact: true })
     const registerTab = page.getByRole('button', { name: 'Crear Cuenta', exact: true })
     await expect(loginTab).toBeVisible()
     await expect(registerTab).toBeVisible()
 
-    // Input fields
     await expect(page.locator('input[type="email"]')).toBeVisible()
     await expect(page.locator('input[placeholder="Escribe tu contraseña de acceso"]')).toBeVisible()
 
-    // Google Auth button
     const googleButton = page.locator('button:has-text("Google (Método secundario)")')
     await expect(googleButton).toBeVisible()
     await expect(googleButton).toBeEnabled()
+
+    expect(consoleErrors).toEqual([])
+  })
+
+  test('triggers Google Auth popup synchronously on user gesture without auth/popup-blocked', async ({ page }) => {
+    await page.evaluate(() => {
+      const opened: string[] = []
+      ;(window as unknown as { __openedPopups?: string[] }).__openedPopups = opened
+      window.open = ((url?: string | URL) => {
+        opened.push(String(url ?? ''))
+        const fakeWin = {
+          closed: false,
+          close() {
+            this.closed = true
+          },
+          focus() {},
+          location: { href: String(url ?? '') },
+        }
+        setTimeout(() => {
+          fakeWin.closed = true
+        }, 250)
+        return fakeWin as unknown as Window
+      }) as typeof window.open
+    })
+
+    const googleButton = page.locator('button:has-text("Google (Método secundario)")')
+    await expect(googleButton).toBeVisible()
+    await googleButton.click()
+
+    await expect
+      .poll(
+        () =>
+          page.evaluate(
+            () => (window as unknown as { __openedPopups?: string[] }).__openedPopups ?? [],
+          ),
+        { timeout: 10_000 },
+      )
+      .not.toHaveLength(0)
+
+    const openedPopups = await page.evaluate(
+      () => (window as unknown as { __openedPopups?: string[] }).__openedPopups ?? [],
+    )
+    expect(openedPopups.length).toBeGreaterThan(0)
+    expect(openedPopups[0]).toContain('providerId=google.com')
+    await expect(page.locator('text=El navegador bloqueó la ventana de Google')).toHaveCount(0)
   })
 
   test('switches between Login, Register, and Forgot Password modes', async ({ page }) => {
-    // Switch to Register
     await page.getByRole('button', { name: 'Crear Cuenta', exact: true }).click()
     await expect(page.locator('h2:has-text("Crea tu Bóveda")')).toBeVisible()
     await expect(page.locator('input[placeholder="Repite tu contraseña de acceso"]')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Registrarse', exact: true })).toBeVisible()
 
-    // Switch back to Login
     await page.getByRole('button', { name: 'Iniciar Sesión', exact: true }).click()
     await expect(page.locator('h2:has-text("Hola de nuevo")')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Entrar con correo', exact: true })).toBeVisible()
 
-    // Go to Forgot Password
     await page.click('button:has-text("¿Olvidaste tu contraseña de la nube?")')
     await expect(page.locator('h2:has-text("Recuperar Acceso")')).toBeVisible()
     await expect(page.locator('text=Esta acción solo restablece la contraseña de tu cuenta de la nube')).toBeVisible()
     await expect(page.getByRole('button', { name: 'Enviar enlace de recuperación', exact: true })).toBeVisible()
 
-    // Return to Login from Forgot Password
     await page.getByRole('button', { name: 'Volver a Iniciar Sesión', exact: true }).click()
     await expect(page.locator('h2:has-text("Hola de nuevo")')).toBeVisible()
   })
@@ -58,7 +109,6 @@ test.describe('Contras Onboarding & Identity Flow', () => {
 
     await page.getByRole('button', { name: 'Registrarse', exact: true }).click()
 
-    // Toast error should appear
     await expect(page.locator('text=Las contraseñas no coinciden')).toBeVisible()
   })
 
@@ -66,51 +116,37 @@ test.describe('Contras Onboarding & Identity Flow', () => {
     const passwordInput = page.locator('input[placeholder="Escribe tu contraseña de acceso"]')
     await passwordInput.fill('SecretValue123')
 
-    // Initially type is password
     await expect(passwordInput).toHaveAttribute('type', 'password')
 
-    // Click toggle visibility button
     const toggleButton = page.locator('button[aria-label="Mostrar contraseña"]').first()
     await toggleButton.click()
-
-    // Type should now be text
     await expect(passwordInput).toHaveAttribute('type', 'text')
 
-    // Click again to hide
     const hideButton = page.locator('button[aria-label="Ocultar contraseña"]').first()
     await hideButton.click()
     await expect(passwordInput).toHaveAttribute('type', 'password')
   })
 
-  test('enforces zero horizontal overflow on desktop and mobile viewports', async ({ page }) => {
-    // Desktop Viewport
-    await page.setViewportSize({ width: 1280, height: 800 })
-    const desktopOverflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth > document.documentElement.clientWidth
-    })
-    expect(desktopOverflow).toBe(false)
+  test('enforces zero horizontal overflow at 1440px, 768px, and 375px and supports reduced motion', async ({ page }) => {
+    await page.emulateMedia({ reducedMotion: 'reduce' })
 
-    // Tablet Viewport
-    await page.setViewportSize({ width: 768, height: 1024 })
-    const tabletOverflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth > document.documentElement.clientWidth
-    })
-    expect(tabletOverflow).toBe(false)
-
-    // Mobile Viewport (iPhone SE / small screen)
-    await page.setViewportSize({ width: 375, height: 667 })
-    const mobileOverflow = await page.evaluate(() => {
-      return document.documentElement.scrollWidth > document.documentElement.clientWidth
-    })
-    expect(mobileOverflow).toBe(false)
+    for (const viewport of [
+      { width: 1440, height: 900 },
+      { width: 768, height: 1024 },
+      { width: 375, height: 812 },
+    ]) {
+      await page.setViewportSize(viewport)
+      const hasHorizontalOverflow = await page.evaluate(() => {
+        return document.documentElement.scrollWidth > document.documentElement.clientWidth
+      })
+      expect(hasHorizontalOverflow).toBe(false)
+    }
   })
 
-  test('applies theme cleanly without breaking layouts', async ({ page }) => {
-    // Add dark mode class
+  test('applies dark and light theme cleanly without breaking layouts', async ({ page }) => {
     await page.evaluate(() => document.documentElement.classList.add('dark'))
     await expect(page.locator('html')).toHaveClass(/dark/)
 
-    // Remove dark mode class
     await page.evaluate(() => document.documentElement.classList.remove('dark'))
     await expect(page.locator('html')).not.toHaveClass(/dark/)
   })

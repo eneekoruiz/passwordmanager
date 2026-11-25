@@ -198,27 +198,31 @@ export function LinkPreview({ linkId, base64Key, onClose }: LinkPreviewProps) {
           setIsBurnLink(!!data.burnAfterRead)
           setStatus('success')
 
-          // Track views and devices
+          // Track views/devices and burn atomically so single-use links cannot be read twice cleanly
+          // without flipping burned, and telemetry update matches Firestore rules.
           try {
             const userAgent = navigator.userAgent
-            // Create a pseudo-anonymous device hash for privacy
             const hashBuffer = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(userAgent))
-            const deviceHash = Array.from(new Uint8Array(hashBuffer)).map(x => x.toString(16).padStart(2, '0')).join('').substring(0, 16)
-            
+            const deviceHash = Array.from(new Uint8Array(hashBuffer))
+              .map(x => x.toString(16).padStart(2, '0'))
+              .join('')
+              .substring(0, 16)
+
             await updateDoc(linkRef, {
               viewsCount: increment(1),
-              viewedDevices: arrayUnion(deviceHash)
+              viewedDevices: arrayUnion(deviceHash),
+              ...(data.burnAfterRead && !data.burned ? { burned: true } : {}),
             })
           } catch (e) {
-            console.warn('Could not update view stats', e)
-          }
-
-          // Burn after read: mark as burned immediately after successful decrypt
-          if (data.burnAfterRead && !data.burned) {
-            try {
-              await updateDoc(linkRef, { burned: true })
-            } catch {
-              // Non-fatal: Firestore rule might reject if already burned by another client
+            // Fallback: ensure burn still happens even if telemetry fields fail validation
+            if (data.burnAfterRead && !data.burned) {
+              try {
+                await updateDoc(linkRef, { burned: true })
+              } catch {
+                // Non-fatal: Firestore rule might reject if already burned by another client
+              }
+            } else {
+              console.warn('Could not update view stats', e)
             }
           }
         }

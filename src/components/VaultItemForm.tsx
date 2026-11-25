@@ -9,9 +9,11 @@ import { SecretField } from './ui/SecretField'
 import { UnsavedFormActions } from './AccountForm'
 import { useVault } from '../context/VaultContext'
 import { AttachmentsList } from './ui/AttachmentsList'
+import { useToast } from './ui/ToastProvider'
 
 
 interface VaultItemFormProps {
+  mode?: 'create' | 'edit'
   item: LocalVaultItem
   onSave: (item: LocalVaultItem) => Promise<void>
   onCancel: () => void
@@ -79,6 +81,7 @@ function getInitialFields(item: LocalVaultItem): FormFieldItem[] {
 }
 
 export function VaultItemForm({
+  mode,
   item,
   onSave,
   onCancel,
@@ -86,12 +89,16 @@ export function VaultItemForm({
   onUnsavedStateChange,
   onRequestNavigation,
 }: VaultItemFormProps) {
+  const { showToast } = useToast()
+  const isCreating = mode === 'create' || item.id.startsWith('draft-')
   const [draft, setDraft] = useState<LocalVaultItem>(item)
   const [fields, setFields] = useState<FormFieldItem[]>(() => getInitialFields(item))
   const [saving, setSaving] = useState(false)
+  const [deleting, setDeleting] = useState(false)
   const [isUploadingAttachment, setIsUploadingAttachment] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [confirmRenewModalOpen, setConfirmRenewModalOpen] = useState(false)
+  const [confirmDeleteModalOpen, setConfirmDeleteModalOpen] = useState(false)
   const { trackItemAccess, localCategories } = useVault()
 
   const buildCategoryOptions = () => {
@@ -160,7 +167,9 @@ export function VaultItemForm({
 
   const saveCurrentItem = async () => {
     if (isUploadingAttachment) {
-      setError('Hay archivos adjuntos subiéndose. Por favor, espera a que terminen.')
+      const msg = 'Hay archivos adjuntos subiéndose. Por favor, espera a que terminen.'
+      setError(msg)
+      showToast(msg, 'error')
       return
     }
     setError(null)
@@ -169,7 +178,9 @@ export function VaultItemForm({
       const normalized = normalizeLocalVaultItem(getDraftWithFields())
       await onSave(normalized)
     } catch (caughtError) {
-      setError(getFriendlyErrorMessage(caughtError, 'No se pudo guardar el secreto.'))
+      const msg = getFriendlyErrorMessage(caughtError, 'No se pudo guardar el secreto.')
+      setError(msg)
+      showToast(msg, 'error')
       throw caughtError
     } finally {
       setSaving(false)
@@ -186,8 +197,8 @@ export function VaultItemForm({
   }
 
   const isDirty =
-    JSON.stringify(normalizeLocalVaultItem(getDraftWithFields())) !==
-    JSON.stringify(normalizeLocalVaultItem(item))
+    JSON.stringify(normalizeLocalVaultItem(getDraftWithFields(), { preserveUpdatedAt: true })) !==
+    JSON.stringify(normalizeLocalVaultItem(item, { preserveUpdatedAt: true }))
 
   useEffect(() => {
     onUnsavedStateChange?.(isDirty, isDirty ? { save: saveCurrentItem, discard: onCancel } : null)
@@ -266,22 +277,27 @@ export function VaultItemForm({
             </svg>
           </div>
           <h2 className="truncate text-lg font-bold text-text-primary dark:text-white">
-            {item.id.startsWith('draft-') ? 'Añadir elemento' : 'Editar elemento'}
+            {isCreating ? 'Añadir elemento' : 'Editar elemento'}
           </h2>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          {onDelete && !item.id.startsWith('draft-') && (
-            <button type="button" onClick={() => void onDelete()} className="hidden sm:block rounded-xl px-4 py-2 text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95">
+          {onDelete && !isCreating && (
+            <button
+              type="button"
+              disabled={saving || deleting}
+              onClick={() => setConfirmDeleteModalOpen(true)}
+              className="rounded-xl px-3 py-2 sm:px-4 text-xs sm:text-sm font-semibold text-red-600 transition-all hover:bg-red-50 active:scale-95 disabled:opacity-50"
+            >
               Eliminar
             </button>
           )}
-          <button type="submit" disabled={saving || isUploadingAttachment} title="Guardar cambios" className="flex items-center justify-center gap-1.5 rounded-xl bg-text-primary px-3 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
+          <button type="submit" disabled={saving || deleting || isUploadingAttachment} title="Guardar cambios" className="flex items-center justify-center gap-1.5 rounded-xl bg-text-primary px-3 py-2.5 sm:px-5 text-sm font-semibold text-white shadow-[0_4px_12px_rgba(0,0,0,0.1)] transition-all hover:-translate-y-0.5 hover:shadow-lg disabled:opacity-50 active:scale-95">
             {saving ? (
               <svg className="h-4 w-4 animate-spin" fill="none" viewBox="0 0 24 24">
                 <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
                 <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
               </svg>
-            ) : item.id.startsWith('draft-') ? (
+            ) : isCreating ? (
               <>
                 <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2.5}>
                   <path strokeLinecap="round" strokeLinejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
@@ -740,6 +756,29 @@ export function VaultItemForm({
           });
         }}
         onCancel={() => setConfirmRenewModalOpen(false)}
+      />
+      <ConfirmModal
+        isOpen={confirmDeleteModalOpen}
+        title="¿Eliminar elemento?"
+        message="Esta acción eliminará permanentemente este secreto de tu bóveda y de la nube si está sincronizado."
+        confirmLabel={deleting ? 'Eliminando...' : 'Sí, eliminar'}
+        cancelLabel="Cancelar"
+        type="danger"
+        onConfirm={async () => {
+          if (!onDelete) return
+          setConfirmDeleteModalOpen(false)
+          setDeleting(true)
+          try {
+            await onDelete()
+          } catch (caughtError) {
+            const msg = getFriendlyErrorMessage(caughtError, 'No se pudo eliminar el elemento.')
+            setError(msg)
+            showToast(msg, 'error')
+          } finally {
+            setDeleting(false)
+          }
+        }}
+        onCancel={() => setConfirmDeleteModalOpen(false)}
       />
     </form>
   )

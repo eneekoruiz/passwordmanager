@@ -154,9 +154,11 @@ export function AttachmentsList({ attachments, onAttachmentsChange, onUploadingC
       setDownloadingId(attachment.id)
       const { blob, metadata } = await StorageService.downloadDocument(cloudUserId, attachment.id, masterKey)
       const url = URL.createObjectURL(blob)
-      const isViewable = metadata.mimeType.startsWith('image/') || metadata.mimeType === 'application/pdf'
+      const isViewable =
+        (metadata.mimeType.startsWith('image/') && metadata.mimeType !== 'image/svg+xml') ||
+        metadata.mimeType === 'application/pdf'
       if (isViewable) {
-        window.open(url, '_blank')
+        window.open(url, '_blank', 'noopener,noreferrer')
       } else {
         const a = document.createElement('a')
         a.href = url
